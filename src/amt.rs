@@ -5,7 +5,7 @@
 use super::{
     complete_tree::{FlattenCompleteTree, ROOT_INDEX},
     public_parameters::{Bls12_381_AMTPP, AMTPP, PUBLIC_PARAMETERS},
-    utils::{bitreverse, LENGTH, LEVELS},
+    utils::{bitreverse, DEPTHS, IDX_MASK, LENGTH},
 };
 use algebra::{
     bls12_381::{Bls12_381, Fr, G1Affine, G1Projective, G2Affine, G2Projective},
@@ -17,7 +17,7 @@ use std::fs::File;
 use std::ops::{Add, Index, IndexMut, MulAssign};
 
 type FrBigInt<PE> = <<PE as PairingEngine>::Fr as PrimeField>::BigInt;
-type AMTProof<PE> = [[<PE as PairingEngine>::G1Projective; 2]; LEVELS];
+type AMTProof<PE> = [[<PE as PairingEngine>::G1Projective; 2]; DEPTHS];
 
 struct AMTree<PE>
 where
@@ -32,8 +32,8 @@ impl<PE: PairingEngine> AMTree<PE> {
     fn new() -> Self {
         Self {
             data: vec![PE::Fr::zero(); LENGTH],
-            inner_node: FlattenCompleteTree::<PE::G1Projective>::new(LEVELS),
-            inner_proof: FlattenCompleteTree::<PE::G1Projective>::new(LEVELS),
+            inner_node: FlattenCompleteTree::<PE::G1Projective>::new(DEPTHS),
+            inner_proof: FlattenCompleteTree::<PE::G1Projective>::new(DEPTHS),
         }
     }
 
@@ -52,16 +52,16 @@ impl<PE: PairingEngine> AMTree<PE> {
 
         self.data[index] += &<PE::Fr as From<FrBigInt<PE>>>::from(value);
 
-        let tree_index = bitreverse(index, LEVELS);
+        let tree_index = bitreverse(index, DEPTHS);
         let inc_value = public_param.get_idents()[index].mul(value);
 
-        for visit_level in (1..=LEVELS).rev() {
-            let visit_height = LEVELS - visit_level;
-            let visit_node_index = (visit_level, tree_index >> visit_height);
+        for visit_depth in (1..=DEPTHS).rev() {
+            let visit_height = DEPTHS - visit_depth;
+            let visit_node_index = (visit_depth, tree_index >> visit_height);
 
             self.inner_node[visit_node_index] += &inc_value;
             self.inner_proof[visit_node_index] +=
-                &public_param.get_prove_cache()[visit_level - 1][index].mul(value);
+                &public_param.get_prove_cache()[visit_depth - 1][index].mul(value);
         }
         self.inner_node[ROOT_INDEX] += &inc_value;
     }
@@ -80,16 +80,17 @@ impl<PE: PairingEngine> AMTree<PE> {
     }
 
     fn prove(&self, index: usize) -> AMTProof<PE> {
-        let tree_index = bitreverse(index, LEVELS);
+        let tree_index = bitreverse(index, DEPTHS);
         let mut answers = AMTProof::<PE>::default();
 
-        for visit_level in (1..=LEVELS).rev() {
-            let visit_height = LEVELS - visit_level;
+        for visit_depth in (1..=DEPTHS).rev() {
+            let visit_height = DEPTHS - visit_depth;
+            let sibling_node_index = (visit_depth, (tree_index >> visit_height) ^ 1);
 
-            let data = self.inner_node[(visit_level, (tree_index >> visit_height) ^ 1)];
-            let prove = self.inner_proof[(visit_level, (tree_index >> visit_height) ^ 1)];
+            let data = self.inner_node[sibling_node_index];
+            let proof = self.inner_proof[sibling_node_index];
 
-            answers[visit_level - 1] = [data, prove];
+            answers[visit_depth - 1] = [data, proof];
         }
         answers
     }
@@ -120,17 +121,17 @@ impl<PE: PairingEngine> AMTree<PE> {
             return false;
         }
 
-        let g2_pow = |height: usize| g2pp[1 + height];
-        let w_pow = |height: usize| g2.mul(w_inv.pow([((index >> height) << height) as u64]));
+        let tau_pow = |height: usize| g2pp[1 + height];
+        let w_pow = |height: usize| g2.mul(w_inv.pow([(index << height & IDX_MASK) as u64]));
 
         for (height, data, proof) in proof
             .iter()
             .copied()
             .enumerate()
-            .map(|(index, [data, proof])| (LEVELS - index - 1, data, proof))
+            .map(|(index, [data, proof])| (DEPTHS - index - 1, data, proof))
         {
-            if PE::pairing(data, g2) != PE::pairing(proof, g2_pow(height) + &w_pow(height)) {
-                println!("Pairing check fails at level {}", height);
+            if PE::pairing(data, g2) != PE::pairing(proof, tau_pow(height) - &w_pow(height)) {
+                println!("Pairing check fails at height {}", height);
                 return false;
             }
         }
@@ -165,6 +166,7 @@ fn test_amt() {
     amt.inc(0, Fr::one(), pp);
     test_all(&amt, pp, "one-hot");
 
+    amt.inc(0, Fr::one(), pp);
     amt.inc(LENGTH / 2, Fr::one(), pp);
     test_all(&amt, pp, "sibling pair");
 }

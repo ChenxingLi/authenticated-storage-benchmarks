@@ -1,4 +1,4 @@
-use super::utils::{LENGTH, LEVELS};
+use super::utils::{DEPTHS, LENGTH};
 use algebra::bls12_381::{Bls12_381, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
 use algebra::{
     AffineCurve, CanonicalDeserialize, CanonicalSerialize, FftField, Field, FpParameters, One,
@@ -54,23 +54,23 @@ impl Bls12_381_AMTPP {
     }
 }
 
-pub fn trusted_setup(level: usize) -> (Fr, Vec<G1Affine>, Vec<G2Affine>) {
+pub fn trusted_setup(depth: usize) -> (Fr, Vec<G1Affine>, Vec<G2Affine>) {
     let tau: Fr = Fr::rand(&mut rand::thread_rng());
     let mut gen = G1Affine::prime_subgroup_generator().into_projective();
     let gen2 = G2Affine::prime_subgroup_generator().into_projective();
 
     let mut g1pp = vec![];
-    g1pp.reserve(1 << level);
-    for _ in 0..1 << level {
+    g1pp.reserve(1 << depth);
+    for _ in 0..1 << depth {
         g1pp.push(gen.into_affine());
         gen.mul_assign(tau.clone());
     }
 
     let mut g2pp: Vec<G2Affine> = vec![];
     let mut e = tau.clone();
-    g2pp.reserve(level + 1);
+    g2pp.reserve(depth + 1);
     g2pp.push(gen2.into_affine());
-    for _ in 0..level {
+    for _ in 0..depth {
         let value: G2Projective = gen2.mul(e.clone());
         g2pp.push(value.into_affine());
         e.square_in_place();
@@ -80,9 +80,9 @@ pub fn trusted_setup(level: usize) -> (Fr, Vec<G1Affine>, Vec<G2Affine>) {
 }
 
 #[allow(unused)]
-pub fn dump_pp(file: &'static str, level: usize) -> () {
+pub fn dump_pp(file: &'static str, depth: usize) -> () {
     let buffer = File::create(file).unwrap();
-    trusted_setup(level).serialize_uncompressed(&buffer);
+    trusted_setup(depth).serialize_uncompressed(&buffer);
 }
 
 pub fn load_pp(file: &'static str) -> PP {
@@ -109,21 +109,21 @@ type PP = (Option<Fr>, Vec<G1Projective>, Vec<G2Projective>); // In the debug ca
 pub fn gen_prove_cache(
     g1pp: &[G1Projective],
     fft_domain: &Radix2EvaluationDomain<Fr>,
-    level: usize,
+    depth: usize,
 ) -> Vec<G1Projective> {
     assert!(g1pp.len() <= 1 << 32);
 
     let length = g1pp.len();
-    let max_level = k_adicity(2, length) as usize;
+    let max_depth = k_adicity(2, length) as usize;
 
-    assert_eq!(1 << max_level, length);
-    assert!(max_level >= level);
-    assert!(level >= 1);
+    assert_eq!(1 << max_depth, length);
+    assert!(max_depth >= depth);
+    assert!(depth >= 1);
 
-    let chunk_length = (1 << (max_level - level)) as usize;
+    let chunk_length = (1 << (max_depth - depth)) as usize;
     let chunk_num = length / chunk_length;
 
-    let mut g1pp_chunks_iter = g1pp.chunks(1 << (max_level - level) as usize);
+    let mut g1pp_chunks_iter = g1pp.chunks(1 << (max_depth - depth) as usize);
     let mut coeff = vec![G1Projective::zero(); length];
 
     for i in 0..(chunk_num / 2) {
@@ -140,8 +140,8 @@ pub fn load_and_gen_all_prove_cache() -> Vec<Vec<G1Projective>> {
 
     let fft_domain = Radix2EvaluationDomain::<Fr>::new(LENGTH).unwrap();
 
-    let prove_datas: Vec<Vec<G1Projective>> = (1..=LEVELS)
-        .map(|level| gen_prove_cache(&g1pp[0..LENGTH], &fft_domain, level))
+    let prove_datas: Vec<Vec<G1Projective>> = (1..=DEPTHS)
+        .map(|depth| gen_prove_cache(&g1pp[0..LENGTH], &fft_domain, depth))
         .collect();
 
     return prove_datas;
@@ -171,7 +171,7 @@ fn test_pairing() {
 
 #[test]
 fn test_ident_prove() {
-    const TEST_LEVEL: usize = 8;
+    const TEST_LEVEL: usize = 6;
     const TEST_LENGTH: usize = 1 << TEST_LEVEL;
 
     let (_, g1pp, g2pp) = load_pp("dat/pp_bls12_381_small.bin");
@@ -185,15 +185,15 @@ fn test_ident_prove() {
 
     let g2 = g2pp[0].clone();
 
-    for level in 1..=TEST_LEVEL {
-        let prove_data = gen_prove_cache(&g1pp[0..TEST_LENGTH], &fft_domain, level);
+    for depth in 1..=TEST_LEVEL {
+        let prove_data = gen_prove_cache(&g1pp[0..TEST_LENGTH], &fft_domain, depth);
         for i in 0..TEST_LENGTH {
             assert_eq!(
                 Bls12_381::pairing(indet_func[i], g2),
                 Bls12_381::pairing(
                     prove_data[i],
-                    g2pp[1 + TEST_LEVEL - level]
-                        + g2.mul(w_inv.pow([(i * (TEST_LENGTH >> level)) as u64])),
+                    g2pp[1 + TEST_LEVEL - depth]
+                        + g2.mul(w_inv.pow([(i * (TEST_LENGTH >> depth)) as u64])),
                 )
             );
         }
