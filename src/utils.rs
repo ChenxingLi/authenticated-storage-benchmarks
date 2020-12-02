@@ -1,4 +1,4 @@
-pub const LEVELS: usize = 16;
+pub const LEVELS: usize = 6;
 pub const LENGTH: usize = 1 << LEVELS;
 
 #[inline]
