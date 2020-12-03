@@ -2,6 +2,8 @@
 
 mod amt;
 mod complete_tree;
+mod db;
+mod key;
 pub mod public_parameters;
 pub mod utils;
 

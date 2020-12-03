@@ -1,8 +1,8 @@
 use super::utils::{DEPTHS, LENGTH};
 use algebra::bls12_381::{Bls12_381, Fr, G1Affine, G1Projective, G2Affine, G2Projective};
 use algebra::{
-    AffineCurve, CanonicalDeserialize, CanonicalSerialize, FftField, Field, FpParameters, One,
-    PairingEngine, ProjectiveCurve, UniformRand, Zero,
+    AffineCurve, CanonicalDeserialize, CanonicalSerialize, FftField, Field, FpParameters,
+    FromBytes, One, PairingEngine, ProjectiveCurve, UniformRand, Zero,
 };
 use algebra_core::fields::utils::k_adicity;
 use ff_fft::{EvaluationDomain, Radix2EvaluationDomain};
@@ -16,31 +16,41 @@ lazy_static! {
     pub static ref PUBLIC_PARAMETERS: Bls12_381_AMTPP = Bls12_381_AMTPP::load_test_data();
 }
 
-pub trait AMTPP<PE: PairingEngine> {
-    fn get_idents(&self) -> &Vec<PE::G1Projective>;
-    fn get_prove_cache(&self) -> &Vec<Vec<PE::G1Projective>>;
-    fn get_verification(&self) -> (&Vec<PE::G2Projective>, PE::Fr);
+pub trait AMTParams<PE: PairingEngine> {
+    fn get_idents(&self, index: usize) -> &PE::G1Projective;
+    fn get_prove_cache(&self, depth: usize, index: usize) -> &PE::G1Projective;
+    fn get_verification(&self, index: usize) -> PE::G2Projective;
+
+    fn g2(&self) -> PE::G2Projective;
+    fn w_inv(&self) -> PE::Fr;
 }
 
 pub struct Bls12_381_AMTPP {
     indents: Vec<G1Projective>,
     prove_cache: Vec<Vec<G1Projective>>,
     g2pp: Vec<G2Projective>,
+    w_inv: Fr,
 }
 
-impl AMTPP<Bls12_381> for Bls12_381_AMTPP {
-    fn get_idents(&self) -> &Vec<G1Projective> {
-        &self.indents
+impl AMTParams<Bls12_381> for Bls12_381_AMTPP {
+    fn get_idents(&self, index: usize) -> &G1Projective {
+        &self.indents[index]
     }
 
-    fn get_prove_cache(&self) -> &Vec<Vec<G1Projective>> {
-        &self.prove_cache
+    fn get_prove_cache(&self, depth: usize, index: usize) -> &G1Projective {
+        &self.prove_cache[depth - 1][index]
     }
 
-    fn get_verification(&self) -> (&Vec<G2Projective>, Fr) {
-        let w: Fr = Fr::get_root_of_unity(LENGTH).unwrap();
-        let w_inv: Fr = w.inverse().unwrap();
-        (&self.g2pp, w_inv)
+    fn get_verification(&self, height: usize) -> G2Projective {
+        self.g2pp[height + 1].clone()
+    }
+
+    fn g2(&self) -> G2Projective {
+        self.g2pp[0].clone()
+    }
+
+    fn w_inv(&self) -> Fr {
+        self.w_inv.clone()
     }
 }
 
@@ -50,6 +60,7 @@ impl Bls12_381_AMTPP {
             indents: load_and_gen_idents(),
             prove_cache: load_and_gen_all_prove_cache(),
             g2pp: load_g2pp(),
+            w_inv: Fr::get_root_of_unity(LENGTH).unwrap().inverse().unwrap(),
         }
     }
 }

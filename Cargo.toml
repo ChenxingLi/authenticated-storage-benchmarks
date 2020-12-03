@@ -11,6 +11,7 @@ algebra-core = { git = "https://github.com/scipr-lab/zexe.git", default-features
 ff-fft = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
 algebra =  { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
 cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", tag = "v1.0.3"}
+db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", tag = "v1.0.3"}
 lazy_static = "1.4"
 rand = "0.7"
 bencher = "0.1.5"

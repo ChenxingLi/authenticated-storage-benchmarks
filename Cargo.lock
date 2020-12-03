@@ -474,6 +474,7 @@ dependencies = [
  "algebra-core",
  "bencher",
  "cfx-storage",
+ "db",
  "ff-fft",
  "lazy_static",
  "rand 0.7.3",
@@ -512,6 +513,16 @@ checksum = "022cd691704491df67d25d006fe8eca083098253c4d43516c2206479c58c6736"
 dependencies = [
  "block-cipher-trait",
  "stream-cipher",
+]
+
+[[package]]
+name = "db"
+version = "0.1.0"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?tag=v1.0.3#0fc28c52c0c098c89ec4b6314a47814872ea51d6"
+dependencies = [
+ "kvdb",
+ "kvdb-rocksdb",
+ "log",
 ]
 
 [[package]]

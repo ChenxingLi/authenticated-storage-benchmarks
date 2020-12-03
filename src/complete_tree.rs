@@ -1,23 +1,55 @@
 use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct NodeIndex {
+    depth: usize,
+    index: usize,
+}
+
+impl NodeIndex {
+    pub(crate) fn new(depth: usize, index: usize) -> Self {
+        assert!(index < (1 << depth));
+        Self { depth, index }
+    }
+
+    pub const fn root() -> Self {
+        Self { depth: 0, index: 0 }
+    }
+
+    pub fn to_sibling(&self) -> Self {
+        NodeIndex::new(self.depth, self.index ^ 1)
+    }
+
+    pub fn to_ancestor(&self, height: usize) -> Self {
+        assert!(height <= self.depth);
+        NodeIndex::new(self.depth - height, self.index >> height)
+    }
+
+    pub fn depth(&self) -> usize {
+        self.depth
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+}
+
 pub(crate) const ROOT_INDEX: (usize, usize) = (0, 0);
 
 pub type FlattenCompleteTree<T> = CompleteTree<T, FlattenLayout>;
 
 pub trait LayoutIndex {
-    fn layout_index(index: usize, depth: usize, total_depth: usize) -> usize;
+    fn layout_index(index: NodeIndex, total_depth: usize) -> usize;
 }
 
 pub struct FlattenLayout;
 
 impl LayoutIndex for FlattenLayout {
     #[inline]
-    fn layout_index(index: usize, depth: usize, total_depth: usize) -> usize {
-        assert!(index < (1 << (total_depth + 1)));
-        assert!(depth <= total_depth);
-
-        (1 << depth) + index
+    fn layout_index(tree_index: NodeIndex, total_depth: usize) -> usize {
+        assert!(tree_index.depth <= total_depth);
+        (1 << tree_index.depth) + tree_index.index
     }
 }
 
@@ -37,18 +69,18 @@ impl<T: Default + Clone, L: LayoutIndex> CompleteTree<T, L> {
     }
 }
 
-impl<T: Default + Clone, L: LayoutIndex> IndexMut<(usize, usize)> for CompleteTree<T, L> {
-    fn index_mut(&mut self, (depth, index): (usize, usize)) -> &mut Self::Output {
-        let layout_index = <L as LayoutIndex>::layout_index(index, depth, self.total_depth);
+impl<T: Default + Clone, L: LayoutIndex> IndexMut<NodeIndex> for CompleteTree<T, L> {
+    fn index_mut(&mut self, tree_index: NodeIndex) -> &mut Self::Output {
+        let layout_index = <L as LayoutIndex>::layout_index(tree_index, self.total_depth);
         return &mut self.data[layout_index];
     }
 }
 
-impl<T: Default + Clone, L: LayoutIndex> Index<(usize, usize)> for CompleteTree<T, L> {
+impl<T: Default + Clone, L: LayoutIndex> Index<NodeIndex> for CompleteTree<T, L> {
     type Output = T;
 
-    fn index(&self, (depth, index): (usize, usize)) -> &Self::Output {
-        let layout_index = <L as LayoutIndex>::layout_index(index, depth, self.total_depth);
+    fn index(&self, tree_index: NodeIndex) -> &Self::Output {
+        let layout_index = <L as LayoutIndex>::layout_index(tree_index, self.total_depth);
         return &self.data[layout_index];
     }
 }
