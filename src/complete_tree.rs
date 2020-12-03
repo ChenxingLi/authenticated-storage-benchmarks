@@ -13,10 +13,6 @@ impl NodeIndex {
         Self { depth, index }
     }
 
-    pub const fn root() -> Self {
-        Self { depth: 0, index: 0 }
-    }
-
     pub fn to_sibling(&self) -> Self {
         NodeIndex::new(self.depth, self.index ^ 1)
     }
@@ -34,8 +30,6 @@ impl NodeIndex {
         self.index
     }
 }
-
-pub(crate) const ROOT_INDEX: (usize, usize) = (0, 0);
 
 pub type FlattenCompleteTree<T> = CompleteTree<T, FlattenLayout>;
 

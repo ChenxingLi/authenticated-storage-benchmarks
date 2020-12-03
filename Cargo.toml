@@ -21,4 +21,4 @@ bencher = "0.1.5"
 
 
 [features]
-default = [ "algebra/bls12_381", "algebra/std" ]
+default = [ "algebra/bls12_381", "algebra/std", "algebra-core/derive" ]

@@ -18,8 +18,8 @@ lazy_static! {
 
 pub trait AMTParams<PE: PairingEngine> {
     fn get_idents(&self, index: usize) -> &PE::G1Projective;
-    fn get_prove_cache(&self, depth: usize, index: usize) -> &PE::G1Projective;
-    fn get_verification(&self, index: usize) -> PE::G2Projective;
+    fn get_quotient(&self, depth: usize, index: usize) -> &PE::G1Projective;
+    fn get_g2_pow_tau(&self, index: usize) -> PE::G2Projective;
 
     fn g2(&self) -> PE::G2Projective;
     fn w_inv(&self) -> PE::Fr;
@@ -37,11 +37,11 @@ impl AMTParams<Bls12_381> for Bls12_381_AMTPP {
         &self.indents[index]
     }
 
-    fn get_prove_cache(&self, depth: usize, index: usize) -> &G1Projective {
+    fn get_quotient(&self, depth: usize, index: usize) -> &G1Projective {
         &self.prove_cache[depth - 1][index]
     }
 
-    fn get_verification(&self, height: usize) -> G2Projective {
+    fn get_g2_pow_tau(&self, height: usize) -> G2Projective {
         self.g2pp[height + 1].clone()
     }
 

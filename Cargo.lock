@@ -79,12 +79,23 @@ name = "algebra-core"
 version = "0.1.1-alpha.0"
 source = "git+https://github.com/scipr-lab/zexe.git?rev=85cac177#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
 dependencies = [
+ "algebra-core-derive",
  "derivative",
  "field-assembly",
  "num-traits",
  "rand 0.7.3",
  "rustc_version",
  "unroll",
+]
+
+[[package]]
+name = "algebra-core-derive"
+version = "0.1.1-alpha.0"
+source = "git+https://github.com/scipr-lab/zexe.git?rev=85cac177#85cac1770dddd4da79e9993c5d1dcb5732db08f5"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.7",
+ "syn 1.0.48",
 ]
 
 [[package]]
