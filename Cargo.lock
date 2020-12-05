@@ -486,6 +486,7 @@ dependencies = [
  "bencher",
  "cfx-storage",
  "db",
+ "error-chain",
  "ff-fft",
  "lazy_static",
  "rand 0.7.3",

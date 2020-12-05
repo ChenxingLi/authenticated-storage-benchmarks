@@ -15,6 +15,7 @@ db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", tag = "v1.0.3"
 lazy_static = "1.4"
 rand = "0.7"
 bencher = "0.1.5"
+error-chain = { version = "0.12", default-features = false }
 
 #[dev-dependencies]
 #pprof = { version = "0.3", features = ["flamegraph"] }

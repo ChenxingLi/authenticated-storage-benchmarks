@@ -1,5 +1,8 @@
 #![allow(dead_code, unused_imports, non_camel_case_types)]
 
+#[macro_use]
+extern crate error_chain;
+
 mod amt;
 mod complete_tree;
 mod db;
