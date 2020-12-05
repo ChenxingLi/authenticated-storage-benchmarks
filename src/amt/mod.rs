@@ -1,6 +1,7 @@
 pub mod backend;
 pub mod node;
-pub mod public_parameters;
+pub mod prove_params;
+pub mod trusted_setup;
 pub mod utils;
 
 #[cfg(test)]
@@ -9,7 +10,7 @@ mod test;
 use self::{
     backend::TreeAccess,
     node::{AMTNode, FlattenLayout, NodeIndex},
-    public_parameters::AMTParams,
+    prove_params::AMTParams,
     utils::*,
 };
 
@@ -122,7 +123,7 @@ impl<PE: PairingEngine> AMTree<PE> {
             return false;
         }
 
-        let tau_pow = |height: usize| pp.get_g2_pow_tau(height);
+        let tau_pow = |height: usize| *pp.get_g2_pow_tau(height);
         let w_pow = |height: usize| g2.mul(w_inv.pow([(index << height & IDX_MASK) as u64]));
 
         for (index, node) in proof.iter().copied().enumerate() {

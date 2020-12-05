@@ -1,4 +1,4 @@
-use super::public_parameters::{Bls12_381_AMTPP, PUBLIC_PARAMETERS};
+use super::prove_params::{Bls12_381_AMTPP, PUBLIC_PARAMETERS};
 use super::{AMTParams, AMTree, LENGTH};
 use algebra::bls12_381::{Bls12_381, Fr};
 use algebra::{One, PairingEngine};

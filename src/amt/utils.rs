@@ -2,6 +2,8 @@ pub const DEPTHS: usize = 6;
 pub const LENGTH: usize = 1 << DEPTHS;
 pub const IDX_MASK: usize = LENGTH - 1;
 
+pub const ALLOW_RECOMPUTE: bool = true;
+
 #[inline]
 pub(crate) fn bitreverse(mut n: usize, l: usize) -> usize {
     let mut r = 0;
