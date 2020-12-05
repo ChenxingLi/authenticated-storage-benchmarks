@@ -1,4 +1,3 @@
-use cfx_storage::storage_db::{KeyValueDbTrait, KeyValueDbTraitRead};
 use cfx_storage::KvdbRocksdb;
 use db;
 use db::SystemDB;
@@ -28,6 +27,8 @@ pub fn open_db(db_dir: &str, col: u32) -> KvdbRocksdb {
         col,
     }
 }
+#[cfg(test)]
+use cfx_storage::storage_db::{KeyValueDbTrait, KeyValueDbTraitRead};
 
 #[test]
 fn test() {
