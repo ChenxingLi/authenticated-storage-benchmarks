@@ -153,6 +153,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "base64"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
+
+[[package]]
 name = "bencher"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -483,6 +489,7 @@ version = "0.1.0"
 dependencies = [
  "algebra",
  "algebra-core",
+ "base64 0.13.0",
  "bencher",
  "cfx-storage",
  "db",
@@ -1485,7 +1492,7 @@ version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "006c038a43a45995a9670da19e67600114740e8511d4333bf97a56e66a7542d9"
 dependencies = [
- "base64",
+ "base64 0.9.3",
  "byteorder",
  "crypto-mac",
  "hmac",

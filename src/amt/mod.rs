@@ -1,25 +1,25 @@
 pub mod backend;
 pub mod node;
+pub mod paring_provider;
 pub mod prove_params;
 pub mod trusted_setup;
 pub mod utils;
 
-#[cfg(test)]
-mod test;
-
 use self::{
     backend::TreeAccess,
     node::{AMTNode, FlattenLayout, NodeIndex},
+    paring_provider::{Fr, FrInt, G1},
     prove_params::AMTParams,
     utils::*,
 };
 
-use algebra::{Field, PairingEngine, PrimeField, ProjectiveCurve, Zero};
+#[cfg(test)]
+mod test;
+
+use algebra::{Field, PairingEngine, ProjectiveCurve, Zero};
 use cfx_storage::KvdbRocksdb;
 
-type FrBigInt<PE> = <<PE as PairingEngine>::Fr as PrimeField>::BigInt;
 type AMTProof<PE> = [AMTNode<PE>; DEPTHS];
-type G1<PE> = <PE as PairingEngine>::G1Projective;
 
 struct AMTree<PE: PairingEngine> {
     data: Vec<PE::Fr>,
@@ -41,15 +41,14 @@ impl<PE: PairingEngine> AMTree<PE> {
         &self.data[index]
     }
 
-    fn inc<PP, I>(&mut self, index: usize, inc_value: I, pp: &PP)
+    fn inc<I>(&mut self, index: usize, inc_value: I, pp: &AMTParams<PE>)
     where
-        PP: AMTParams<PE>,
-        I: Into<FrBigInt<PE>>,
+        I: Into<FrInt<PE>>,
     {
         assert!(index < LENGTH);
-        let value: FrBigInt<PE> = inc_value.into();
+        let value: FrInt<PE> = inc_value.into();
 
-        self.data[index] += &<PE::Fr as From<FrBigInt<PE>>>::from(value);
+        self.data[index] += &<PE::Fr as From<FrInt<PE>>>::from(value);
 
         let leaf_index = bitreverse(index, DEPTHS);
         let node_index = NodeIndex::new(DEPTHS, leaf_index);
@@ -68,12 +67,9 @@ impl<PE: PairingEngine> AMTree<PE> {
         }
     }
 
-    fn set<PP>(&mut self, index: usize, value: &PE::Fr, public_param: &PP)
-    where
-        PP: AMTParams<PE>,
-    {
+    fn set(&mut self, index: usize, value: &Fr<PE>, public_param: &AMTParams<PE>) {
         assert!(index < LENGTH);
-        let inc_value: FrBigInt<PE> = (self.data[index] - value).into();
+        let inc_value: FrInt<PE> = (self.data[index] - value).into();
         self.inc(index, inc_value, public_param)
     }
 
@@ -96,16 +92,13 @@ impl<PE: PairingEngine> AMTree<PE> {
         answers
     }
 
-    fn verify<PP>(
+    fn verify(
         index: usize,
         value: PE::Fr,
         commitment: &G1<PE>,
         proof: AMTProof<PE>,
-        pp: &PP,
-    ) -> bool
-    where
-        PP: AMTParams<PE>,
-    {
+        pp: &AMTParams<PE>,
+    ) -> bool {
         assert!(index < LENGTH);
         let self_indent = pp.get_idents(index).mul(value);
         let others: PE::G1Projective = proof.iter().map(|node| node.commitment).sum();

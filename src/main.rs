@@ -1,7 +1,9 @@
-#![allow(dead_code, non_camel_case_types)]
-//unused_imports,
+#![allow(dead_code)]
+//unused_imports, non_camel_case_types
 #[macro_use]
 extern crate error_chain;
+
+extern crate base64;
 
 mod amt;
 mod db;
