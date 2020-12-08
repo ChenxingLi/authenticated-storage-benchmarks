@@ -5,7 +5,7 @@ use ff_fft::{EvaluationDomain, Radix2EvaluationDomain};
 
 pub struct AMTParams<PE: PairingEngine> {
     indents: Vec<G1<PE>>,
-    prove_cache: Vec<Vec<G1<PE>>>,
+    quotients: Vec<Vec<G1<PE>>>,
     g2pp: Vec<G2<PE>>,
     g2: G2<PE>,
     w_inv: Fr<PE>,
@@ -17,7 +17,7 @@ impl<PE: PairingEngine> AMTParams<PE> {
     }
 
     pub fn get_quotient(&self, depth: usize, index: usize) -> &G1<PE> {
-        &self.prove_cache[depth - 1][index]
+        &self.quotients[depth - 1][index]
     }
 
     pub fn get_g2_pow_tau(&self, height: usize) -> &G2<PE> {
@@ -44,8 +44,8 @@ impl<PE: PairingEngine> AMTParams<PE> {
 
         let indents: Vec<G1<PE>> = fft_domain.fft(&g1pp[0..length]);
 
-        let prove_cache: Vec<Vec<G1<PE>>> = (1..=depth)
-            .map(|d| Self::gen_prove_cache(&g1pp[0..length], &fft_domain, d))
+        let quotients: Vec<Vec<G1<PE>>> = (1..=depth)
+            .map(|d| Self::gen_quotients(&g1pp[0..length], &fft_domain, d))
             .collect();
 
         let w_inv = Fr::<PE>::get_root_of_unity(length)
@@ -57,14 +57,14 @@ impl<PE: PairingEngine> AMTParams<PE> {
 
         Self {
             indents,
-            prove_cache,
+            quotients,
             g2pp,
             g2,
             w_inv,
         }
     }
 
-    fn gen_prove_cache(
+    fn gen_quotients(
         g1pp: &[G1<PE>],
         fft_domain: &Radix2EvaluationDomain<Fr<PE>>,
         depth: usize,
@@ -99,8 +99,7 @@ fn test_ident_prove() {
     const TEST_LEVEL: usize = DEPTHS;
     const TEST_LENGTH: usize = 1 << TEST_LEVEL;
 
-    let (g1pp, g2pp) =
-        PP::<Pairing>::load_or_create_pp("dat/pp_test.bin", DEPTHS).into_projective();
+    let (g1pp, g2pp) = PP::<Pairing>::from_file_or_new("dat/pp_test.bin", DEPTHS).into_projective();
 
     let w = Fr::<Pairing>::get_root_of_unity(TEST_LENGTH).unwrap();
     let w_inv = w.inverse().unwrap();
@@ -113,7 +112,7 @@ fn test_ident_prove() {
 
     for depth in 1..=TEST_LEVEL {
         let prove_data =
-            AMTParams::<Pairing>::gen_prove_cache(&g1pp[0..TEST_LENGTH], &fft_domain, depth);
+            AMTParams::<Pairing>::gen_quotients(&g1pp[0..TEST_LENGTH], &fft_domain, depth);
         for i in 0..TEST_LENGTH {
             assert_eq!(
                 Pairing::pairing(indent_func[i], g2),

@@ -1,5 +1,4 @@
 use super::utils::ALLOW_RECOMPUTE;
-// use algebra::bls12_381::{G1Affine, G1Projective, G2Affine, G2Projective};
 use algebra::{
     AffineCurve, CanonicalDeserialize, CanonicalSerialize, Field, ProjectiveCurve,
     SerializationError, UniformRand,
@@ -16,7 +15,10 @@ use algebra_core::PairingEngine;
 pub struct PP<PE: PairingEngine>(Vec<G1Aff<PE>>, Vec<G2Aff<PE>>);
 
 impl<PE: PairingEngine> PP<PE> {
-    pub fn trusted_setup(tau: Fr<PE>, depth: usize) -> PP<PE> {
+    pub fn trusted_setup(tau: Option<Fr<PE>>, depth: usize) -> PP<PE> {
+        let random_tau = Fr::<PE>::rand(&mut rand::thread_rng());
+        let tau = tau.unwrap_or(random_tau);
+
         let mut gen1 = G1Aff::<PE>::prime_subgroup_generator().into_projective();
         let gen2 = G2Aff::<PE>::prime_subgroup_generator().into_projective();
 
@@ -39,7 +41,7 @@ impl<PE: PairingEngine> PP<PE> {
         return PP(g1pp, g2pp);
     }
 
-    pub fn load_pp(file: &str, expected_depth: usize) -> Result<PP<PE>, error::Error> {
+    pub fn from_file(file: &str, expected_depth: usize) -> Result<PP<PE>, error::Error> {
         let buffer = File::open(file)?;
         let pp: PP<PE> = CanonicalDeserialize::deserialize_unchecked(buffer)?;
         let (g1_len, g2_len) = (pp.0.len(), pp.1.len());
@@ -48,22 +50,20 @@ impl<PE: PairingEngine> PP<PE> {
         } else if expected_depth > g2_len {
             Err(error::ErrorKind::InconsistentLength.into())
         } else if expected_depth < g2_len {
-            let gap = g2_len - expected_depth;
-            let g1_vec = pp.0.iter().step_by(1 << gap).copied().collect();
-            let g2_vec = pp.1[..1 << g2_len].to_vec();
+            let g1_vec = pp.0[..1 << expected_depth].to_vec();
+            let g2_vec = pp.1[..expected_depth].to_vec();
             Ok(PP(g1_vec, g2_vec))
         } else {
             Ok(pp)
         }
     }
 
-    pub fn load_or_create_pp(file: &str, expected_depth: usize) -> PP<PE> {
-        match Self::load_pp(file, expected_depth) {
+    pub fn from_file_or_new(file: &str, expected_depth: usize) -> PP<PE> {
+        match Self::from_file(file, expected_depth) {
             Ok(pp) => pp,
             Err(_) if ALLOW_RECOMPUTE => {
                 println!("Start to recompute public parameters");
-                let tau = Fr::<PE>::rand(&mut rand::thread_rng());
-                let pp = Self::trusted_setup(tau, expected_depth);
+                let pp = Self::trusted_setup(None, expected_depth);
                 let buffer = File::create(file).unwrap();
                 pp.serialize_uncompressed(&buffer).unwrap();
                 pp
@@ -74,10 +74,21 @@ impl<PE: PairingEngine> PP<PE> {
 
     pub fn into_projective(self) -> (Vec<G1<PE>>, Vec<G2<PE>>) {
         let g1pp = self.0.iter().copied().map(|x| G1::<PE>::from(x)).collect();
-
         let g2pp = self.1.iter().copied().map(|x| G2::<PE>::from(x)).collect();
         (g1pp, g2pp)
     }
+}
+
+#[test]
+fn test_partial_load() {
+    type Pairing = super::paring_provider::Pairing;
+
+    let tau = Fr::<Pairing>::rand(&mut rand::thread_rng());
+    let large_pp = PP::<Pairing>::trusted_setup(Some(tau), 8);
+    let small_pp = PP::<Pairing>::trusted_setup(Some(tau), 4);
+
+    assert_eq!(small_pp.0[..], large_pp.0[..(small_pp.0.len())]);
+    assert_eq!(small_pp.1[..], large_pp.1[..(small_pp.1.len())]);
 }
 
 mod error {

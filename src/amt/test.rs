@@ -24,10 +24,10 @@ fn test_all<PE: PairingEngine>(amt: &mut AMTree<PE>, public_parameter: &AMTParam
 
 #[test]
 fn test_amt() {
-    let db = crate::db::open_db("./__test_amt", 0u32);
+    let db = crate::db::open_database("./__test_amt");
 
     let mut amt = AMTree::<Pairing>::new("test".to_string(), db);
-    let pp = PP::<Pairing>::load_or_create_pp("./pp", DEPTHS);
+    let pp = PP::<Pairing>::from_file_or_new("./pp", DEPTHS);
     let pp = &AMTParams::<Pairing>::from_pp(pp, DEPTHS);
     test_all(&mut amt, pp, "Empty");
 

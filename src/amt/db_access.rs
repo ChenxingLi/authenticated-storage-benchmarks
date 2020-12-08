@@ -1,54 +1,41 @@
+use super::layout::LayoutTrait;
 use algebra::{CanonicalDeserialize, CanonicalSerialize};
-use cfx_storage::storage_db::{KeyValueDbTrait, KeyValueDbTraitRead};
-use cfx_storage::KvdbRocksdb;
+use cfx_storage::{
+    storage_db::{KeyValueDbTrait, KeyValueDbTraitRead},
+    KvdbRocksdb,
+};
 
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use super::node::{LayoutIndex, NodeIndex};
-
-mod error {
-    use error_chain;
-    error_chain! {
-        links {
-            RocksDB(cfx_storage::Error, cfx_storage::ErrorKind);
-        }
-
-        foreign_links {
-            Serialize(algebra_core::serialize::SerializationError);
-        }
-    }
-}
-
+use crate::amt::utils::DEPTHS;
 pub use error::Result;
 
 pub struct TreeAccess<
     T: Default + Clone + CanonicalSerialize + CanonicalDeserialize,
-    L: LayoutIndex,
+    L: LayoutTrait,
 > {
+    // TODO: Maybe add a cache plan later.
     tree_name: String,
     db: KvdbRocksdb,
-    cache: HashMap<NodeIndex, T>,
-    depth: usize,
+    cache: HashMap<L::Index, T>,
     _phantom: PhantomData<L>,
 }
 
-impl<T: Default + Clone + CanonicalSerialize + CanonicalDeserialize, L: LayoutIndex>
+impl<T: Default + Clone + CanonicalSerialize + CanonicalDeserialize, L: LayoutTrait>
     TreeAccess<T, L>
 {
-    pub fn new(tree_name: String, depth: usize, db: KvdbRocksdb) -> Self {
+    pub fn new(tree_name: String, db: KvdbRocksdb) -> Self {
         Self {
             tree_name,
             db,
-            cache: HashMap::<NodeIndex, T>::new(),
-            depth,
+            cache: HashMap::<L::Index, T>::new(),
             _phantom: PhantomData,
         }
     }
 
-    fn compute_key(&self, node_index: &NodeIndex) -> Vec<u8> {
-        assert!(node_index.depth() <= self.depth);
-        let layout_index = <L as LayoutIndex>::layout_index(node_index, self.depth) as u32;
+    fn compute_key(&self, node_index: &L::Index) -> Vec<u8> {
+        let layout_index = <L as LayoutTrait>::position(node_index) as u32;
 
         let mut key = Vec::new();
         key.extend_from_slice(self.tree_name.as_bytes());
@@ -64,7 +51,7 @@ impl<T: Default + Clone + CanonicalSerialize + CanonicalDeserialize, L: LayoutIn
         }
     }
 
-    pub fn entry(&mut self, node_index: &NodeIndex) -> &mut T {
+    pub fn entry(&mut self, node_index: &L::Index) -> &mut T {
         if self.cache.contains_key(node_index) {
             self.cache.get_mut(node_index).unwrap()
         } else {
@@ -82,16 +69,17 @@ impl<T: Default + Clone + CanonicalSerialize + CanonicalDeserialize, L: LayoutIn
 
 #[test]
 fn test_backend() {
-    const LOCAL_DEPTH: usize = 3;
+    type NodeIndex = super::layout::NodeIndex;
+    type FlattenTree = super::layout::FlattenTree;
+
     const TMP_RATIO: usize = 719323;
 
     let db = crate::db::open_db("./__backend_tree", 0u32);
-    let mut tree =
-        TreeAccess::<u64, super::node::FlattenLayout>::new("test".to_string(), LOCAL_DEPTH, db);
+    let mut tree = TreeAccess::<u64, FlattenTree>::new("test".to_string(), db);
 
-    for depth in 0..LOCAL_DEPTH {
+    for depth in 0..DEPTHS {
         for index in 0..(1 << depth) {
-            let node_index = &NodeIndex::new(depth, index);
+            let node_index = &NodeIndex::new(depth, index, DEPTHS);
             *tree.entry(node_index) = (TMP_RATIO * depth) as u64;
             *tree.entry(node_index) += index as u64;
         }
@@ -99,9 +87,9 @@ fn test_backend() {
 
     tree.flush();
 
-    for depth in 0..LOCAL_DEPTH {
+    for depth in 0..DEPTHS {
         for index in 0..(1 << depth) {
-            let node_index = &NodeIndex::new(depth, index);
+            let node_index = &NodeIndex::new(depth, index, DEPTHS);
             assert_eq!((TMP_RATIO * depth + index) as u64, *tree.entry(node_index))
         }
     }
@@ -109,4 +97,17 @@ fn test_backend() {
     drop(tree);
 
     ::std::fs::remove_dir_all("./__backend_tree").unwrap();
+}
+
+mod error {
+    use error_chain;
+    error_chain! {
+        links {
+            RocksDB(cfx_storage::Error, cfx_storage::ErrorKind);
+        }
+
+        foreign_links {
+            Serialize(algebra_core::serialize::SerializationError);
+        }
+    }
 }

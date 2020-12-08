@@ -1,4 +1,5 @@
-pub mod backend;
+pub mod db_access;
+pub mod layout;
 pub mod node;
 pub mod paring_provider;
 pub mod prove_params;
@@ -6,39 +7,48 @@ pub mod trusted_setup;
 pub mod utils;
 
 use self::{
-    backend::TreeAccess,
-    node::{AMTNode, FlattenLayout, NodeIndex},
+    db_access::TreeAccess,
+    layout::{FlattenArray, FlattenTree, NodeIndex},
+    node::AMTNode,
     paring_provider::{Fr, FrInt, G1},
     prove_params::AMTParams,
     utils::*,
 };
+use algebra::{Field, PairingEngine, ProjectiveCurve, Zero};
+use cfx_storage::KvdbRocksdb;
+use db::SystemDB;
+use std::sync::Arc;
 
 #[cfg(test)]
 mod test;
 
-use algebra::{Field, PairingEngine, ProjectiveCurve, Zero};
-use cfx_storage::KvdbRocksdb;
+pub type AMTProof<PE> = [AMTNode<PE>; DEPTHS];
 
-type AMTProof<PE> = [AMTNode<PE>; DEPTHS];
-
-struct AMTree<PE: PairingEngine> {
-    data: Vec<PE::Fr>,
-    inner_nodes: TreeAccess<AMTNode<PE>, FlattenLayout>,
+pub struct AMTree<PE: PairingEngine> {
+    data: TreeAccess<Fr<PE>, FlattenArray>,
+    inner_nodes: TreeAccess<AMTNode<PE>, FlattenTree>,
     commitment: G1<PE>,
 }
 
 impl<PE: PairingEngine> AMTree<PE> {
-    fn new(name: String, db: KvdbRocksdb) -> Self {
+    fn new(name: String, db: Arc<SystemDB>) -> Self {
+        let kvdb = db.key_value().clone();
         Self {
-            data: vec![PE::Fr::zero(); LENGTH],
-            inner_nodes: TreeAccess::new(name, DEPTHS, db),
+            data: TreeAccess::new(
+                format!("data:{}", name),
+                KvdbRocksdb {
+                    kvdb: kvdb.clone(),
+                    col: 0,
+                },
+            ),
+            inner_nodes: TreeAccess::new(format!("tree:{}", name), KvdbRocksdb { kvdb, col: 0 }),
             commitment: G1::<PE>::default(),
         }
     }
 
-    fn get(&self, index: usize) -> &PE::Fr {
+    fn get(&mut self, index: usize) -> &PE::Fr {
         assert!(index < LENGTH);
-        &self.data[index]
+        self.data.entry(&index)
     }
 
     fn inc<I>(&mut self, index: usize, inc_value: I, pp: &AMTParams<PE>)
@@ -48,10 +58,10 @@ impl<PE: PairingEngine> AMTree<PE> {
         assert!(index < LENGTH);
         let value: FrInt<PE> = inc_value.into();
 
-        self.data[index] += &<PE::Fr as From<FrInt<PE>>>::from(value);
+        *self.data.entry(&index) += &<PE::Fr as From<FrInt<PE>>>::from(value);
 
         let leaf_index = bitreverse(index, DEPTHS);
-        let node_index = NodeIndex::new(DEPTHS, leaf_index);
+        let node_index = NodeIndex::new(DEPTHS, leaf_index, DEPTHS);
 
         let inc_value = pp.get_idents(index).mul(value);
 
@@ -69,7 +79,7 @@ impl<PE: PairingEngine> AMTree<PE> {
 
     fn set(&mut self, index: usize, value: &Fr<PE>, public_param: &AMTParams<PE>) {
         assert!(index < LENGTH);
-        let inc_value: FrInt<PE> = (self.data[index] - value).into();
+        let inc_value: FrInt<PE> = (*self.data.entry(&index) - value).into();
         self.inc(index, inc_value, public_param)
     }
 
@@ -79,7 +89,7 @@ impl<PE: PairingEngine> AMTree<PE> {
 
     fn prove(&mut self, index: usize) -> AMTProof<PE> {
         let leaf_index = bitreverse(index, DEPTHS);
-        let node_index = NodeIndex::new(DEPTHS, leaf_index);
+        let node_index = NodeIndex::new(DEPTHS, leaf_index, DEPTHS);
 
         let mut answers = AMTProof::<PE>::default();
 
