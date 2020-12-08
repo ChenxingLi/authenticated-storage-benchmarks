@@ -1,12 +1,13 @@
 #![allow(dead_code)]
-//unused_imports, non_camel_case_types
+// non_camel_case_types,unused_imports
 #[macro_use]
 extern crate error_chain;
 
 extern crate base64;
 
 mod amt;
-mod db;
+mod storage;
+mod ver_tree;
 
 use bencher::black_box;
 

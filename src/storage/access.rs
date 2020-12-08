@@ -8,7 +8,6 @@ use cfx_storage::{
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-use crate::amt::utils::DEPTHS;
 pub use error::Result;
 
 pub struct TreeAccess<
@@ -69,12 +68,12 @@ impl<T: Default + Clone + CanonicalSerialize + CanonicalDeserialize, L: LayoutTr
 
 #[test]
 fn test_backend() {
-    type NodeIndex = super::layout::NodeIndex;
-    type FlattenTree = super::layout::FlattenTree;
+    type NodeIndex = crate::amt::NodeIndex;
+    type FlattenTree = super::FlattenTree;
 
     const TMP_RATIO: usize = 719323;
 
-    let db = crate::db::open_db("./__backend_tree", 0u32);
+    let db = super::open_col("./__backend_tree", 0u32);
     let mut tree = TreeAccess::<u64, FlattenTree>::new("test".to_string(), db);
 
     for depth in 0..DEPTHS {

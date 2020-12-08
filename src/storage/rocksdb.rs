@@ -1,6 +1,5 @@
-use cfx_storage::KvdbRocksdb;
-use db;
-use db::SystemDB;
+pub use cfx_storage::KvdbRocksdb;
+pub use db::SystemDB;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -21,7 +20,7 @@ pub fn open_database(db_dir: &str) -> Arc<SystemDB> {
     .unwrap()
 }
 
-pub fn open_db(db_dir: &str, col: u32) -> KvdbRocksdb {
+pub fn open_col(db_dir: &str, col: u32) -> KvdbRocksdb {
     KvdbRocksdb {
         kvdb: open_database(db_dir).key_value().clone(),
         col,
@@ -32,7 +31,7 @@ use cfx_storage::storage_db::{KeyValueDbTrait, KeyValueDbTraitRead};
 
 #[test]
 fn test() {
-    let db = open_db("./db", 0);
+    let db = open_col("./db", 0);
     db.put(&vec![0u8], &vec![1u8, 2u8, 4u8]).unwrap();
     println!("{:?}", db.get(&vec![0u8]).unwrap().unwrap());
 }

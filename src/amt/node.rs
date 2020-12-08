@@ -61,3 +61,49 @@ impl<PE: PairingEngine> CanonicalSerialize for AMTNode<PE> {
         compressed_node.uncompressed_size()
     }
 }
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct NodeIndex {
+    depth: usize,
+    index: usize,
+    total_depth: usize, // TODO: waiting for min-const-generic stabilized.
+}
+
+impl NodeIndex {
+    #[inline]
+    pub(crate) fn new(depth: usize, index: usize, total_depth: usize) -> Self {
+        assert!(index < (1 << depth));
+        assert!(depth <= total_depth);
+        Self {
+            depth,
+            index,
+            total_depth,
+        }
+    }
+
+    #[inline]
+    pub fn to_sibling(&self) -> Self {
+        NodeIndex::new(self.depth, self.index ^ 1, self.total_depth)
+    }
+
+    #[inline]
+    pub fn to_ancestor(&self, height: usize) -> Self {
+        assert!(height <= self.depth);
+        NodeIndex::new(self.depth - height, self.index >> height, self.total_depth)
+    }
+
+    #[inline]
+    pub fn depth(&self) -> usize {
+        self.depth
+    }
+
+    #[inline]
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    #[inline]
+    pub fn total_depth(&self) -> usize {
+        self.total_depth
+    }
+}
