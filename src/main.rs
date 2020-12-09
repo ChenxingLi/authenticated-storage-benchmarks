@@ -2,6 +2,8 @@
 // non_camel_case_types,unused_imports
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
+extern crate static_assertions;
 
 extern crate base64;
 

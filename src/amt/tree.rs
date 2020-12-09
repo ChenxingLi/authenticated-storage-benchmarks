@@ -5,18 +5,34 @@ use super::{
     utils::{bitreverse, DEPTHS, IDX_MASK, LENGTH},
 };
 use crate::storage::{FlattenArray, FlattenTree, KvdbRocksdb, SystemDB, TreeAccess};
-use algebra::{Field, PairingEngine, ProjectiveCurve, Zero};
+use algebra::{
+    BigInteger, CanonicalDeserialize, CanonicalSerialize, Field, FpParameters, PairingEngine,
+    PrimeField, ProjectiveCurve, Zero,
+};
 use std::sync::Arc;
 
 pub type AMTProof<PE> = [AMTNode<PE>; DEPTHS];
 
-pub struct AMTree<PE: PairingEngine> {
-    data: TreeAccess<Fr<PE>, FlattenArray>,
+pub trait AMTData<P: PrimeField> {
+    fn as_fr_int(&self) -> P::BigInt;
+    fn as_fr(&self) -> P {
+        self.as_fr_int().into()
+    }
+}
+
+pub struct AMTree<PE: PairingEngine, D>
+where
+    D: AMTData<Fr<PE>> + Default + Clone + CanonicalSerialize + CanonicalDeserialize,
+{
+    data: TreeAccess<D, FlattenArray>,
     inner_nodes: TreeAccess<AMTNode<PE>, FlattenTree>,
     commitment: G1<PE>,
 }
 
-impl<PE: PairingEngine> AMTree<PE> {
+impl<PE: PairingEngine, D> AMTree<PE, D>
+where
+    D: AMTData<Fr<PE>> + Default + Clone + CanonicalSerialize + CanonicalDeserialize,
+{
     pub fn new(name: String, db: Arc<SystemDB>) -> Self {
         Self {
             data: TreeAccess::new(
@@ -37,45 +53,45 @@ impl<PE: PairingEngine> AMTree<PE> {
         }
     }
 
-    pub fn get(&mut self, index: usize) -> &Fr<PE> {
+    pub fn get(&mut self, index: usize) -> &D {
         assert!(index < LENGTH);
         self.data.entry(&index)
     }
 
-    pub fn inc<I>(&mut self, index: usize, inc_value: I, pp: &AMTParams<PE>)
+    pub fn commitment(&self) -> &PE::G1Projective {
+        return &self.commitment;
+    }
+
+    pub fn update<F>(&mut self, index: usize, update: F, pp: &AMTParams<PE>)
     where
-        I: Into<FrInt<PE>>,
+        F: FnOnce(&mut D),
     {
         assert!(index < LENGTH);
-        let value: FrInt<PE> = inc_value.into();
+        let item = self.data.entry(&index);
 
-        *self.data.entry(&index) += &<PE::Fr as From<FrInt<PE>>>::from(value);
+        let old_value: FrInt<PE> = item.as_fr_int();
+        update(item);
+        let mut new_value: FrInt<PE> = item.as_fr_int();
+        assert!(new_value < <Fr::<PE> as PrimeField>::Params::MODULUS);
+        let _borrow = new_value.sub_noborrow(&old_value);
 
-        let leaf_index = bitreverse(index, DEPTHS);
-        let node_index = NodeIndex::new(DEPTHS, leaf_index, DEPTHS);
-
-        let inc_value = pp.get_idents(index).mul(value);
+        let update_fr: Fr<PE> = new_value.into();
+        let inc_value = pp.get_idents(index).mul(update_fr);
 
         self.commitment += &inc_value;
 
         // Update proof
+
+        let leaf_index = bitreverse(index, DEPTHS);
+        let node_index = NodeIndex::new(DEPTHS, leaf_index, DEPTHS);
+
         for (height, depth) in (0..DEPTHS).map(|height| (height, DEPTHS - height)) {
             let visit_node_index = node_index.to_ancestor(height);
-            let proof = pp.get_quotient(depth, index).mul(value);
+            let proof = pp.get_quotient(depth, index).mul(update_fr);
             self.inner_nodes
                 .entry(&visit_node_index)
                 .inc(&inc_value, &proof);
         }
-    }
-
-    pub fn set(&mut self, index: usize, value: &Fr<PE>, public_param: &AMTParams<PE>) {
-        assert!(index < LENGTH);
-        let inc_value: FrInt<PE> = (*self.data.entry(&index) - value).into();
-        self.inc(index, inc_value, public_param)
-    }
-
-    pub fn commitment(&self) -> &PE::G1Projective {
-        return &self.commitment;
     }
 
     pub fn prove(&mut self, index: usize) -> AMTProof<PE> {

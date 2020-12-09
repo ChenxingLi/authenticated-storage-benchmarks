@@ -497,6 +497,7 @@ dependencies = [
  "ff-fft",
  "lazy_static",
  "rand 0.7.3",
+ "static_assertions 0.1.1",
 ]
 
 [[package]]
@@ -676,7 +677,7 @@ dependencies = [
  "libc",
  "rand 0.7.3",
  "rustc-hex 2.1.0",
- "static_assertions",
+ "static_assertions 1.1.0",
 ]
 
 [[package]]
@@ -688,7 +689,7 @@ dependencies = [
  "byteorder",
  "rand 0.7.3",
  "rustc-hex 2.1.0",
- "static_assertions",
+ "static_assertions 1.1.0",
 ]
 
 [[package]]
@@ -2015,6 +2016,12 @@ dependencies = [
 
 [[package]]
 name = "static_assertions"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f406d6ee68db6796e11ffd7b4d171864c58b7451e79ef9460ea33c287a1f89a7"
+
+[[package]]
+name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
@@ -2230,7 +2237,7 @@ dependencies = [
  "byteorder",
  "crunchy",
  "rustc-hex 2.1.0",
- "static_assertions",
+ "static_assertions 1.1.0",
 ]
 
 [[package]]

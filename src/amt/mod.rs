@@ -5,21 +5,37 @@ pub mod tree;
 pub mod trusted_setup;
 pub mod utils;
 
-pub use self::{node::NodeIndex, tree::AMTree, utils::*};
+pub use self::{
+    node::NodeIndex,
+    tree::{AMTData, AMTree},
+    utils::*,
+};
 
 #[cfg(test)]
 mod test {
     use super::{
         paring_provider::{Fr, Pairing},
         prove_params::AMTParams,
+        tree::{AMTData, AMTree},
+        trusted_setup::PP,
         utils::{DEPTHS, LENGTH},
-        AMTree,
     };
-    use crate::amt::trusted_setup::PP;
-    use algebra::{One, PairingEngine};
+    use algebra::{One, PairingEngine, PrimeField};
+
+    type TestTree<PE> = AMTree<PE, Fr<PE>>;
+
+    impl<P: PrimeField> AMTData<P> for P {
+        fn as_fr_int(&self) -> P::BigInt {
+            self.clone().into()
+        }
+
+        fn as_fr(&self) -> P {
+            self.clone()
+        }
+    }
 
     fn test_all<PE: PairingEngine>(
-        amt: &mut AMTree<PE>,
+        amt: &mut TestTree<PE>,
         public_parameter: &AMTParams<PE>,
         task: &str,
     ) {
@@ -29,7 +45,7 @@ mod test {
             let value = amt.get(i);
 
             assert!(
-                AMTree::<PE>::verify(i, *value, amt.commitment(), proof, public_parameter),
+                TestTree::verify(i, *value, amt.commitment(), proof, public_parameter),
                 "fail at task {} pos {}",
                 task,
                 i
@@ -41,16 +57,18 @@ mod test {
     fn test_amt() {
         let db = crate::storage::open_database("./__test_amt");
 
-        let mut amt = AMTree::<Pairing>::new("test".to_string(), db);
+        let inc_one = |x: &mut Fr<Pairing>| *x += Fr::<Pairing>::one();
+
+        let mut amt = TestTree::<Pairing>::new("test".to_string(), db);
         let pp = PP::<Pairing>::from_file_or_new("./pp", DEPTHS);
         let pp = &AMTParams::<Pairing>::from_pp(pp, DEPTHS);
         test_all(&mut amt, pp, "Empty");
 
-        amt.inc(0, Fr::<Pairing>::one(), pp);
+        amt.update(0, inc_one, pp);
         test_all(&mut amt, pp, "one-hot");
 
-        amt.inc(0, Fr::<Pairing>::one(), pp);
-        amt.inc(LENGTH / 2, Fr::<Pairing>::one(), pp);
+        amt.update(0, inc_one, pp);
+        amt.update(LENGTH / 2, inc_one, pp);
         test_all(&mut amt, pp, "sibling pair");
 
         ::std::fs::remove_dir_all("./__test_amt").unwrap();

@@ -71,6 +71,7 @@ fn test_backend() {
     type NodeIndex = crate::amt::NodeIndex;
     type FlattenTree = super::FlattenTree;
 
+    const DEPTHS: usize = crate::amt::DEPTHS;
     const TMP_RATIO: usize = 719323;
 
     let db = super::open_col("./__backend_tree", 0u32);
