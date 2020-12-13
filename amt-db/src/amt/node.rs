@@ -81,6 +81,10 @@ impl NodeIndex {
         }
     }
 
+    pub fn root(total_depth: usize) -> Self {
+        NodeIndex::new(0, 0, total_depth)
+    }
+
     #[inline]
     pub fn to_sibling(&self) -> Self {
         NodeIndex::new(self.depth, self.index ^ 1, self.total_depth)

@@ -26,6 +26,7 @@ pub fn open_col(db_dir: &str, col: u32) -> KvdbRocksdb {
         col,
     }
 }
+
 #[cfg(test)]
 use cfx_storage::storage_db::{KeyValueDbTrait, KeyValueDbTraitRead};
 
