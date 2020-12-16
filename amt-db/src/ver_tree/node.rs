@@ -11,6 +11,9 @@ use algebra::{
 pub(super) type Fr = FrGeneric<Pairing>;
 pub(super) type FrInt = FrIntGeneric<Pairing>;
 
+pub const VERSION_BITS: usize = 40;
+pub const MAX_VERSION_NUMBER: u64 = (1 << VERSION_BITS) - 1;
+
 #[allow(dead_code)]
 fn const_assert() {
     const CAPACITY: u32 = <Fr as PrimeField>::Params::CAPACITY;
@@ -42,18 +45,6 @@ impl AMTData<Fr> for Node {
 }
 
 #[test]
-#[cfg(target_endian = "little")]
-fn test_array_convert() {
-    use std::convert::TryInto;
-
-    let origin: [u8; 32] = (0..32).collect::<Vec<u8>>().try_into().unwrap();
-    let ans_f = |x: usize| (0..8).map(|y| (x + y) * (1 << (8 * y))).sum::<usize>() as u64;
-    let answer: [u64; 4] = [ans_f(0), ans_f(8), ans_f(16), ans_f(24)];
-    let converted = unsafe { std::mem::transmute::<[u8; 32], [u64; 4]>(origin) };
-    assert_eq!(converted, answer);
-}
-
-#[test]
 fn test_array_transmute() {
     let mut node = Node {
         key_versions: Vec::new(),
@@ -64,11 +55,11 @@ fn test_array_transmute() {
 
     let mut answer = [0u64; 4];
     answer[0] = 1;
-    answer[0] += 2 * (1 << 40);
-    answer[1] += 3 * (1 << 80 - 64);
-    answer[1] += 4 * (1 << 120 - 64);
-    answer[2] += 5 * (1 << 160 - 128);
-    answer[3] += 6 * (1 << 200 - 192);
+    answer[0] += 2 * (1 << VERSION_BITS);
+    answer[1] += 3 * (1 << VERSION_BITS * 2 - 64);
+    answer[1] += 4 * (1 << VERSION_BITS * 3 - 64);
+    answer[2] += 5 * (1 << VERSION_BITS * 4 - 128);
+    answer[3] += 6 * (1 << VERSION_BITS * 5 - 192);
     let answer = FrInt::new(answer);
 
     assert_eq!(node.as_fr_int(), answer);
@@ -85,14 +76,14 @@ fn test_random_node_as_fr_int(rng: &mut ThreadRng) {
         tree_version: 0,
     };
 
-    const MASK: u64 = (1 << 40) - 1;
+    const MASK: u64 = (1 << VERSION_BITS) - 1;
 
     node.tree_version = rng.gen::<u64>() & MASK;
     let mut answer = FrInt::from(node.tree_version);
     for i in 0..5 {
         node.key_versions[i].1 = rng.gen::<u64>() & MASK;
         let mut fr_int = FrInt::from(node.key_versions[i].1);
-        fr_int.muln(40 * (i as u32 + 1));
+        fr_int.muln((VERSION_BITS * (i + 1)) as u32);
         answer.add_nocarry(&fr_int);
     }
 

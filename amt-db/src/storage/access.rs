@@ -19,7 +19,7 @@ pub struct TreeAccess<
     L: LayoutTrait<K>,
 > {
     // TODO: Maybe add a cache plan later, and use a generic type for db access.
-    tree_name: String,
+    tree_name: Vec<u8>,
     db: KvdbRocksdb,
     cache: HashMap<K, (V, bool)>,
     _phantom: PhantomData<L>,
@@ -31,7 +31,7 @@ impl<
         L: LayoutTrait<K>,
     > TreeAccess<K, V, L>
 {
-    pub fn new(tree_name: String, db: KvdbRocksdb) -> Self {
+    pub fn new(tree_name: Vec<u8>, db: KvdbRocksdb) -> Self {
         Self {
             tree_name,
             db,
@@ -52,11 +52,13 @@ impl<
     }
 
     pub fn flush(&mut self) {
-        for (key, (value, _dirty)) in self.cache.iter().filter(|(_k, (_v, dirty))| *dirty) {
+        for (key, (value, dirty)) in self.cache.iter_mut().filter(|(_k, (_v, dirty))| *dirty) {
             let mut serialized = vec![0; value.serialized_size()];
             value.serialize(&mut serialized[..]).unwrap();
+
             let db_key = Self::compute_key(&self.tree_name, key);
             self.db.put(&db_key, &serialized).unwrap();
+            *dirty = false;
         }
     }
 
@@ -75,11 +77,11 @@ impl<
         }
     }
 
-    fn compute_key(name: &String, node_index: &K) -> Vec<u8> {
+    fn compute_key(name: &[u8], node_index: &K) -> Vec<u8> {
         let layout_index = <L as LayoutTrait<K>>::position(node_index) as u32;
 
         let mut key = Vec::new();
-        key.extend_from_slice(name.as_bytes());
+        key.extend_from_slice(name);
         key.extend_from_slice(&layout_index.to_be_bytes());
         key
     }
@@ -94,7 +96,8 @@ fn test_backend() {
     const TMP_RATIO: usize = 719323;
 
     let db = super::open_col("./__backend_tree", 0u32);
-    let mut tree = TreeAccess::<NodeIndex, u64, FlattenTree>::new("test".to_string(), db);
+    let mut tree =
+        TreeAccess::<NodeIndex, u64, FlattenTree>::new("test".to_string().into_bytes(), db);
 
     for depth in 0..DEPTHS {
         for index in 0..(1 << depth) {

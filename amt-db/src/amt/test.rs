@@ -29,6 +29,8 @@ impl<PE: PairingEngine> AMTConfigTrait for TestConfig<PE> {
     type Data = Fr<PE>;
     type DataLayout = FlattenArray;
     type TreeLayout = FlattenTree;
+
+    const DEPTHS: usize = DEPTHS;
 }
 
 type TestTree<PE> = AMTree<TestConfig<PE>>;
@@ -39,7 +41,7 @@ fn test_all<PE: PairingEngine>(
     task: &str,
 ) {
     // super::utils::type_hash::<PE>();
-    for i in 0..LENGTH {
+    for i in 0..TestConfig::<PE>::LENGTH {
         let proof = amt.prove(i);
         let value = amt.get(i);
 
@@ -55,6 +57,8 @@ fn test_all<PE: PairingEngine>(
 #[test]
 fn test_amt() {
     let db = crate::storage::open_col("./__test_amt", 0);
+
+    const DEPTHS: usize = TestConfig::<Pairing>::DEPTHS;
 
     let pp = PP::<Pairing>::from_file_or_new("./pp", DEPTHS);
     let pp = Arc::new(AMTParams::<Pairing>::from_pp(pp, DEPTHS));

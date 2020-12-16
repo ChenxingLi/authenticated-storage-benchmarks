@@ -3,9 +3,16 @@ mod name;
 mod node;
 mod tree;
 
-use self::{key::Key, name::TreeName, node::Node};
+use self::{
+    key::Key,
+    name::TreeName,
+    node::{Node, MAX_VERSION_NUMBER},
+};
 use crate::{
-    amt::{paring_provider::Pairing, AMTConfigTrait, AMTree, DEPTHS},
+    amt::{
+        paring_provider::{Pairing, G1},
+        AMTConfigTrait, AMTree, DEPTHS,
+    },
     storage::{FlattenArray, FlattenTree},
 };
 
@@ -18,6 +25,9 @@ impl AMTConfigTrait for AMTConfig {
     type Data = Node;
     type DataLayout = FlattenArray;
     type TreeLayout = FlattenTree;
+
+    const DEPTHS: usize = DEPTHS;
 }
 
 type Tree = AMTree<AMTConfig>;
+type Commitment = G1<<AMTConfig as AMTConfigTrait>::PE>;
