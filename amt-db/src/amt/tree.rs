@@ -1,23 +1,20 @@
-use super::{
-    node::{AMTNode, NodeIndex},
+use super::node::{AMTNode, NodeIndex};
+use crate::crypto::{
     paring_provider::{Fr, FrInt, G1},
-    prove_params::AMTParams,
-    utils::bitreverse,
+    AMTParams,
 };
 use crate::storage::{KvdbRocksdb, LayoutTrait, TreeAccess};
 use algebra::{
     BigInteger, CanonicalDeserialize, CanonicalSerialize, Field, PairingEngine, PrimeField,
     ProjectiveCurve, Zero,
 };
-use static_assertions::_core::ops::{Deref, DerefMut};
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-
-pub type AMTProof<PE> = Vec<AMTNode<PE>>;
 
 pub trait AMTConfigTrait {
     type PE: PairingEngine;
-    type Name: Into<Vec<u8>> + Clone;
-    type Data: AMTData<Fr<Self::PE>> + Default + Clone + CanonicalSerialize + CanonicalDeserialize;
+    type Name: AMTName;
+    type Data: AMTData<Fr<Self::PE>>;
     type DataLayout: LayoutTrait<usize>;
     type TreeLayout: LayoutTrait<NodeIndex>;
 
@@ -26,40 +23,16 @@ pub trait AMTConfigTrait {
     const IDX_MASK: usize = Self::LENGTH - 1;
 }
 
-pub trait AMTData<P: PrimeField> {
+pub trait AMTName: Clone {
+    fn to_bytes(&self, depths: usize) -> Vec<u8>;
+}
+
+pub trait AMTData<P: PrimeField>:
+    Default + Clone + CanonicalSerialize + CanonicalDeserialize
+{
     fn as_fr_int(&self) -> P::BigInt;
     fn as_fr(&self) -> P {
         self.as_fr_int().into()
-    }
-}
-
-pub struct AMTNodeWriteGuard<'a, C: AMTConfigTrait> {
-    index: usize,
-    value: C::Data,
-    old_fr_int: FrInt<C::PE>,
-    tree: &'a mut AMTree<C>,
-}
-
-impl<'a, C: AMTConfigTrait> Deref for AMTNodeWriteGuard<'a, C> {
-    type Target = C::Data;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl<'a, C: AMTConfigTrait> DerefMut for AMTNodeWriteGuard<'a, C> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.value
-    }
-}
-
-impl<'a, C: AMTConfigTrait> Drop for AMTNodeWriteGuard<'a, C> {
-    fn drop(&mut self) {
-        let mut fr_int = self.value.as_fr_int();
-        fr_int.sub_noborrow(&self.old_fr_int);
-        std::mem::swap(self.tree.get_mut(self.index), &mut self.value);
-        self.tree.update(self.index, fr_int);
     }
 }
 
@@ -74,10 +47,12 @@ pub struct AMTree<C: AMTConfigTrait> {
     dirty: bool,
 }
 
+pub type AMTProof<PE> = Vec<AMTNode<PE>>;
+
 impl<C: AMTConfigTrait> AMTree<C> {
     pub fn new(name: C::Name, db: KvdbRocksdb, pp: Arc<AMTParams<C::PE>>) -> Self {
         let name_with_prefix = |mut prefix: Vec<u8>| {
-            prefix.extend_from_slice(&name.clone().into());
+            prefix.extend_from_slice(&name.to_bytes(C::DEPTHS));
             prefix
         };
         Self {
@@ -208,4 +183,44 @@ impl<C: AMTConfigTrait> AMTree<C> {
         }
         return true;
     }
+}
+
+pub struct AMTNodeWriteGuard<'a, C: AMTConfigTrait> {
+    index: usize,
+    value: C::Data,
+    old_fr_int: FrInt<C::PE>,
+    tree: &'a mut AMTree<C>,
+}
+
+impl<'a, C: AMTConfigTrait> Deref for AMTNodeWriteGuard<'a, C> {
+    type Target = C::Data;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl<'a, C: AMTConfigTrait> DerefMut for AMTNodeWriteGuard<'a, C> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.value
+    }
+}
+
+impl<'a, C: AMTConfigTrait> Drop for AMTNodeWriteGuard<'a, C> {
+    fn drop(&mut self) {
+        let mut fr_int = self.value.as_fr_int();
+        fr_int.sub_noborrow(&self.old_fr_int);
+        std::mem::swap(self.tree.get_mut(self.index), &mut self.value);
+        self.tree.update(self.index, fr_int);
+    }
+}
+
+#[inline]
+fn bitreverse(mut n: usize, l: usize) -> usize {
+    let mut r = 0;
+    for _ in 0..l {
+        r = (r << 1) | (n & 1);
+        n >>= 1;
+    }
+    r
 }

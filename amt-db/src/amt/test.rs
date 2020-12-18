@@ -5,6 +5,7 @@ use super::{
     trusted_setup::PP,
     utils::{DEPTHS, LENGTH},
 };
+use crate::amt::tree::AMTName;
 use crate::storage::{FlattenArray, FlattenTree};
 use algebra::{One, PairingEngine, PrimeField, Zero};
 use std::{marker::PhantomData, sync::Arc};
@@ -31,6 +32,12 @@ impl<PE: PairingEngine> AMTConfigTrait for TestConfig<PE> {
     type TreeLayout = FlattenTree;
 
     const DEPTHS: usize = DEPTHS;
+}
+
+impl AMTName for String {
+    fn to_bytes(&self, _depths: usize) -> Vec<u8> {
+        self.clone().into_bytes()
+    }
 }
 
 type TestTree<PE> = AMTree<TestConfig<PE>>;

@@ -9,10 +9,8 @@ use self::{
     node::{Node, MAX_VERSION_NUMBER},
 };
 use crate::{
-    amt::{
-        paring_provider::{Pairing, G1},
-        AMTConfigTrait, AMTree, DEPTHS,
-    },
+    amt::{AMTConfigTrait, AMTree},
+    crypto::paring_provider::{Pairing, G1},
     storage::{FlattenArray, FlattenTree},
 };
 
@@ -26,8 +24,11 @@ impl AMTConfigTrait for AMTConfig {
     type DataLayout = FlattenArray;
     type TreeLayout = FlattenTree;
 
-    const DEPTHS: usize = DEPTHS;
+    const DEPTHS: usize = crate::crypto::DEPTHS;
 }
+
+const DEPTHS: usize = <AMTConfig as AMTConfigTrait>::DEPTHS;
+const IDX_MASK: usize = <AMTConfig as AMTConfigTrait>::IDX_MASK;
 
 type Tree = AMTree<AMTConfig>;
 type Commitment = G1<<AMTConfig as AMTConfigTrait>::PE>;

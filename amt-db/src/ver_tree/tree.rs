@@ -1,5 +1,5 @@
-use super::{Commitment, Key, Node, Tree, TreeName, MAX_VERSION_NUMBER};
-use crate::amt::{paring_provider::Pairing, prove_params::AMTParams, DEPTHS, IDX_MASK};
+use super::{Commitment, Key, Node, Tree, TreeName, DEPTHS, IDX_MASK, MAX_VERSION_NUMBER};
+use crate::crypto::{paring_provider::Pairing, AMTParams};
 use crate::storage::KvdbRocksdb;
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -58,7 +58,7 @@ impl VerForest {
         }
     }
 
-    fn get(&mut self, key: &Key) -> u64 {
+    fn get_key(&mut self, key: &Key) -> u64 {
         let mut level = 0;
         let mut visit_amt = self.tree_manager.get_mut_or_load(TreeName::root());
         loop {

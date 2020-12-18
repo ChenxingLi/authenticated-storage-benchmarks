@@ -1,4 +1,4 @@
-use super::paring_provider::{G1Aff, G1};
+use crate::crypto::paring_provider::{G1Aff, G1};
 use algebra::{CanonicalDeserialize, CanonicalSerialize, PairingEngine, SerializationError};
 use std::io::{Read, Write};
 

@@ -1,5 +1,5 @@
-use super::paring_provider::{Fr, G2Aff, G1, G2};
-use super::trusted_setup::PP;
+use crate::crypto::paring_provider::{Fr, G2Aff, G1, G2};
+use crate::crypto::trusted_setup::PP;
 use algebra::{fields::utils::k_adicity, AffineCurve, FftField, Field, PairingEngine, Zero};
 use ff_fft::{EvaluationDomain, Radix2EvaluationDomain};
 
@@ -126,6 +126,6 @@ fn test_ident_prove() {
     }
 }
 #[cfg(test)]
-use super::{paring_provider::Pairing, utils::DEPTHS};
+use crate::amt::{paring_provider::Pairing, utils::DEPTHS};
 #[cfg(test)]
 use algebra::{One, ProjectiveCurve};

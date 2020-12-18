@@ -1,6 +1,5 @@
-use super::utils::ALLOW_RECOMPUTE;
 use algebra::{
-    AffineCurve, CanonicalDeserialize, CanonicalSerialize, Field, ProjectiveCurve,
+    AffineCurve, CanonicalDeserialize, CanonicalSerialize, Field, PairingEngine, ProjectiveCurve,
     SerializationError, UniformRand,
 };
 use rand;
@@ -8,8 +7,10 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::ops::MulAssign;
 
-use super::paring_provider::{Fr, G1Aff, G2Aff, G1, G2};
-use algebra_core::PairingEngine;
+use super::{
+    paring_provider::{Fr, G1Aff, G2Aff, G1, G2},
+    utils::ALLOW_RECOMPUTE,
+};
 
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct PP<PE: PairingEngine>(Vec<G1Aff<PE>>, Vec<G2Aff<PE>>);

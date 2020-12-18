@@ -1,8 +1,6 @@
 use super::Key;
-use crate::amt::{
-    paring_provider::{Fr as FrGeneric, FrInt as FrIntGeneric, Pairing},
-    AMTData,
-};
+use crate::amt::AMTData;
+use crate::crypto::paring_provider::{Fr as FrGeneric, FrInt as FrIntGeneric, Pairing};
 use algebra::{
     CanonicalDeserialize, CanonicalSerialize, FpParameters, PrimeField, Read, SerializationError,
     Write,

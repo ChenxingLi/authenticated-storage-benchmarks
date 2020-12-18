@@ -9,5 +9,6 @@ extern crate static_assertions;
 extern crate base64;
 
 pub mod amt;
+pub mod crypto;
 pub mod storage;
 pub mod ver_tree;
