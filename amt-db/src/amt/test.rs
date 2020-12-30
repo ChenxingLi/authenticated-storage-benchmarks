@@ -1,12 +1,12 @@
-use super::{
+use super::tree::{AMTConfigTrait, AMTData, AMTree};
+use crate::crypto::{
     paring_provider::{Fr, Pairing},
-    prove_params::AMTParams,
-    tree::{AMTConfigTrait, AMTData, AMTree},
-    trusted_setup::PP,
-    utils::{DEPTHS, LENGTH},
+    AMTParams, DEPTHS, LENGTH, PP,
 };
-use crate::amt::tree::AMTName;
-use crate::storage::{FlattenArray, FlattenTree};
+use crate::storage::{
+    FlattenArray, FlattenTree, StorageDecodable, StorageEncodable, StoreByCanonicalSerialize,
+};
+use algebra::bls12_381;
 use algebra::{One, PairingEngine, PrimeField, Zero};
 use std::{marker::PhantomData, sync::Arc};
 
@@ -24,9 +24,12 @@ struct TestConfig<PE: PairingEngine> {
     _phantom: PhantomData<PE>,
 }
 
-impl<PE: PairingEngine> AMTConfigTrait for TestConfig<PE> {
+impl<PE: PairingEngine> AMTConfigTrait for TestConfig<PE>
+where
+    Fr<PE>: StorageDecodable + StorageEncodable,
+{
     type PE = PE;
-    type Name = String;
+    type Name = Vec<u8>;
     type Data = Fr<PE>;
     type DataLayout = FlattenArray;
     type TreeLayout = FlattenTree;
@@ -34,19 +37,12 @@ impl<PE: PairingEngine> AMTConfigTrait for TestConfig<PE> {
     const DEPTHS: usize = DEPTHS;
 }
 
-impl AMTName for String {
-    fn to_bytes(&self, _depths: usize) -> Vec<u8> {
-        self.clone().into_bytes()
-    }
-}
-
 type TestTree<PE> = AMTree<TestConfig<PE>>;
 
-fn test_all<PE: PairingEngine>(
-    amt: &mut TestTree<PE>,
-    public_parameter: &AMTParams<PE>,
-    task: &str,
-) {
+fn test_all<PE: PairingEngine>(amt: &mut TestTree<PE>, public_parameter: &AMTParams<PE>, task: &str)
+where
+    Fr<PE>: StorageDecodable + StorageEncodable,
+{
     // super::utils::type_hash::<PE>();
     for i in 0..TestConfig::<PE>::LENGTH {
         let proof = amt.prove(i);
@@ -61,6 +57,20 @@ fn test_all<PE: PairingEngine>(
     }
 }
 
+impl StorageEncodable for bls12_381::Fr {
+    fn storage_encode(&self) -> Vec<u8> {
+        unimplemented!()
+    }
+}
+
+impl StorageDecodable for bls12_381::Fr {
+    fn storage_decode(_: &[u8]) -> Self {
+        unimplemented!()
+    }
+}
+
+impl StoreByCanonicalSerialize for u64 {}
+
 #[test]
 fn test_amt() {
     let db = crate::storage::open_col("./__test_amt", 0);
@@ -70,7 +80,7 @@ fn test_amt() {
     let pp = PP::<Pairing>::from_file_or_new("./pp", DEPTHS);
     let pp = Arc::new(AMTParams::<Pairing>::from_pp(pp, DEPTHS));
 
-    let mut amt = TestTree::<Pairing>::new("test".to_string(), db, pp.clone());
+    let mut amt = TestTree::<Pairing>::new(b"test".to_vec(), db, pp.clone());
 
     test_all(&mut amt, &pp, "Empty");
 

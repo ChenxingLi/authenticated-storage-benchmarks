@@ -3,18 +3,17 @@ use crate::crypto::{
     paring_provider::{Fr, FrInt, G1},
     AMTParams,
 };
-use crate::storage::{KvdbRocksdb, LayoutTrait, TreeAccess};
-use algebra::{
-    BigInteger, CanonicalDeserialize, CanonicalSerialize, Field, PairingEngine, PrimeField,
-    ProjectiveCurve, Zero,
-};
+use crate::storage::{DBAccess, KvdbRocksdb, LayoutTrait, StorageDecodable, StorageEncodable};
+use algebra::{BigInteger, Field, PairingEngine, PrimeField, ProjectiveCurve, Zero};
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
+use typenum::Unsigned;
 
 pub trait AMTConfigTrait {
     type PE: PairingEngine;
-    type Name: AMTName;
-    type Data: AMTData<Fr<Self::PE>>;
+    type Name: StorageEncodable;
+    type Data: AMTData<Fr<Self::PE>> + Default + Clone + StorageEncodable + StorageDecodable;
+
     type DataLayout: LayoutTrait<usize>;
     type TreeLayout: LayoutTrait<NodeIndex>;
 
@@ -23,13 +22,7 @@ pub trait AMTConfigTrait {
     const IDX_MASK: usize = Self::LENGTH - 1;
 }
 
-pub trait AMTName: Clone {
-    fn to_bytes(&self, depths: usize) -> Vec<u8>;
-}
-
-pub trait AMTData<P: PrimeField>:
-    Default + Clone + CanonicalSerialize + CanonicalDeserialize
-{
+pub trait AMTData<P: PrimeField> {
     fn as_fr_int(&self) -> P::BigInt;
     fn as_fr(&self) -> P {
         self.as_fr_int().into()
@@ -40,8 +33,8 @@ pub trait AMTData<P: PrimeField>:
 pub struct AMTree<C: AMTConfigTrait> {
     db: KvdbRocksdb,
     name: C::Name,
-    data: TreeAccess<usize, C::Data, C::DataLayout>,
-    inner_nodes: TreeAccess<NodeIndex, AMTNode<C::PE>, C::TreeLayout>,
+    data: DBAccess<usize, C::Data, C::DataLayout>,
+    inner_nodes: DBAccess<NodeIndex, AMTNode<C::PE>, C::TreeLayout>,
     pp: Arc<AMTParams<C::PE>>,
 
     dirty: bool,
@@ -52,12 +45,12 @@ pub type AMTProof<PE> = Vec<AMTNode<PE>>;
 impl<C: AMTConfigTrait> AMTree<C> {
     pub fn new(name: C::Name, db: KvdbRocksdb, pp: Arc<AMTParams<C::PE>>) -> Self {
         let name_with_prefix = |mut prefix: Vec<u8>| {
-            prefix.extend_from_slice(&name.to_bytes(C::DEPTHS));
+            prefix.extend_from_slice(&name.storage_encode());
             prefix
         };
         Self {
-            data: TreeAccess::new(name_with_prefix(vec![0u8]), db.clone()),
-            inner_nodes: TreeAccess::new(name_with_prefix(vec![1u8]), db.clone()),
+            data: DBAccess::new(name_with_prefix(vec![0u8]), db.clone()),
+            inner_nodes: DBAccess::new(name_with_prefix(vec![1u8]), db.clone()),
             db,
             name,
             dirty: false,

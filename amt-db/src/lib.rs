@@ -8,7 +8,10 @@ extern crate static_assertions;
 
 extern crate base64;
 
+extern crate typenum;
+
 pub mod amt;
 pub mod crypto;
+mod simple_db;
 pub mod storage;
 pub mod ver_tree;

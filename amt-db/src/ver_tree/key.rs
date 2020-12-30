@@ -1,31 +1,43 @@
 use super::DEPTHS;
 
 use algebra::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use std::cmp::min;
+use std::convert::TryFrom;
 
-#[derive(Default, Hash, PartialEq, Eq, Clone, CanonicalDeserialize, CanonicalSerialize)]
-pub struct Key(Vec<u64>);
+#[derive(
+    Default, Hash, PartialEq, Eq, Clone, PartialOrd, Ord, CanonicalDeserialize, CanonicalSerialize,
+)]
+pub struct Key(Vec<u8>);
+
+impl AsRef<[u8]> for Key {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
 
 const fn mask(length: usize) -> u128 {
     (1 << length) - 1
 }
 
 impl Key {
+    #[inline]
     fn mid(&self, start: usize, length: usize) -> u128 {
         if length == 0 {
             return 0;
         }
-        assert!(length <= 128);
+        assert!(length <= 120);
+        assert!(start < 8 * self.0.len());
 
-        let start_chunk = start / 64;
-        let start_bit = start - start_chunk * 64;
+        let start_byte = start / 8;
+        let start_bit = start - start_byte * 8;
 
-        let entry_u128 = |index: usize| self.0.get(index).copied().unwrap_or(0) as u128;
+        let mut entry = self.0[start_byte..min(start_byte + 16, self.0.len())].to_vec();
+        if entry.len() != 16 {
+            entry.resize(16, 0);
+        }
+        let entry = u128::from_be_bytes(<[u8; 16]>::try_from(entry).unwrap());
 
-        let part1 = entry_u128(start_chunk) << (start_bit + 64);
-        let part2 = entry_u128(start_chunk + 1) << start_bit;
-        let part3 = entry_u128(start_chunk + 1) >> (64 - start_bit);
-
-        return (part1 | part2 | part3) >> (192 - length - start_bit) & mask(length);
+        return entry >> start_bit & mask(length);
     }
 
     pub fn tree_at_level(&self, level: usize) -> u128 {

@@ -126,6 +126,6 @@ fn test_ident_prove() {
     }
 }
 #[cfg(test)]
-use crate::amt::{paring_provider::Pairing, utils::DEPTHS};
+use super::{paring_provider::Pairing, utils::DEPTHS};
 #[cfg(test)]
 use algebra::{One, ProjectiveCurve};

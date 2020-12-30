@@ -1,6 +1,8 @@
 use super::{Commitment, Key, Node, Tree, TreeName, DEPTHS, IDX_MASK, MAX_VERSION_NUMBER};
-use crate::crypto::{paring_provider::Pairing, AMTParams};
-use crate::storage::KvdbRocksdb;
+use crate::{
+    crypto::{paring_provider::Pairing, AMTParams},
+    storage::KvdbRocksdb,
+};
 use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Clone)]
@@ -36,7 +38,7 @@ impl TreeManager {
         self.forest.len() - 1
     }
 
-    fn get_mut_levels(
+    fn get_neiboring_levels(
         &mut self,
         level: usize,
     ) -> (&mut BTreeMap<u128, Tree>, &mut BTreeMap<u128, Tree>) {
@@ -51,14 +53,14 @@ pub struct VerForest {
 }
 
 impl VerForest {
-    fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>) -> Self {
+    pub fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>) -> Self {
         Self {
             tree_manager: TreeManager::new(db, pp.clone()),
             pp,
         }
     }
 
-    fn get_key(&mut self, key: &Key) -> u64 {
+    pub fn get_key(&mut self, key: &Key) -> u64 {
         let mut level = 0;
         let mut visit_amt = self.tree_manager.get_mut_or_load(TreeName::root());
         loop {
@@ -86,25 +88,25 @@ impl VerForest {
         }
     }
 
-    fn inc(&mut self, key: &Key) -> u64 {
+    pub fn inc_key(&mut self, key: &Key) -> u64 {
         let mut level = 0;
         let mut visit_amt = self.tree_manager.get_mut_or_load(TreeName::root());
         loop {
             let node_index = key.index_at_level(level) as usize;
-            let mut tree_guard = visit_amt.write(node_index);
-            for (node_key, ver) in &mut tree_guard.key_versions {
+            let mut node_guard = visit_amt.write(node_index);
+            for (node_key, ver) in &mut node_guard.key_versions {
                 if *key == *node_key {
                     *ver += 1;
-                    assert!(*ver < MAX_VERSION_NUMBER);
+                    assert!(*ver <= MAX_VERSION_NUMBER);
                     return *ver;
                 }
             }
-            if tree_guard.key_versions.len() < 5 {
-                tree_guard.key_versions.push((key.clone(), 1));
+            if node_guard.key_versions.len() < 5 {
+                node_guard.key_versions.push((key.clone(), 1));
                 return 1;
             }
 
-            std::mem::drop(tree_guard);
+            std::mem::drop(node_guard);
 
             level += 1;
             visit_amt = self
@@ -113,15 +115,15 @@ impl VerForest {
         }
     }
 
-    fn commit(&mut self) -> BTreeMap<TreeName, (Commitment, u64)> {
+    pub fn commit(&mut self) -> Vec<(TreeName, Commitment, u64)> {
         let db = self.tree_manager.db.clone();
         let pp = self.pp.clone();
         let max_level = self.tree_manager.max_level();
 
-        let mut update = BTreeMap::<TreeName, (Commitment, u64)>::new();
+        let mut update = Vec::new();
 
         for level in (1..=max_level).rev() {
-            let (parent_level_trees, level_trees) = self.tree_manager.get_mut_levels(level);
+            let (parent_level_trees, level_trees) = self.tree_manager.get_neiboring_levels(level);
             for (&index, tree) in level_trees.iter_mut().filter(|(_index, tree)| tree.dirty()) {
                 tree.flush();
 
@@ -133,16 +135,25 @@ impl VerForest {
                     .or_insert_with(default_tree)
                     .write((index & IDX_MASK as u128) as usize);
 
-                let version = &mut parent_node_guard.tree_version;
-                *version += 1;
-                assert!(*version < MAX_VERSION_NUMBER);
+                let ver = &mut parent_node_guard.tree_version;
+                *ver += 1;
+                assert!(*ver <= MAX_VERSION_NUMBER);
 
-                let commitment = tree.commitment().clone();
-
-                update.insert(TreeName(level, index), (commitment, *version));
+                update.push((TreeName(level, index), tree.commitment().clone(), *ver));
             }
         }
 
+        self.tree_manager.get_mut_or_load(TreeName::root());
+
+        update.sort_unstable_by_key(|(name, _, _)| *name);
+
         return update;
+    }
+
+    fn commitment(&mut self) -> Commitment {
+        self.tree_manager
+            .get_mut_or_load(TreeName::root())
+            .commitment()
+            .clone()
     }
 }

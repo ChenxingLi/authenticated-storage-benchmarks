@@ -12,12 +12,14 @@ ff-fft = { git = "https://github.com/scipr-lab/zexe.git", default-features = fal
 algebra =  { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
 cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4e"}
 db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4e"}
+cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4e"}
 lazy_static = "1.4"
 rand = "0.7"
 bencher = "0.1.5"
 error-chain = { version = "0.12", default-features = false }
 base64 = "0.13.0"
 static_assertions = "0.1"
+typenum = "1.12.0"
 
 #[dev-dependencies]
 #pprof = { version = "0.3", features = ["flamegraph"] }

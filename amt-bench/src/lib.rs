@@ -1,134 +1,176 @@
 #![feature(test)]
 extern crate test;
 
+mod basic_op;
+
+use amt_db::storage::{open_col, KeyValueDbTrait, KeyValueDbTraitRead};
 use rand::Rng;
-use std::collections::{BTreeMap, HashMap};
 use test::{black_box, Bencher};
 
 #[bench]
-fn add_u64_fold(b: &mut Bencher) {
+fn random_gen(b: &mut Bencher) {
     let mut rng = ::rand::thread_rng();
-    let (x, y): (u64, u64) = (rng.gen(), rng.gen());
+    let db = open_col("./__benchmark", 0u32);
+
     b.iter(|| {
-        for _ in 0..1_000 {
-            black_box(x + y);
-        }
+        let (key, value): (u64, u64) = (rng.gen(), rng.gen());
+        black_box((key, value));
     });
+
+    ::std::fs::remove_dir_all("./__benchmark").unwrap();
 }
 
 #[bench]
-fn hashmap_100_read_fold(b: &mut Bencher) {
+fn db_write(b: &mut Bencher) {
     let mut rng = ::rand::thread_rng();
-    let mut map = HashMap::<u64, u64>::new();
-    for i in 0..100 {
-        map.insert(i * 736, rng.gen());
+    let db = open_col("./__benchmark", 0u32);
+
+    b.iter(|| {
+        let (key, value): (u64, u64) = (rng.gen(), rng.gen());
+        db.put(&key.to_be_bytes(), &value.to_be_bytes()).unwrap();
+        let load = db.get(&key.to_be_bytes()).unwrap();
+        black_box(load)
+    });
+
+    ::std::fs::remove_dir_all("./__benchmark").unwrap();
+}
+
+#[bench]
+fn db_write_large(b: &mut Bencher) {
+    let mut rng = ::rand::thread_rng();
+    let db = open_col("./__benchmark", 0u32);
+
+    b.iter(|| {
+        let (key, value): (u64, [u64; 32]) = (rng.gen(), rng.gen());
+        db.put(&key.to_be_bytes(), &unsafe {
+            std::mem::transmute::<[u64; 32], [u8; 256]>(value)
+        })
+        .unwrap();
+        let load = db.get(&key.to_be_bytes()).unwrap();
+        black_box(load)
+    });
+
+    ::std::fs::remove_dir_all("./__benchmark").unwrap();
+}
+
+#[bench]
+fn db_read(b: &mut Bencher) {
+    let mut rng = ::rand::thread_rng();
+    let db = open_col("./__benchmark", 0u32);
+
+    for i in 0..100000 {
+        let (key, value): (u32, u64) = (i, rng.gen());
+        db.put(&key.to_be_bytes(), &value.to_be_bytes()).unwrap();
     }
+
     b.iter(|| {
-        for i in 0..1_000 {
-            let index = (i % 100 as u64) * 736;
-            black_box(map.get(&index).unwrap());
-        }
+        let key: u32 = rng.gen::<u32>() % 100000;
+        let load = db.get(&key.to_be_bytes()).unwrap();
+        black_box(load)
     });
+
+    ::std::fs::remove_dir_all("./__benchmark").unwrap();
 }
 
 #[bench]
-fn hashmap_tuple_100_read_fold(b: &mut Bencher) {
+fn db_read_1m(b: &mut Bencher) {
     let mut rng = ::rand::thread_rng();
-    let mut map = HashMap::<(u64, u64, u64), u64>::new();
-    for i in 0..1000 {
-        map.insert((i * 736, i * 736 + 1, i * 736 + 2), rng.gen());
+    let db = open_col("./__benchmark", 0u32);
+
+    for i in 0..1000000 {
+        let (key, value): (u32, u64) = (i, rng.gen());
+        db.put(&key.to_be_bytes(), &value.to_be_bytes()).unwrap();
     }
+
     b.iter(|| {
-        for i in 0..1_000 {
-            let index = i * 736;
-            black_box(map.get(&(index, index + 1, index + 2)).unwrap());
-        }
+        let key: u32 = rng.gen::<u32>() % 1000000;
+        let load = db.get(&key.to_be_bytes()).unwrap();
+        black_box(load)
     });
+
+    ::std::fs::remove_dir_all("./__benchmark").unwrap();
 }
 
 #[bench]
-fn btreemap_10_read_fold(b: &mut Bencher) {
+fn db_read_10m(b: &mut Bencher) {
     let mut rng = ::rand::thread_rng();
-    let mut map = BTreeMap::<u64, u64>::new();
-    for i in 0..10 {
-        map.insert(i * 736, rng.gen());
+    let db = open_col("./__benchmark", 0u32);
+
+    for i in 0..10000000 {
+        let (key, value): (u32, u64) = (i, rng.gen());
+        db.put(&key.to_be_bytes(), &value.to_be_bytes()).unwrap();
     }
+
     b.iter(|| {
-        for i in 0..1_000 {
-            let index = (i % 10 as u64) * 736;
-            black_box(map.get(&index).unwrap());
-        }
+        let key: u32 = rng.gen::<u32>() % 10000000;
+        let load = db.get(&key.to_be_bytes()).unwrap();
+        black_box(load)
     });
+
+    ::std::fs::remove_dir_all("./__benchmark").unwrap();
 }
 
 #[bench]
-fn btreemap_100_read_fold(b: &mut Bencher) {
+fn db_read_30m(b: &mut Bencher) {
     let mut rng = ::rand::thread_rng();
-    let mut map = BTreeMap::<u64, u64>::new();
-    for i in 0..100 {
-        map.insert(i * 736, rng.gen());
+    let db = open_col("./__benchmark", 0u32);
+
+    let mut data = rng.gen();
+
+    for i in 0..30000000 {
+        let (key, value): (u32, u64) = (i, data);
+        db.put(&key.to_be_bytes(), &value.to_be_bytes()).unwrap();
     }
+
     b.iter(|| {
-        for i in 0..1_000 {
-            let index = (i % 100 as u64) * 736;
-            black_box(map.get(&index).unwrap());
-        }
+        let key: u32 = rng.gen::<u32>() % 30000000;
+        let load = db.get(&key.to_be_bytes()).unwrap();
+        black_box(load)
     });
+
+    ::std::fs::remove_dir_all("./__benchmark").unwrap();
 }
 
 #[bench]
-fn btreemap_tuple_100_read_fold(b: &mut Bencher) {
+fn db_read_large(b: &mut Bencher) {
     let mut rng = ::rand::thread_rng();
-    let mut map = BTreeMap::<(u64, u64, u64), u64>::new();
-    for i in 0..1000 {
-        map.insert((i * 736, i * 736 + 1, i * 736 + 2), rng.gen());
+    let db = open_col("./__benchmark", 0u32);
+
+    for i in 0..100000 {
+        let (key, value): (u32, [u64; 32]) = (i, rng.gen());
+        db.put(&key.to_be_bytes(), &unsafe {
+            std::mem::transmute::<[u64; 32], [u8; 256]>(value)
+        })
+        .unwrap();
     }
+
     b.iter(|| {
-        for i in 0..1_000 {
-            let index = i * 736;
-            black_box(map.get(&(index, index + 1, index + 2)).unwrap());
-        }
+        let key: u32 = rng.gen::<u32>() % 100000;
+        let load = db.get(&key.to_be_bytes()).unwrap();
+        black_box(load)
     });
+
+    ::std::fs::remove_dir_all("./__benchmark").unwrap();
 }
 
 #[bench]
-fn btreemap_1000_read_fold(b: &mut Bencher) {
+fn db_read_30m_large(b: &mut Bencher) {
     let mut rng = ::rand::thread_rng();
-    let mut map = BTreeMap::<u64, u64>::new();
-    for i in 0..1000 {
-        map.insert(i * 736, rng.gen());
+    let db = open_col("./__benchmark", 0u32);
+
+    for i in 0..30000000 {
+        let (key, value): (u32, [u64; 32]) = (i, rng.gen());
+        db.put(&key.to_be_bytes(), &unsafe {
+            std::mem::transmute::<[u64; 32], [u8; 256]>(value)
+        })
+        .unwrap();
     }
-    b.iter(|| {
-        for i in 0..1_000 {
-            let index = i * 736;
-            black_box(map.get(&index).unwrap());
-        }
-    });
-}
 
-#[bench]
-fn mem_swap_read_fold(b: &mut Bencher) {
-    type BigInt = FrInt<Pairing>;
-    let mut map1 = (vec![0u64], vec![3u64], BigInt::from(3));
-    let mut map2 = (vec![1u64], vec![0u64], BigInt::from(9));
     b.iter(|| {
-        for _ in 0..1_000 {
-            ::std::mem::swap(&mut map1, &mut map2);
-            black_box(map1.0[0]);
-        }
+        let key: u32 = rng.gen::<u32>() % 30000000;
+        let load = db.get(&key.to_be_bytes()).unwrap();
+        black_box(load)
     });
-}
 
-use algebra::BigInteger;
-use amt_db::crypto::paring_provider::{FrInt, Pairing};
-
-#[bench]
-fn muln_fold(b: &mut Bencher) {
-    type BigInt = FrInt<Pairing>;
-    let mut x = BigInt::from(1);
-    b.iter(|| {
-        for _ in 0..1_000 {
-            black_box(x.muln(5));
-        }
-    });
+    ::std::fs::remove_dir_all("./__benchmark").unwrap();
 }

@@ -116,12 +116,14 @@ dependencies = [
  "base64 0.13.0",
  "bencher",
  "cfx-storage",
+ "cfx-types",
  "db",
  "error-chain",
  "ff-fft",
  "lazy_static",
  "rand 0.7.3",
  "static_assertions 0.1.1",
+ "typenum",
 ]
 
 [[package]]

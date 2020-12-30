@@ -1,6 +1,7 @@
 use crate::amt::NodeIndex;
 use std::fmt::Debug;
 use std::hash::Hash;
+use typenum::Unsigned;
 
 pub trait LayoutTrait<I: Copy + Clone + Debug + Eq + Hash> {
     fn position(index: &I) -> usize;
