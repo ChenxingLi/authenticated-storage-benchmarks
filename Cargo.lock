@@ -123,7 +123,6 @@ dependencies = [
  "lazy_static",
  "rand 0.7.3",
  "static_assertions 0.1.1",
- "typenum",
 ]
 
 [[package]]

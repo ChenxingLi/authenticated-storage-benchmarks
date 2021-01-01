@@ -1,55 +1,57 @@
-use algebra_core::{CanonicalDeserialize, CanonicalSerialize};
+use algebra_core::{FromBytes, ToBytes};
 
-pub trait StoreByCanonicalSerialize {}
+pub trait StoreByBytes {}
+pub trait StoreTupleByBytes {}
 
 pub trait StorageEncodable {
     fn storage_encode(&self) -> Vec<u8>;
 }
 
 pub trait StorageDecodable {
-    fn storage_decode(_: &[u8]) -> Self;
+    fn storage_decode(data: &[u8]) -> Self;
 }
 
-impl<T: CanonicalSerialize + StoreByCanonicalSerialize> StorageEncodable for T {
+impl<T: ToBytes> StorageEncodable for T
+where
+    T: StoreByBytes,
+{
     fn storage_encode(&self) -> Vec<u8> {
-        let mut serialized = vec![0; self.serialized_size()];
-        self.serialize_unchecked(&mut serialized[..]).unwrap();
+        let mut serialized = Vec::with_capacity(1024);
+        self.write(&mut serialized)
+            .expect("Write to Vec<u8> should always return Ok(..)");
+        serialized.shrink_to_fit();
         serialized
     }
 }
 
-impl<T: CanonicalDeserialize + StoreByCanonicalSerialize> StorageDecodable for T {
-    fn storage_decode(data: &[u8]) -> Self {
-        Self::deserialize_unchecked(data).unwrap()
+impl<T: FromBytes> StorageDecodable for T
+where
+    T: StoreByBytes,
+{
+    fn storage_decode(mut data: &[u8]) -> Self {
+        FromBytes::read(&mut data).unwrap()
     }
 }
 
-impl StorageEncodable for Vec<u8> {
-    fn storage_encode(&self) -> Vec<u8> {
-        self.clone()
-    }
+macro_rules! impl_storage_for_tuple {
+    ($( ($idx:tt => $name:ident) ),* ) => {
+        impl<$($name:ToBytes),*> StorageEncodable for ($($name),* ) where ($($name),* ): StoreTupleByBytes{
+            fn storage_encode(&self) -> Vec<u8> {
+                let mut serialized = Vec::with_capacity(1024);
+                $(self.$idx.write(&mut serialized)
+                    .expect("Write to Vec<u8> should always return Ok(..)");)*
+                serialized.shrink_to_fit();
+                serialized
+            }
+        }
+
+        impl<$($name:FromBytes),*> StorageDecodable for ($($name),*) where ($($name),* ): StoreTupleByBytes{
+            fn storage_decode(mut data: &[u8]) -> Self {
+                ($($name::read(&mut data).unwrap()),*)
+            }
+        }
+    };
 }
 
-impl StorageDecodable for Vec<u8> {
-    fn storage_decode(data: &[u8]) -> Self {
-        data.to_vec()
-    }
-}
-
-// mod error {
-//     error_chain! {
-//         links {
-//         }
-//
-//         foreign_links {
-//         }
-//
-//         errors {
-//             InvalidLength() {
-//                 description("Invalid length in decoding.")
-//                 display("Invalid length in decoding.")
-//             }
-//         }
-//     }
-// }
-// pub use error::{Error, Result};
+impl_storage_for_tuple!((0=>A),(1=>B));
+impl_storage_for_tuple!((0=>A),(1=>B),(2=>C));

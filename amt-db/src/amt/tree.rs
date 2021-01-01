@@ -1,13 +1,12 @@
 use super::node::{AMTNode, NodeIndex};
+use super::write_guard::AMTNodeWriteGuard;
 use crate::crypto::{
     paring_provider::{Fr, FrInt, G1},
-    AMTParams,
+    AMTParams, TypeUInt,
 };
 use crate::storage::{DBAccess, KvdbRocksdb, LayoutTrait, StorageDecodable, StorageEncodable};
-use algebra::{BigInteger, Field, PairingEngine, PrimeField, ProjectiveCurve, Zero};
-use std::ops::{Deref, DerefMut};
+use algebra::{Field, PairingEngine, PrimeField, ProjectiveCurve, Zero};
 use std::sync::Arc;
-use typenum::Unsigned;
 
 pub trait AMTConfigTrait {
     type PE: PairingEngine;
@@ -15,9 +14,10 @@ pub trait AMTConfigTrait {
     type Data: AMTData<Fr<Self::PE>> + Default + Clone + StorageEncodable + StorageDecodable;
 
     type DataLayout: LayoutTrait<usize>;
-    type TreeLayout: LayoutTrait<NodeIndex>;
+    type TreeLayout: LayoutTrait<NodeIndex<Self::Height>>;
+    type Height: TypeUInt;
 
-    const DEPTHS: usize;
+    const DEPTHS: usize = Self::Height::USIZE;
     const LENGTH: usize = 1 << Self::DEPTHS;
     const IDX_MASK: usize = Self::LENGTH - 1;
 }
@@ -34,13 +34,13 @@ pub struct AMTree<C: AMTConfigTrait> {
     db: KvdbRocksdb,
     name: C::Name,
     data: DBAccess<usize, C::Data, C::DataLayout>,
-    inner_nodes: DBAccess<NodeIndex, AMTNode<C::PE>, C::TreeLayout>,
+    inner_nodes: DBAccess<NodeIndex<C::Height>, AMTNode<G1<C::PE>>, C::TreeLayout>,
     pp: Arc<AMTParams<C::PE>>,
 
     dirty: bool,
 }
 
-pub type AMTProof<PE> = Vec<AMTNode<PE>>;
+pub type AMTProof<G> = Vec<AMTNode<G>>;
 
 impl<C: AMTConfigTrait> AMTree<C> {
     pub fn new(name: C::Name, db: KvdbRocksdb, pp: Arc<AMTParams<C::PE>>) -> Self {
@@ -64,7 +64,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
         self.data.get(&index)
     }
 
-    fn get_mut(&mut self, index: usize) -> &mut C::Data {
+    pub(super) fn get_mut(&mut self, index: usize) -> &mut C::Data {
         assert!(index < C::LENGTH);
         self.data.get_mut(&index)
     }
@@ -75,17 +75,11 @@ impl<C: AMTConfigTrait> AMTree<C> {
 
     pub fn write(&mut self, index: usize) -> AMTNodeWriteGuard<C> {
         let value = std::mem::take(self.data.get_mut(&index));
-        let old_fr_int = value.as_fr_int();
-        AMTNodeWriteGuard {
-            index,
-            value,
-            old_fr_int,
-            tree: self,
-        }
+        AMTNodeWriteGuard::new(index, value, self)
     }
 
     pub fn commitment(&mut self) -> &G1<C::PE> {
-        return &self.inner_nodes.get(&NodeIndex::root(C::DEPTHS)).commitment;
+        &self.inner_nodes.get(&NodeIndex::root()).commitment
     }
 
     pub fn flush(&mut self) {
@@ -107,25 +101,23 @@ impl<C: AMTConfigTrait> AMTree<C> {
         let inc_comm = self.pp.get_idents(index).mul(update_fr);
 
         // Update proof
-        self.inner_nodes
-            .get_mut(&NodeIndex::root(C::DEPTHS))
-            .commitment += &inc_comm;
+        self.inner_nodes.get_mut(&NodeIndex::root()).commitment += &inc_comm;
 
         let leaf_index = bitreverse(index, C::DEPTHS);
-        let node_index = NodeIndex::new(C::DEPTHS, leaf_index, C::DEPTHS);
+        let node_index = NodeIndex::new(C::DEPTHS, leaf_index);
 
         for (height, depth) in (0..C::DEPTHS).map(|height| (height, C::DEPTHS - height)) {
             let visit_node_index = node_index.to_ancestor(height);
             let proof = self.pp.get_quotient(depth, index).mul(update_fr);
-            self.inner_nodes
-                .get_mut(&visit_node_index)
-                .inc(&inc_comm, &proof);
+            let node = self.inner_nodes.get_mut(&visit_node_index);
+            node.commitment += &inc_comm;
+            node.proof += &proof;
         }
     }
 
-    pub fn prove(&mut self, index: usize) -> AMTProof<C::PE> {
+    pub fn prove(&mut self, index: usize) -> AMTProof<G1<C::PE>> {
         let leaf_index = bitreverse(index, C::DEPTHS);
-        let node_index = NodeIndex::new(C::DEPTHS, leaf_index, C::DEPTHS);
+        let node_index = NodeIndex::new(C::DEPTHS, leaf_index);
 
         let mut answers = vec![Default::default(); C::DEPTHS];
 
@@ -142,7 +134,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
         index: usize,
         value: Fr<C::PE>,
         commitment: &G1<C::PE>,
-        proof: AMTProof<C::PE>,
+        proof: AMTProof<G1<C::PE>>,
         pp: &AMTParams<C::PE>,
     ) -> bool {
         assert!(index < C::LENGTH);
@@ -175,36 +167,6 @@ impl<C: AMTConfigTrait> AMTree<C> {
             }
         }
         return true;
-    }
-}
-
-pub struct AMTNodeWriteGuard<'a, C: AMTConfigTrait> {
-    index: usize,
-    value: C::Data,
-    old_fr_int: FrInt<C::PE>,
-    tree: &'a mut AMTree<C>,
-}
-
-impl<'a, C: AMTConfigTrait> Deref for AMTNodeWriteGuard<'a, C> {
-    type Target = C::Data;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-impl<'a, C: AMTConfigTrait> DerefMut for AMTNodeWriteGuard<'a, C> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.value
-    }
-}
-
-impl<'a, C: AMTConfigTrait> Drop for AMTNodeWriteGuard<'a, C> {
-    fn drop(&mut self) {
-        let mut fr_int = self.value.as_fr_int();
-        fr_int.sub_noborrow(&self.old_fr_int);
-        std::mem::swap(self.tree.get_mut(self.index), &mut self.value);
-        self.tree.update(self.index, fr_int);
     }
 }
 

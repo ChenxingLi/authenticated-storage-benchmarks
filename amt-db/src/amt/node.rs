@@ -1,23 +1,17 @@
-use crate::crypto::{
-    paring_provider::{G1Aff, G1},
-    serialize_length,
-};
-use crate::storage::{StorageDecodable, StorageEncodable, StoreByCanonicalSerialize};
-use algebra::{
-    BigInteger, CanonicalDeserialize, CanonicalSerialize, FromBytes, PairingEngine, PrimeField,
-    SerializationError, ToBytes,
-};
-use std::io::{Read, Write};
+use crate::crypto::{serialize_length, TypeUInt};
+use crate::storage::{StorageDecodable, StorageEncodable};
+use algebra::{FromBytes, ProjectiveCurve};
+use std::marker::PhantomData;
 
-#[derive(Clone, Copy)]
-pub struct AMTNode<PE: PairingEngine> {
-    pub commitment: G1<PE>,
-    pub proof: G1<PE>,
+#[derive(Clone, Copy, Default)]
+pub struct AMTNode<G: ProjectiveCurve> {
+    pub commitment: G,
+    pub proof: G,
 }
 
-impl<PE: PairingEngine> StorageEncodable for AMTNode<PE> {
+impl<G: ProjectiveCurve> StorageEncodable for AMTNode<G> {
     fn storage_encode(&self) -> Vec<u8> {
-        let mut answer = Vec::with_capacity(2 * serialize_length::<G1<PE>>());
+        let mut answer = Vec::with_capacity(2 * serialize_length::<G>());
         self.commitment.write(&mut answer).unwrap();
         self.proof.write(&mut answer).unwrap();
 
@@ -25,7 +19,7 @@ impl<PE: PairingEngine> StorageEncodable for AMTNode<PE> {
     }
 }
 
-impl<PE: PairingEngine> StorageDecodable for AMTNode<PE> {
+impl<G: ProjectiveCurve> StorageDecodable for AMTNode<G> {
     fn storage_decode(mut data: &[u8]) -> Self {
         Self {
             commitment: FromBytes::read(&mut data).unwrap(),
@@ -34,54 +28,38 @@ impl<PE: PairingEngine> StorageDecodable for AMTNode<PE> {
     }
 }
 
-impl<PE: PairingEngine> Default for AMTNode<PE> {
-    fn default() -> Self {
-        Self {
-            commitment: G1::<PE>::default(),
-            proof: G1::<PE>::default(),
-        }
-    }
-}
-
-impl<PE: PairingEngine> AMTNode<PE> {
-    pub fn inc(&mut self, commitment: &G1<PE>, proof: &G1<PE>) {
-        self.commitment += commitment;
-        self.proof += proof;
-    }
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct NodeIndex {
+pub struct NodeIndex<N: TypeUInt> {
     depth: usize,
     index: usize,
-    total_depth: usize, // TODO: waiting for min-const-generic stabilized.
+    _phantom: PhantomData<N>,
 }
 
-impl NodeIndex {
+impl<N: TypeUInt> NodeIndex<N> {
     #[inline]
-    pub(crate) fn new(depth: usize, index: usize, total_depth: usize) -> Self {
+    pub(crate) fn new(depth: usize, index: usize) -> Self {
         assert!(index < (1 << depth));
-        assert!(depth <= total_depth);
+        assert!(depth <= N::USIZE);
         Self {
             depth,
             index,
-            total_depth,
+            _phantom: PhantomData,
         }
     }
 
-    pub fn root(total_depth: usize) -> Self {
-        NodeIndex::new(0, 0, total_depth)
+    pub fn root() -> Self {
+        NodeIndex::new(0, 0)
     }
 
     #[inline]
     pub fn to_sibling(&self) -> Self {
-        NodeIndex::new(self.depth, self.index ^ 1, self.total_depth)
+        NodeIndex::new(self.depth, self.index ^ 1)
     }
 
     #[inline]
     pub fn to_ancestor(&self, height: usize) -> Self {
         assert!(height <= self.depth);
-        NodeIndex::new(self.depth - height, self.index >> height, self.total_depth)
+        NodeIndex::new(self.depth - height, self.index >> height)
     }
 
     #[inline]
@@ -96,6 +74,6 @@ impl NodeIndex {
 
     #[inline]
     pub fn total_depth(&self) -> usize {
-        self.total_depth
+        N::USIZE
     }
 }

@@ -1,8 +1,45 @@
 use super::{key::Key, DEPTHS};
-use crate::storage::{StorageDecodable, StorageEncodable};
+use crate::storage::StoreByBytes;
+use algebra::{FromBytes, ToBytes};
+use std::io::{Error, ErrorKind, Read, Result, Write};
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct TreeName(pub(super) usize, pub(super) u128);
+
+impl StoreByBytes for TreeName {}
+
+impl FromBytes for TreeName {
+    fn read<R: Read>(mut reader: R) -> Result<Self> {
+        let level = u8::read(&mut reader)? as usize;
+        let length = u8::read(&mut reader)? as usize;
+
+        if length > 16 {
+            let err = Error::new(ErrorKind::InvalidData, "The index length can not exceed 16");
+            return Err(err);
+        }
+
+        let mut index_bytes = [0u8; 16];
+        reader.read_exact(&mut index_bytes[(16 - length)..])?;
+
+        let index = u128::from_be_bytes(index_bytes);
+
+        Ok(TreeName(level, index))
+    }
+}
+
+impl ToBytes for TreeName {
+    fn write<W: Write>(&self, mut writer: W) -> Result<()> {
+        let TreeName(level, index) = self;
+        let truncates = (index.leading_zeros() / 8) as usize;
+        let vec_index = &index.to_be_bytes()[truncates..];
+
+        (*level as u8).write(&mut writer)?;
+        ((16 - truncates) as u8).write(&mut writer)?;
+        vec_index.write(writer)?;
+
+        Ok(())
+    }
+}
 
 impl TreeName {
     pub const fn root() -> Self {
@@ -23,46 +60,15 @@ impl TreeName {
     }
 }
 
-impl StorageEncodable for TreeName {
-    fn storage_encode(&self) -> Vec<u8> {
-        let TreeName(level, index) = self.clone();
-        if level == 0 {
-            return vec![0u8];
-        }
-
-        let truncates = (index.leading_zeros() / 8) as usize;
-        let mut index_bytes: [u8; 16] = index.to_be_bytes();
-        return if truncates > 0 {
-            index_bytes[truncates - 1] = level as u8;
-            index_bytes[(truncates - 1)..].to_vec()
-        } else {
-            let mut answer = vec![level as u8];
-            answer.extend_from_slice(&index_bytes);
-            answer
-        };
-    }
-}
-
-impl StorageDecodable for TreeName {
-    fn storage_decode(data: &[u8]) -> Self {
-        let level = data[0] as usize;
-
-        let index_length = data[1..].len();
-        let mut index_bytes = [0u8; 16];
-        index_bytes[(16 - index_length)..].copy_from_slice(&data[1..]);
-        let index = u128::from_be_bytes(index_bytes);
-
-        TreeName(level, index)
-    }
-}
-
 #[test]
 fn test_tree_name_string() {
-    assert_eq!(TreeName(0, 0).storage_encode(), [0u8]);
-    assert_eq!(TreeName(0, 0), TreeName::storage_decode(&[0u8]));
+    use crate::storage::{StorageDecodable, StorageEncodable};
 
-    assert_eq!(TreeName(1, 0).storage_encode(), [1u8]);
-    assert_eq!(TreeName(1, 0), TreeName::storage_decode(&[1u8]));
+    assert_eq!(TreeName(0, 0).storage_encode(), [0u8, 0u8]);
+    assert_eq!(TreeName(0, 0), TreeName::storage_decode(&[0u8, 0u8]));
+
+    assert_eq!(TreeName(1, 0).storage_encode(), [1u8, 0u8]);
+    assert_eq!(TreeName(1, 0), TreeName::storage_decode(&[1u8, 0u8]));
 
     // assert_eq!(TreeName(0, 0).to_bytes(SMALL_DEPTHS), [0u8]);
     //

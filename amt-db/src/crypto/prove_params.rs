@@ -96,10 +96,11 @@ impl<PE: PairingEngine> AMTParams<PE> {
 
 #[test]
 fn test_ident_prove() {
-    const TEST_LEVEL: usize = DEPTHS;
+    const TEST_LEVEL: usize = 6;
     const TEST_LENGTH: usize = 1 << TEST_LEVEL;
 
-    let (g1pp, g2pp) = PP::<Pairing>::from_file_or_new("dat/pp_test.bin", DEPTHS).into_projective();
+    let (g1pp, g2pp) =
+        PP::<Pairing>::from_file_or_new("dat/pp_test.bin", TEST_LEVEL).into_projective();
 
     let w = Fr::<Pairing>::get_root_of_unity(TEST_LENGTH).unwrap();
     let w_inv = w.inverse().unwrap();
@@ -126,6 +127,6 @@ fn test_ident_prove() {
     }
 }
 #[cfg(test)]
-use super::{paring_provider::Pairing, utils::DEPTHS};
+use super::paring_provider::Pairing;
 #[cfg(test)]
 use algebra::{One, ProjectiveCurve};

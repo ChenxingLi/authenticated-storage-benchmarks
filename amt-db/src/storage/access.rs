@@ -80,41 +80,52 @@ impl<
     }
 }
 
-#[test]
-fn test_backend() {
-    type NodeIndex = crate::amt::NodeIndex;
-    type FlattenTree = super::FlattenTree;
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::crypto::TypeUInt;
+    use crate::type_uint;
 
-    const DEPTHS: usize = crate::crypto::DEPTHS;
-    const TMP_RATIO: usize = 719323;
-
-    let db = super::open_col("./__backend_tree", 0u32);
-    let mut tree =
-        DBAccess::<NodeIndex, u64, FlattenTree>::new("test".to_string().into_bytes(), db);
-
-    for depth in 0..DEPTHS {
-        for index in 0..(1 << depth) {
-            let node_index = &NodeIndex::new(depth, index, DEPTHS);
-            *tree.get_mut(node_index) = (TMP_RATIO * depth) as u64;
-            *tree.get_mut(node_index) += index as u64;
-        }
+    type_uint! {
+        struct TestDepths(6);
     }
 
-    tree.flush();
+    #[test]
+    fn test_backend() {
+        type NodeIndex = crate::amt::NodeIndex<TestDepths>;
+        type FlattenTree = super::super::FlattenTree;
 
-    for depth in 0..DEPTHS {
-        for index in 0..(1 << depth) {
-            let node_index = &NodeIndex::new(depth, index, DEPTHS);
-            assert_eq!(
-                (TMP_RATIO * depth + index) as u64,
-                *tree.get_mut(node_index)
-            )
+        const DEPTHS: usize = TestDepths::USIZE;
+        const TMP_RATIO: usize = 719323;
+
+        let db = super::super::open_col("./__backend_tree", 0u32);
+        let mut tree =
+            DBAccess::<NodeIndex, u64, FlattenTree>::new("test".to_string().into_bytes(), db);
+
+        for depth in 0..DEPTHS {
+            for index in 0..(1 << depth) {
+                let node_index = &NodeIndex::new(depth, index);
+                *tree.get_mut(node_index) = (TMP_RATIO * depth) as u64;
+                *tree.get_mut(node_index) += index as u64;
+            }
         }
+
+        tree.flush();
+
+        for depth in 0..DEPTHS {
+            for index in 0..(1 << depth) {
+                let node_index = &NodeIndex::new(depth, index);
+                assert_eq!(
+                    (TMP_RATIO * depth + index) as u64,
+                    *tree.get_mut(node_index)
+                )
+            }
+        }
+
+        drop(tree);
+
+        std::fs::remove_dir_all("./__backend_tree").unwrap();
     }
-
-    drop(tree);
-
-    std::fs::remove_dir_all("./__backend_tree").unwrap();
 }
 
 mod error {

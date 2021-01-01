@@ -1,19 +1,40 @@
 use std::any::Any;
 use std::collections::hash_map::DefaultHasher;
+use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
-pub trait TypeUInt {
+pub trait TypeUInt: Copy + Eq + Hash + Debug + Sized {
     const USIZE: usize;
 }
 
-pub struct TypeDepths;
-impl TypeUInt for TypeDepths {
-    const USIZE: usize = DEPTHS;
+const DEPTHS: usize = 6;
+//
+// #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+// pub struct TypeDepths;
+//
+// impl TypeUInt for TypeDepths {
+//     const USIZE: usize = DEPTHS;
+// }
+#[macro_export]
+macro_rules! type_uint {
+    ( $(#[$attr:meta])* $visibility:vis struct $name:ident ($num:tt); ) => {
+        $(#[$attr])*
+		#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+		$visibility struct $name;
+
+		impl TypeUInt for $name {
+            const USIZE: usize = $num;
+        }
+    };
 }
 
-pub const DEPTHS: usize = 6;
-pub const LENGTH: usize = 1 << DEPTHS;
-pub const IDX_MASK: usize = LENGTH - 1;
+type_uint! {
+    pub struct TypeDepths(DEPTHS);
+}
+
+// pub const DEPTHS: usize = 6;
+// pub const LENGTH: usize = 1 << DEPTHS;
+// pub const IDX_MASK: usize = LENGTH - 1;
 
 pub const ALLOW_RECOMPUTE: bool = true;
 

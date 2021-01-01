@@ -1,7 +1,7 @@
 use super::Key;
 use crate::amt::AMTData;
 use crate::crypto::paring_provider::{Fr as FrGeneric, FrInt as FrIntGeneric, Pairing};
-use crate::storage::StoreByCanonicalSerialize;
+use crate::storage::{StorageDecodable, StorageEncodable};
 use algebra::{
     CanonicalDeserialize, CanonicalSerialize, FpParameters, PrimeField, Read, SerializationError,
     Write,
@@ -25,7 +25,19 @@ pub struct Node {
     pub(super) tree_version: u64,
 }
 
-impl StoreByCanonicalSerialize for Node {}
+impl StorageEncodable for Node {
+    fn storage_encode(&self) -> Vec<u8> {
+        let mut serialized = Vec::with_capacity(self.serialized_size());
+        self.serialize_unchecked(&mut serialized).unwrap();
+        serialized
+    }
+}
+
+impl StorageDecodable for Node {
+    fn storage_decode(data: &[u8]) -> Self {
+        Self::deserialize_unchecked(data).unwrap()
+    }
+}
 
 impl AMTData<Fr> for Node {
     #[cfg(target_endian = "little")]
@@ -33,7 +45,7 @@ impl AMTData<Fr> for Node {
         assert!(self.key_versions.len() <= 5);
         let mut result = [0u8; 32];
 
-        let mut start = 5usize;
+        let mut start: usize = 5;
         for (_, ver) in self.key_versions.iter() {
             result[start..(start + 5)].copy_from_slice(&ver.to_le_bytes()[0..5]);
             start += 5;

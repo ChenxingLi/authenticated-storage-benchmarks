@@ -1,11 +1,10 @@
 use super::tree::{AMTConfigTrait, AMTData, AMTree};
 use crate::crypto::{
     paring_provider::{Fr, Pairing},
-    AMTParams, DEPTHS, LENGTH, PP,
+    AMTParams, TypeUInt, PP,
 };
-use crate::storage::{
-    FlattenArray, FlattenTree, StorageDecodable, StorageEncodable, StoreByCanonicalSerialize,
-};
+use crate::storage::{FlattenArray, FlattenTree, StorageDecodable, StorageEncodable, StoreByBytes};
+use crate::type_uint;
 use algebra::bls12_381;
 use algebra::{One, PairingEngine, PrimeField, Zero};
 use std::{marker::PhantomData, sync::Arc};
@@ -14,7 +13,6 @@ impl<P: PrimeField> AMTData<P> for P {
     fn as_fr_int(&self) -> P::BigInt {
         self.clone().into()
     }
-
     fn as_fr(&self) -> P {
         self.clone()
     }
@@ -24,17 +22,22 @@ struct TestConfig<PE: PairingEngine> {
     _phantom: PhantomData<PE>,
 }
 
+type_uint! {
+    struct TestDepths(6);
+}
+
+impl StoreByBytes for [u8; 4] {}
+
 impl<PE: PairingEngine> AMTConfigTrait for TestConfig<PE>
 where
     Fr<PE>: StorageDecodable + StorageEncodable,
 {
     type PE = PE;
-    type Name = Vec<u8>;
+    type Name = [u8; 4];
     type Data = Fr<PE>;
     type DataLayout = FlattenArray;
     type TreeLayout = FlattenTree;
-
-    const DEPTHS: usize = DEPTHS;
+    type Height = TestDepths;
 }
 
 type TestTree<PE> = AMTree<TestConfig<PE>>;
@@ -69,18 +72,19 @@ impl StorageDecodable for bls12_381::Fr {
     }
 }
 
-impl StoreByCanonicalSerialize for u64 {}
+impl StoreByBytes for u64 {}
 
 #[test]
 fn test_amt() {
     let db = crate::storage::open_col("./__test_amt", 0);
 
     const DEPTHS: usize = TestConfig::<Pairing>::DEPTHS;
+    const LENGTH: usize = 1 << DEPTHS;
 
     let pp = PP::<Pairing>::from_file_or_new("./pp", DEPTHS);
     let pp = Arc::new(AMTParams::<Pairing>::from_pp(pp, DEPTHS));
 
-    let mut amt = TestTree::<Pairing>::new(b"test".to_vec(), db, pp.clone());
+    let mut amt = TestTree::<Pairing>::new(b"test".clone(), db, pp.clone());
 
     test_all(&mut amt, &pp, "Empty");
 

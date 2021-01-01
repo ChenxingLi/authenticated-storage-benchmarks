@@ -1,5 +1,6 @@
 pub mod node;
 pub mod tree;
+pub mod write_guard;
 
 #[cfg(test)]
 mod test;

@@ -1,7 +1,6 @@
 use crate::crypto::{AMTParams, Pairing};
 use crate::storage::{
-    KeyValueDbTrait, KeyValueDbTraitRead, StorageDecodable, StorageEncodable,
-    StoreByCanonicalSerialize,
+    KeyValueDbTrait, KeyValueDbTraitRead, StorageDecodable, StorageEncodable, StoreTupleByBytes,
 };
 use crate::ver_tree::{Key, VerForest};
 use cfx_storage::KvdbRocksdb;
@@ -25,8 +24,8 @@ struct SimpleDb {
     dirty_guard: bool,
 }
 
-impl StoreByCanonicalSerialize for (u64, u64) {}
-impl StoreByCanonicalSerialize for (u64, usize) {}
+impl StoreTupleByBytes for (u64, u64) {}
+// impl StoreTupleByBytes for (u64, usize) {}
 
 impl SimpleDb {
     fn new(database: Arc<SystemDB>, pp: Arc<AMTParams<Pairing>>) -> Self {
@@ -85,6 +84,7 @@ impl SimpleDb {
 
     fn commit(&mut self, epoch: u64) {
         for (position, (key, value)) in self.uncommitted_key_values.drain(..).enumerate() {
+            let position = position as u64;
             let _version = self.version_tree.inc_key(&key);
             self.db_kv_changes
                 .put(&(epoch, position).storage_encode(), &value)
@@ -100,6 +100,7 @@ impl SimpleDb {
         for (position, (tree, commitment, _version)) in
             updated_tree_commitment.drain(..).enumerate()
         {
+            let position = position as u64;
             self.db_tree_changes
                 .put(
                     &(epoch, position).storage_encode(),
