@@ -1,6 +1,7 @@
 use crate::crypto::{serialize_length, TypeUInt};
-use crate::storage::{StorageDecodable, StorageEncodable};
+use crate::storage::{Result, StorageDecodable, StorageEncodable};
 use algebra::{FromBytes, ProjectiveCurve};
+
 use std::marker::PhantomData;
 
 #[derive(Clone, Copy, Default)]
@@ -12,19 +13,23 @@ pub struct AMTNode<G: ProjectiveCurve> {
 impl<G: ProjectiveCurve> StorageEncodable for AMTNode<G> {
     fn storage_encode(&self) -> Vec<u8> {
         let mut answer = Vec::with_capacity(2 * serialize_length::<G>());
-        self.commitment.write(&mut answer).unwrap();
-        self.proof.write(&mut answer).unwrap();
+        self.commitment
+            .write(&mut answer)
+            .expect("Write to Vec<u8> should always success");
+        self.proof
+            .write(&mut answer)
+            .expect("Write to Vec<u8> should always success");
 
         answer
     }
 }
 
 impl<G: ProjectiveCurve> StorageDecodable for AMTNode<G> {
-    fn storage_decode(mut data: &[u8]) -> Self {
-        Self {
-            commitment: FromBytes::read(&mut data).unwrap(),
-            proof: FromBytes::read(&mut data).unwrap(),
-        }
+    fn storage_decode(mut data: &[u8]) -> Result<Self> {
+        Ok(Self {
+            commitment: FromBytes::read(&mut data)?,
+            proof: FromBytes::read(&mut data)?,
+        })
     }
 }
 

@@ -7,14 +7,8 @@ pub trait TypeUInt: Copy + Eq + Hash + Debug + Sized {
     const USIZE: usize;
 }
 
-const DEPTHS: usize = 6;
-//
-// #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-// pub struct TypeDepths;
-//
-// impl TypeUInt for TypeDepths {
-//     const USIZE: usize = DEPTHS;
-// }
+const DEPTHS: usize = 8;
+
 #[macro_export]
 macro_rules! type_uint {
     ( $(#[$attr:meta])* $visibility:vis struct $name:ident ($num:tt); ) => {
@@ -31,10 +25,6 @@ macro_rules! type_uint {
 type_uint! {
     pub struct TypeDepths(DEPTHS);
 }
-
-// pub const DEPTHS: usize = 6;
-// pub const LENGTH: usize = 1 << DEPTHS;
-// pub const IDX_MASK: usize = LENGTH - 1;
 
 pub const ALLOW_RECOMPUTE: bool = true;
 
@@ -61,7 +51,6 @@ pub fn serialize_length<G: ProjectiveCurve>() -> usize {
 #[test]
 fn test_serialize_length() {
     use algebra::bls12_381::G1Projective as G1;
-    use algebra::One;
     use algebra::ToBytes;
 
     let sample: G1 = G1::prime_subgroup_generator();

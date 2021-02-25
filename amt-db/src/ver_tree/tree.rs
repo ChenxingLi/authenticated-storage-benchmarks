@@ -1,4 +1,4 @@
-use super::{Commitment, Key, Node, Tree, TreeName, DEPTHS, IDX_MASK, MAX_VERSION_NUMBER};
+use super::{Commitment, Key, Node, Tree, TreeName, IDX_MASK, MAX_VERSION_NUMBER};
 use crate::{
     crypto::{paring_provider::Pairing, AMTParams},
     storage::KvdbRocksdb,
@@ -92,7 +92,13 @@ impl VerForest {
         let mut level = 0;
         let mut visit_amt = self.tree_manager.get_mut_or_load(TreeName::root());
         loop {
+            let tree_index = key.tree_at_level(level);
             let node_index = key.index_at_level(level) as usize;
+            println!(
+                "Access key {:?} at level {}, tree_index {}, node_index {}",
+                key.0, level, tree_index, node_index
+            );
+
             let mut node_guard = visit_amt.write(node_index);
             for (node_key, ver) in &mut node_guard.key_versions {
                 if *key == *node_key {
@@ -127,9 +133,9 @@ impl VerForest {
             for (&index, tree) in level_trees.iter_mut().filter(|(_index, tree)| tree.dirty()) {
                 tree.flush();
 
-                let parent_index = index >> DEPTHS;
+                let TreeName(parent_level, parent_index) = TreeName(level, index).parent().unwrap();
                 let default_tree =
-                    || Tree::new(TreeName(level - 1, parent_index), db.clone(), pp.clone());
+                    || Tree::new(TreeName(parent_level, parent_index), db.clone(), pp.clone());
                 let mut parent_node_guard = parent_level_trees
                     .entry(parent_index)
                     .or_insert_with(default_tree)

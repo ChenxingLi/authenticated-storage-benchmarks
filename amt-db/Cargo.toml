@@ -13,6 +13,7 @@ algebra =  { git = "https://github.com/scipr-lab/zexe.git", default-features = f
 cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4e"}
 db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4e"}
 cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4e"}
+keccak-hash = "0.5.1"
 lazy_static = "1.4"
 rand = "0.7"
 bencher = "0.1.5"

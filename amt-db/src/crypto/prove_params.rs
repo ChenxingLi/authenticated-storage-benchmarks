@@ -99,8 +99,7 @@ fn test_ident_prove() {
     const TEST_LEVEL: usize = 6;
     const TEST_LENGTH: usize = 1 << TEST_LEVEL;
 
-    let (g1pp, g2pp) =
-        PP::<Pairing>::from_file_or_new("dat/pp_test.bin", TEST_LEVEL).into_projective();
+    let (g1pp, g2pp) = PP::<Pairing>::from_file_or_new("./pp", TEST_LEVEL).into_projective();
 
     let w = Fr::<Pairing>::get_root_of_unity(TEST_LENGTH).unwrap();
     let w_inv = w.inverse().unwrap();

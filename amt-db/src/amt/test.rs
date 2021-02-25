@@ -3,7 +3,9 @@ use crate::crypto::{
     paring_provider::{Fr, Pairing},
     AMTParams, TypeUInt, PP,
 };
-use crate::storage::{FlattenArray, FlattenTree, StorageDecodable, StorageEncodable, StoreByBytes};
+use crate::storage::{
+    FlattenArray, FlattenTree, Result, StorageDecodable, StorageEncodable, StoreByBytes,
+};
 use crate::type_uint;
 use algebra::bls12_381;
 use algebra::{One, PairingEngine, PrimeField, Zero};
@@ -67,7 +69,7 @@ impl StorageEncodable for bls12_381::Fr {
 }
 
 impl StorageDecodable for bls12_381::Fr {
-    fn storage_decode(_: &[u8]) -> Self {
+    fn storage_decode(_: &[u8]) -> Result<Self> {
         unimplemented!()
     }
 }

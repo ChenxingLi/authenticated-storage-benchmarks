@@ -7,7 +7,6 @@ use cfx_storage::{
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
-pub use error::Result;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -64,7 +63,7 @@ impl<
             let db_key = Self::compute_key(&name, node_index);
 
             let value = match db.get(&db_key).unwrap() {
-                Some(x) => V::storage_decode(&*x),
+                Some(x) => V::storage_decode(&*x).unwrap(),
                 None => V::default(),
             };
             (value, false)
@@ -125,18 +124,5 @@ mod test {
         drop(tree);
 
         std::fs::remove_dir_all("./__backend_tree").unwrap();
-    }
-}
-
-mod error {
-    use error_chain;
-    error_chain! {
-        links {
-            RocksDB(cfx_storage::Error, cfx_storage::ErrorKind);
-        }
-
-        foreign_links {
-            Serialize(algebra_core::serialize::SerializationError);
-        }
     }
 }

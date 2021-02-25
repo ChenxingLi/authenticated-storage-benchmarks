@@ -10,6 +10,7 @@ extern crate base64;
 
 pub mod amt;
 pub mod crypto;
+pub mod merkle;
 mod simple_db;
 pub mod storage;
 pub mod ver_tree;

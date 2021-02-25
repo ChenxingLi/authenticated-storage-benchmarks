@@ -1,31 +1,41 @@
 use crate::crypto::{AMTParams, Pairing};
+use crate::merkle::StaticMerkleTree;
 use crate::storage::{
-    KeyValueDbTrait, KeyValueDbTraitRead, StorageDecodable, StorageEncodable, StoreTupleByBytes,
+    KeyValueDbTrait, KeyValueDbTraitRead, KvdbRocksdb, StorageDecodable, StorageEncodable,
+    StoreByBytes, StoreTupleByBytes, SystemDB,
 };
-use crate::ver_tree::{Key, VerForest};
-use cfx_storage::KvdbRocksdb;
-use db::SystemDB;
+use crate::ver_tree::{Commitment, Key, TreeName, VerForest};
+use algebra::bls12_381::G1Projective;
+use keccak_hash::keccak;
 use std::sync::Arc;
 
 const COL_VER_TREE: u32 = 0;
-const COL_KV_CHANGE: u32 = COL_VER_TREE + 1;
-const COL_TREE_CHANGE: u32 = COL_KV_CHANGE + 1;
-const COL_KEY_META: u32 = COL_TREE_CHANGE + 1;
+const COL_KEY_POS: u32 = COL_VER_TREE + 1;
+const COL_TREE_POS: u32 = COL_KEY_POS + 1;
+const COL_POS_VALUE: u32 = COL_TREE_POS + 1;
+const COL_POS_VALUE_MERKLE: u32 = COL_POS_VALUE + 1;
+const NUM_COLS: u32 = COL_POS_VALUE_MERKLE + 1;
 
 const WRITE_IN_BATCH: bool = false;
 
 struct SimpleDb {
     version_tree: VerForest,
-    db_key_metadata: KvdbRocksdb,
-    db_kv_changes: KvdbRocksdb,
-    db_tree_changes: KvdbRocksdb,
+    db_key_pos: KvdbRocksdb,
+    db_tree_pos: KvdbRocksdb,
+    db_pos_value: KvdbRocksdb,
+    db_pos_value_merkle: KvdbRocksdb,
 
     uncommitted_key_values: Vec<(Key, Box<[u8]>)>,
     dirty_guard: bool,
 }
 
+/// I can not implement `impl StoreByBytes for Commitment {}` here. So I implement for
+/// `G1Projective` instead.
+/// See https://github.com/arkworks-rs/algebra/issues/185 for more details.  
+impl StoreByBytes for G1Projective {}
 impl StoreTupleByBytes for (u64, u64) {}
-// impl StoreTupleByBytes for (u64, usize) {}
+impl StoreTupleByBytes for (Vec<u8>, u64, Vec<u8>) {}
+impl StoreTupleByBytes for (TreeName, u64, Commitment) {}
 
 impl SimpleDb {
     fn new(database: Arc<SystemDB>, pp: Arc<AMTParams<Pairing>>) -> Self {
@@ -34,47 +44,45 @@ impl SimpleDb {
             col: COL_VER_TREE,
         };
         let version_tree = VerForest::new(db_ver_tree, pp);
-        let db_kv_changes = KvdbRocksdb {
+        let db_key_current = KvdbRocksdb {
             kvdb: database.key_value().clone(),
-            col: COL_KV_CHANGE,
+            col: COL_KEY_POS,
         };
-        let db_tree_changes = KvdbRocksdb {
+        let db_tree_current = KvdbRocksdb {
             kvdb: database.key_value().clone(),
-            col: COL_TREE_CHANGE,
+            col: COL_TREE_POS,
         };
-        let db_key_metadata = KvdbRocksdb {
+        let db_pos_value_sets = KvdbRocksdb {
             kvdb: database.key_value().clone(),
-            col: COL_KEY_META,
+            col: COL_POS_VALUE,
+        };
+        let db_pos_value_merkle = KvdbRocksdb {
+            kvdb: database.key_value().clone(),
+            col: COL_POS_VALUE_MERKLE,
         };
         Self {
             version_tree,
-            db_key_metadata,
-            db_kv_changes,
-            db_tree_changes,
+            db_key_pos: db_key_current,
+            db_pos_value: db_pos_value_sets,
+            db_pos_value_merkle,
+            db_tree_pos: db_tree_current,
             uncommitted_key_values: Vec::new(),
             dirty_guard: false,
         }
     }
 
     fn get(&self, key: &Key) -> Option<Box<[u8]>> {
-        assert!(!self.dirty_guard);
+        assert!(
+            !self.dirty_guard,
+            "Can not read db if set operations have not been committed."
+        );
 
-        let (recent_epoch, position) = self
-            .db_key_metadata
-            .get(key.as_ref())
-            .unwrap()
-            .map_or(Default::default(), |x| <(u64, u64)>::storage_decode(&*x));
-
-        if recent_epoch == 0 {
-            return None;
-        }
-
-        Some(
-            self.db_kv_changes
-                .get(&(recent_epoch, position).storage_encode())
+        self.db_key_pos.get(key.as_ref()).unwrap().map(|pos| {
+            self.db_pos_value
+                .get(&pos)
                 .unwrap()
-                .expect("Should find a key"),
-        )
+                .expect("Should find a key")
+        })
     }
 
     fn set(&mut self, key: &Key, value: Box<[u8]>) -> () {
@@ -83,33 +91,98 @@ impl SimpleDb {
     }
 
     fn commit(&mut self, epoch: u64) {
+        let kv_num = self.uncommitted_key_values.len();
+        let mut hashes = Vec::with_capacity(kv_num);
+
         for (position, (key, value)) in self.uncommitted_key_values.drain(..).enumerate() {
             let position = position as u64;
-            let _version = self.version_tree.inc_key(&key);
-            self.db_kv_changes
-                .put(&(epoch, position).storage_encode(), &value)
-                .unwrap();
+            let version = self.version_tree.inc_key(&key);
 
-            self.db_key_metadata
+            self.db_key_pos
                 .put(key.as_ref(), &(epoch, position).storage_encode())
                 .unwrap();
 
-            // TODO: Make merkle tree. With (key,version,value)
+            self.db_pos_value
+                .put(&(epoch, position).storage_encode(), &value)
+                .unwrap();
+
+            let key_ver_value_hash = keccak(&(key.0, version, value.to_vec()).storage_encode());
+
+            hashes.push(key_ver_value_hash);
         }
-        let mut updated_tree_commitment = self.version_tree.commit();
-        for (position, (tree, commitment, _version)) in
-            updated_tree_commitment.drain(..).enumerate()
+
+        for (position, (tree, commitment, version)) in
+            self.version_tree.commit().drain(..).enumerate()
         {
-            let position = position as u64;
-            self.db_tree_changes
+            let position = (kv_num + position) as u64;
+
+            self.db_tree_pos
+                .put(&tree.storage_encode(), &(epoch, position).storage_encode())
+                .unwrap();
+
+            self.db_pos_value
                 .put(
                     &(epoch, position).storage_encode(),
-                    &(tree, commitment).storage_encode(),
+                    &commitment.storage_encode(),
                 )
                 .unwrap();
 
-            // TODO: Make merkle tree. With (name,version,value)
+            let name_ver_value_hash = keccak(&(tree, version, commitment).storage_encode());
+
+            hashes.push(name_ver_value_hash);
         }
+
+        StaticMerkleTree::dump(self.db_pos_value_merkle.clone(), epoch, hashes);
+
         self.dirty_guard = false;
     }
+
+    fn prove(&mut self, key: &Key) {
+        let pos = self
+            .db_key_pos
+            .get(key.as_ref())
+            .unwrap()
+            .expect("TODO: impl non-existence proof later");
+        let version = self.version_tree.get_key(&key);
+        let (epoch, position) = <(u64, u64)>::storage_decode(&pos).unwrap();
+        let value = self
+            .db_pos_value
+            .get(&pos)
+            .unwrap()
+            .expect("Should find a key");
+
+        let key_ver_value_hash = keccak(&(key.0.clone(), version, value.to_vec()).storage_encode());
+    }
+}
+
+#[cfg(test)]
+fn new_test_simple_db(dir: &str) -> SimpleDb {
+    use crate::crypto::{TypeDepths, TypeUInt, PP};
+    use crate::storage::open_database;
+    const DEPTHS: usize = TypeDepths::USIZE;
+
+    let db = open_database(dir, NUM_COLS);
+    let pp = PP::<Pairing>::from_file_or_new("./pp", DEPTHS);
+    let pp = Arc::new(AMTParams::<Pairing>::from_pp(pp, DEPTHS));
+
+    SimpleDb::new(db, pp)
+}
+
+#[test]
+fn test_simple_db() {
+    let mut db = new_test_simple_db("./__test_simple_db");
+
+    for i in 1..=255 {
+        db.set(&Key(vec![1, 2, i, 0]), vec![1, 2, i].into());
+        db.commit(i as u64);
+    }
+
+    for i in 1..=20 {
+        assert_eq!(
+            vec![1, 2, i],
+            db.get(&Key(vec![1, 2, i, 0])).unwrap().into_vec()
+        );
+    }
+
+    std::fs::remove_dir_all("./__test_simple_db").unwrap();
 }

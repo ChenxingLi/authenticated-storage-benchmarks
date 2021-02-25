@@ -9,7 +9,7 @@ use std::ops::MulAssign;
 
 use super::{
     paring_provider::{Fr, G1Aff, G2Aff, G1, G2},
-    utils::ALLOW_RECOMPUTE,
+    utils::{type_hash, ALLOW_RECOMPUTE},
 };
 
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
@@ -60,6 +60,13 @@ impl<PE: PairingEngine> PP<PE> {
     }
 
     pub fn from_file_or_new(file: &str, expected_depth: usize) -> PP<PE> {
+        let file = &format!(
+            "{}/{}-{:02}.bin",
+            file,
+            &type_hash::<PE>()[..6],
+            expected_depth
+        );
+        println!("{}", file);
         match Self::from_file(file, expected_depth) {
             Ok(pp) => pp,
             Err(_) if ALLOW_RECOMPUTE => {

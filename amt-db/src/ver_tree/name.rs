@@ -65,23 +65,16 @@ fn test_tree_name_string() {
     use crate::storage::{StorageDecodable, StorageEncodable};
 
     assert_eq!(TreeName(0, 0).storage_encode(), [0u8, 0u8]);
-    assert_eq!(TreeName(0, 0), TreeName::storage_decode(&[0u8, 0u8]));
+    assert_eq!(
+        TreeName(0, 0),
+        TreeName::storage_decode(&[0u8, 0u8]).unwrap()
+    );
 
     assert_eq!(TreeName(1, 0).storage_encode(), [1u8, 0u8]);
-    assert_eq!(TreeName(1, 0), TreeName::storage_decode(&[1u8, 0u8]));
+    assert_eq!(
+        TreeName(1, 0),
+        TreeName::storage_decode(&[1u8, 0u8]).unwrap()
+    );
 
-    // assert_eq!(TreeName(0, 0).to_bytes(SMALL_DEPTHS), [0u8]);
-    //
-    // assert_eq!(TreeName(1, 0).to_bytes(SMALL_DEPTHS), [1u8, 0u8]);
-    // assert_eq!(TreeName(1, 0).to_bytes(MIDDLE_DEPTHS), [1u8, 0u8, 0u8]);
-    // assert_eq!(TreeName(1, 0).to_bytes(LARGE_DEPTHS), [1u8, 0u8, 0u8, 0u8]);
-    //
-    // assert_eq!(TreeName(1, 1).to_bytes(SMALL_DEPTHS), [1u8, 1u8]);
-    // assert_eq!(TreeName(1, 1).to_bytes(MIDDLE_DEPTHS), [1u8, 0u8, 1u8]);
-    // assert_eq!(TreeName(1, 1).to_bytes(LARGE_DEPTHS), [1u8, 0u8, 0u8, 1u8]);
-    //
-    // assert_eq!(
-    //     TreeName(2, 1024).to_bytes(LARGE_DEPTHS),
-    //     [2u8, 0u8, 0u8, 0u8, 4u8, 0u8]
-    // );
+    assert_eq!(TreeName(1, 1).storage_encode(), [1u8, 1u8, 1u8]);
 }

@@ -5,14 +5,14 @@ use std::sync::Arc;
 
 const NUM_COLUMNS: u32 = 1;
 
-pub fn open_database(db_dir: &str) -> Arc<SystemDB> {
+pub fn open_database(db_dir: &str, num_cols: u32) -> Arc<SystemDB> {
     db::open_database(
         db_dir,
         &db::db_config(
             Path::new(db_dir),
             Some(128),
             db::DatabaseCompactionProfile::default(),
-            NUM_COLUMNS,
+            num_cols,
             false,
         ),
     )
@@ -22,7 +22,7 @@ pub fn open_database(db_dir: &str) -> Arc<SystemDB> {
 
 pub fn open_col(db_dir: &str, col: u32) -> KvdbRocksdb {
     KvdbRocksdb {
-        kvdb: open_database(db_dir).key_value().clone(),
+        kvdb: open_database(db_dir, NUM_COLUMNS).key_value().clone(),
         col,
     }
 }

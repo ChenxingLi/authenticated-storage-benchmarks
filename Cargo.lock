@@ -120,6 +120,7 @@ dependencies = [
  "db",
  "error-chain",
  "ff-fft",
+ "keccak-hash",
  "lazy_static",
  "rand 0.7.3",
  "static_assertions 0.1.1",
