@@ -10,6 +10,8 @@ pub struct StaticMerkleTree {
     depth: u32,
 }
 
+pub type MerkleProof = Vec<H256>;
+
 fn combine_hash(a: &H256, b: &H256) -> H256 {
     let mut input = a.0.to_vec();
     input.extend_from_slice(&b.0);
@@ -37,7 +39,7 @@ impl StaticMerkleTree {
         &self.root
     }
 
-    pub fn prove(&mut self, position: u64) -> Vec<H256> {
+    pub fn prove(&mut self, position: u64) -> MerkleProof {
         let mut proofs = Vec::with_capacity(self.depth as usize);
         for depth in (1..=self.depth).rev() {
             let height = self.depth - depth;

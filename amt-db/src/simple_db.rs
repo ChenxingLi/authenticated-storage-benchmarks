@@ -1,12 +1,16 @@
-use crate::crypto::{AMTParams, Pairing};
-use crate::merkle::StaticMerkleTree;
+use crate::amt::tree::AMTProof;
+use crate::amt::AMTData;
+use crate::crypto::paring_provider::FrInt;
+use crate::crypto::{paring_provider::G1, AMTParams, Pairing};
+use crate::merkle::{MerkleProof, StaticMerkleTree};
 use crate::storage::{
     KeyValueDbTrait, KeyValueDbTraitRead, KvdbRocksdb, Result, StorageDecodable, StorageEncodable,
     StoreByBytes, StoreTupleByBytes, SystemDB,
 };
-use crate::ver_tree::{Commitment, Key, TreeName, VerForest};
+use crate::ver_tree::{Commitment, Key, Node, TreeName, VerForest, VerInfo};
 use algebra::bls12_381::G1Projective;
 use keccak_hash::keccak;
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 const COL_VER_TREE: u32 = 0;
@@ -34,8 +38,27 @@ struct SimpleDb {
 /// See https://github.com/arkworks-rs/algebra/issues/185 for more details.  
 impl StoreByBytes for G1Projective {}
 impl StoreTupleByBytes for (u64, u64) {}
-impl StoreTupleByBytes for (Vec<u8>, u64, u8, u8, Vec<u8>) {}
+impl StoreTupleByBytes for (Vec<u8>, VerInfo, Vec<u8>) {}
 impl StoreTupleByBytes for (TreeName, u64, Commitment) {}
+
+#[derive(Default)]
+struct LevelProof {
+    merkle_epoch: u64,
+    merkle_proof: MerkleProof,
+    amt_proof: AMTProof<G1<Pairing>>,
+    tree_name: TreeName,
+    commitment: G1<Pairing>,
+    node_fr_int: FrInt<Pairing>,
+    node_version: u64,
+}
+
+#[derive(Default)]
+struct AssociateProof {
+    value: Option<Box<[u8]>>,
+    ver_info: VerInfo,
+}
+
+type Proof = (AssociateProof, VecDeque<LevelProof>);
 
 impl SimpleDb {
     fn new(database: Arc<SystemDB>, pp: Arc<AMTParams<Pairing>>) -> Self {
@@ -97,7 +120,7 @@ impl SimpleDb {
 
         for (position, (key, value)) in self.uncommitted_key_values.drain(..).enumerate() {
             let position = position as u64;
-            let version = self.version_tree.inc_key(&key);
+            let ver_info = self.version_tree.inc_key(&key);
 
             self.db_key_pos
                 .put(key.as_ref(), &(epoch, position).storage_encode())?;
@@ -105,16 +128,7 @@ impl SimpleDb {
             self.db_pos_value
                 .put(&(epoch, position).storage_encode(), &value)?;
 
-            let key_ver_value_hash = keccak(
-                &(
-                    key.0,
-                    version.version,
-                    version.level,
-                    version.slot_index,
-                    value.to_vec(),
-                )
-                    .storage_encode(),
-            );
+            let key_ver_value_hash = keccak(&(key.0, ver_info, value.to_vec()).storage_encode());
             hashes.push(key_ver_value_hash);
         }
 
@@ -143,29 +157,91 @@ impl SimpleDb {
     }
 
     #[allow(unused_variables, unused_mut)]
-    fn prove(&mut self, key: &Key) -> Result<()> {
-        let pos = self
-            .db_key_pos
-            .get(key.as_ref())?
-            .expect("TODO: impl non-existence proof later");
-        let version = self.version_tree.get_key(&key);
-        let (epoch, position) = <(u64, u64)>::storage_decode(&pos).unwrap();
-        let value = self.db_pos_value.get(&pos)?.expect("Should find a key");
+    fn prove(&mut self, key: &Key) -> Result<Proof> {
+        let ver_info = self.version_tree.get_key(&key);
+        let maybe_pos = self.db_key_pos.get(key.as_ref())?;
+        let maybe_value = if let Some(pos) = &maybe_pos {
+            Some(self.db_pos_value.get(pos)?.expect("Should find a key"))
+        } else {
+            None
+        };
 
-        let key_ver_value_hash = keccak(
-            &(
-                key.0.clone(),
-                version.version,
-                version.slot_index,
-                version.level,
-                value.to_vec(),
-            )
-                .storage_encode(),
-        );
+        let assoc_proof = AssociateProof {
+            value: maybe_value,
+            ver_info,
+        };
 
-        // TODO: show db tree data.
+        // Key value Merkle proof
+        let (merkle_epoch, merkle_proof) = if let Some(pos) = &maybe_pos {
+            self.prove_merkle(pos)?
+        } else {
+            (0, MerkleProof::default())
+        };
 
-        Ok(())
+        // AMT Proof
+        let tree_name = TreeName::from_key_level(key, ver_info.level);
+        let index = key.index_at_level(ver_info.level) as usize;
+        let (commitment, node, amt_proof) = self.prove_amt_node(tree_name, index);
+
+        let mut level_proofs = VecDeque::with_capacity(ver_info.level + 1);
+
+        level_proofs.push_back(LevelProof {
+            merkle_epoch,
+            merkle_proof,
+            amt_proof,
+            tree_name,
+            commitment,
+            node_fr_int: node.as_fr_int(),
+            node_version: node.key_versions[ver_info.slot_index].1,
+        });
+
+        for level in (0..ver_info.level).rev() {
+            let child_tree_name = TreeName::from_key_level(key, level + 1);
+            let pos = self
+                .db_tree_pos
+                .get(&child_tree_name.storage_encode())?
+                .expect("the child_tree node should exists");
+
+            let (merkle_epoch, merkle_proof) = self.prove_merkle(&pos)?;
+
+            let tree_name = TreeName::from_key_level(key, level);
+            let index = key.index_at_level(level) as usize;
+            let (commitment, node, amt_proof) = self.prove_amt_node(tree_name, index);
+
+            level_proofs.push_back(LevelProof {
+                merkle_epoch,
+                merkle_proof,
+                amt_proof,
+                tree_name,
+                commitment,
+                node_fr_int: node.as_fr_int(),
+                node_version: node.tree_version,
+            });
+        }
+
+        Ok((assoc_proof, level_proofs))
+    }
+
+    fn prove_amt_node(
+        &mut self,
+        name: TreeName,
+        index: usize,
+    ) -> (G1<Pairing>, Node, AMTProof<G1<Pairing>>) {
+        let tree = self.version_tree.tree_manager.get_mut_or_load(name);
+
+        let commitment = tree.commitment().clone();
+        let value = tree.get(index).clone();
+        let proof = tree.prove(index);
+
+        return (commitment, value, proof);
+    }
+
+    fn prove_merkle(&mut self, pos: &[u8]) -> Result<(u64, MerkleProof)> {
+        let (epoch, position) = <(u64, u64)>::storage_decode(pos)?;
+        let merkle_proof =
+            StaticMerkleTree::new(self.db_pos_value_merkle.clone(), epoch).prove(position);
+
+        Ok((epoch, merkle_proof))
     }
 }
 

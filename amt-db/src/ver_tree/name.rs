@@ -3,7 +3,7 @@ use crate::storage::StoreByBytes;
 use algebra::{FromBytes, ToBytes};
 use std::io::{Error, ErrorKind, Read, Result, Write};
 
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Default, Debug, Copy, Clone, Hash, PartialEq, Eq, Ord, PartialOrd)]
 pub struct TreeName(pub(super) usize, pub(super) u128);
 
 impl StoreByBytes for TreeName {}

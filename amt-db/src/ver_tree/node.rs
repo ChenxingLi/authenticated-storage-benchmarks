@@ -21,8 +21,8 @@ fn const_assert() {
 
 #[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
 pub struct Node {
-    pub(super) key_versions: Vec<(Key, u64)>,
-    pub(super) tree_version: u64,
+    pub(crate) key_versions: Vec<(Key, u64)>,
+    pub(crate) tree_version: u64,
 }
 
 impl StorageEncodable for Node {

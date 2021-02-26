@@ -3,6 +3,7 @@ use crate::{
     crypto::{paring_provider::Pairing, AMTParams},
     storage::KvdbRocksdb,
 };
+use algebra::{ToBytes, Write};
 use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Clone)]
@@ -19,12 +20,12 @@ impl TreeManager {
         Self { db, forest, pp }
     }
 
-    fn get(&self, name: TreeName) -> Option<&Tree> {
+    pub fn get(&self, name: TreeName) -> Option<&Tree> {
         let TreeName(level, index) = name;
         self.forest.get(level).and_then(|tree| tree.get(&index))
     }
 
-    fn get_mut_or_load(&mut self, name: TreeName) -> &mut Tree {
+    pub fn get_mut_or_load(&mut self, name: TreeName) -> &mut Tree {
         let TreeName(level, index) = name;
         if self.forest.len() < level + 1 {
             self.forest.resize(level + 1, BTreeMap::new())
@@ -48,14 +49,24 @@ impl TreeManager {
 }
 
 pub struct VerForest {
-    tree_manager: TreeManager,
+    pub(crate) tree_manager: TreeManager,
     pp: Arc<AMTParams<Pairing>>,
 }
 
+#[derive(Default, Copy, Clone)]
 pub struct VerInfo {
     pub version: u64,
-    pub level: u8,
-    pub slot_index: u8,
+    pub level: usize, //When serialized, `level` and `slot_index` are regarded as u8.
+    pub slot_index: usize,
+}
+
+impl ToBytes for VerInfo {
+    fn write<W: Write>(&self, mut writer: W) -> ::std::io::Result<()> {
+        self.version.write(&mut writer)?;
+        (self.level as u8).write(&mut writer)?;
+        (self.slot_index as u8).write(writer)?;
+        Ok(())
+    }
 }
 
 impl VerForest {
@@ -76,25 +87,37 @@ impl VerForest {
                 if *key == *node_key {
                     return VerInfo {
                         version: *ver as u64,
-                        level: level as u8,
-                        slot_index: slot_index as u8,
+                        level,
+                        slot_index,
                     };
                 }
             }
 
+            let num_alloc_slots = node.key_versions.len();
+
             level += 1;
             let tree_name = TreeName::from_key_level(key, level);
 
+            // In case the subtree does not exist
             if node.tree_version == 0
                 && self
                     .tree_manager
                     .get(tree_name)
                     .map_or(true, |tree| !tree.dirty())
             {
-                return VerInfo {
-                    version: 0,
-                    level: u8::MAX,
-                    slot_index: 0,
+                // returns the empty slot that allocate for this key.
+                return if num_alloc_slots < 5 {
+                    VerInfo {
+                        version: 0,
+                        level: level - 1,
+                        slot_index: num_alloc_slots,
+                    }
+                } else {
+                    VerInfo {
+                        version: 0,
+                        level,
+                        slot_index: 0,
+                    }
                 };
             }
 
@@ -117,7 +140,7 @@ impl VerForest {
             );
 
             let mut node_guard = visit_amt.write(node_index);
-            for (index, (ref mut node_key, ver)) in
+            for (slot_index, (ref mut node_key, ver)) in
                 &mut node_guard.key_versions.iter_mut().enumerate()
             {
                 if *key == *node_key {
@@ -126,21 +149,22 @@ impl VerForest {
                     // std::mem::drop(node_guard);
                     return VerInfo {
                         version: *ver as u64,
-                        level: level as u8,
-                        slot_index: index as u8,
+                        level,
+                        slot_index,
                     };
                 }
             }
 
             // In case this level is not fulfilled, put the
             if node_guard.key_versions.len() < 5 {
+                let slot_index = node_guard.key_versions.len();
                 node_guard.key_versions.push((key.clone(), 1));
-                let index = node_guard.key_versions.len() - 1;
+
                 // std::mem::drop(node_guard);
                 return VerInfo {
                     version: 1,
-                    level: level as u8,
-                    slot_index: index as u8,
+                    level,
+                    slot_index,
                 };
             }
 
