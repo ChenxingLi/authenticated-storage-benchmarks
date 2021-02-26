@@ -5,12 +5,18 @@
 extern crate error_chain;
 #[macro_use]
 extern crate static_assertions;
+#[macro_use]
+extern crate log;
 
 extern crate base64;
 
 pub mod amt;
 pub mod crypto;
+mod enable_log;
 pub mod merkle;
 mod simple_db;
 pub mod storage;
 pub mod ver_tree;
+
+#[allow(unused)]
+use enable_log::*;

@@ -15,6 +15,8 @@ db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4e"
 cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4e"}
 keccak-hash = "0.5.1"
 lazy_static = "1.4"
+log = "0.4"
+log4rs = { version = "1.0.0", features = ["background_rotation", "gzip"] }
 rand = "0.7"
 bencher = "0.1.5"
 error-chain = { version = "0.12", default-features = false }

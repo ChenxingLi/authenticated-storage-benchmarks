@@ -52,6 +52,12 @@ pub struct VerForest {
     pp: Arc<AMTParams<Pairing>>,
 }
 
+pub struct VerInfo {
+    pub version: u64,
+    pub level: u8,
+    pub slot_index: u8,
+}
+
 impl VerForest {
     pub fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>) -> Self {
         Self {
@@ -60,15 +66,19 @@ impl VerForest {
         }
     }
 
-    pub fn get_key(&mut self, key: &Key) -> u64 {
+    pub fn get_key(&mut self, key: &Key) -> VerInfo {
         let mut level = 0;
         let mut visit_amt = self.tree_manager.get_mut_or_load(TreeName::root());
         loop {
             let node_index = key.index_at_level(level) as usize;
             let node: &Node = visit_amt.get(node_index);
-            for (node_key, ver) in &node.key_versions {
+            for (slot_index, (node_key, ver)) in node.key_versions.iter().enumerate() {
                 if *key == *node_key {
-                    return *ver as u64;
+                    return VerInfo {
+                        version: *ver as u64,
+                        level: level as u8,
+                        slot_index: slot_index as u8,
+                    };
                 }
             }
 
@@ -81,39 +91,63 @@ impl VerForest {
                     .get(tree_name)
                     .map_or(true, |tree| !tree.dirty())
             {
-                return 0;
+                return VerInfo {
+                    version: 0,
+                    level: u8::MAX,
+                    slot_index: 0,
+                };
             }
 
             visit_amt = self.tree_manager.get_mut_or_load(tree_name);
         }
     }
 
-    pub fn inc_key(&mut self, key: &Key) -> u64 {
+    pub fn inc_key(&mut self, key: &Key) -> VerInfo {
         let mut level = 0;
         let mut visit_amt = self.tree_manager.get_mut_or_load(TreeName::root());
         loop {
-            let tree_index = key.tree_at_level(level);
             let node_index = key.index_at_level(level) as usize;
-            println!(
+
+            debug!(
                 "Access key {:?} at level {}, tree_index {}, node_index {}",
-                key.0, level, tree_index, node_index
+                key.0,
+                level,
+                key.tree_at_level(level),
+                node_index
             );
 
             let mut node_guard = visit_amt.write(node_index);
-            for (node_key, ver) in &mut node_guard.key_versions {
+            for (index, (ref mut node_key, ver)) in
+                &mut node_guard.key_versions.iter_mut().enumerate()
+            {
                 if *key == *node_key {
                     *ver += 1;
                     assert!(*ver <= MAX_VERSION_NUMBER);
-                    return *ver;
+                    // std::mem::drop(node_guard);
+                    return VerInfo {
+                        version: *ver as u64,
+                        level: level as u8,
+                        slot_index: index as u8,
+                    };
                 }
             }
+
+            // In case this level is not fulfilled, put the
             if node_guard.key_versions.len() < 5 {
                 node_guard.key_versions.push((key.clone(), 1));
-                return 1;
+                let index = node_guard.key_versions.len() - 1;
+                // std::mem::drop(node_guard);
+                return VerInfo {
+                    version: 1,
+                    level: level as u8,
+                    slot_index: index as u8,
+                };
             }
 
+            // Drop `node_guard` even if nothing changes.
             std::mem::drop(node_guard);
 
+            // Access the next level.
             level += 1;
             visit_amt = self
                 .tree_manager

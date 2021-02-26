@@ -10,7 +10,7 @@ pub use self::{
     key::Key,
     name::TreeName,
     node::{Node, MAX_VERSION_NUMBER},
-    tree::VerForest,
+    tree::{VerForest, VerInfo},
 };
 use crate::{
     amt::{AMTConfigTrait, AMTree},

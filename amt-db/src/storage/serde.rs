@@ -65,6 +65,8 @@ macro_rules! impl_storage_for_tuple {
 
 impl_storage_for_tuple!((0=>A),(1=>B));
 impl_storage_for_tuple!((0=>A),(1=>B),(2=>C));
+impl_storage_for_tuple!((0=>A),(1=>B),(2=>C),(2=>D));
+impl_storage_for_tuple!((0=>A),(1=>B),(2=>C),(3=>D),(4=>E));
 
 use error_chain;
 error_chain! {

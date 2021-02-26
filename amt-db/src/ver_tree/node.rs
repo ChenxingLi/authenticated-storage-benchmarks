@@ -34,7 +34,7 @@ impl StorageEncodable for Node {
 }
 
 impl StorageDecodable for Node {
-    fn storage_decode(data: &[u8]) -> crate::storage::Result<Self> {
+    fn storage_decode(data: &[u8]) -> crate::storage::serde::Result<Self> {
         Ok(Self::deserialize_unchecked(data)?)
     }
 }

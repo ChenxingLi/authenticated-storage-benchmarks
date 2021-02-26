@@ -4,7 +4,7 @@ use crate::crypto::{
     AMTParams, TypeUInt, PP,
 };
 use crate::storage::{
-    FlattenArray, FlattenTree, Result, StorageDecodable, StorageEncodable, StoreByBytes,
+    serde::Result, FlattenArray, FlattenTree, StorageDecodable, StorageEncodable, StoreByBytes,
 };
 use crate::type_uint;
 use algebra::bls12_381;
