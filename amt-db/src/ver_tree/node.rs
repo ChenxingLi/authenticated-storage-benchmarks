@@ -57,6 +57,16 @@ impl AMTData<Fr> for Node {
     }
 }
 
+impl Node {
+    pub fn versions_from_fr_int(fr_int: &FrInt, index: usize) -> u64 {
+        assert!(index < 6);
+        let byte_array = unsafe { std::mem::transmute::<&[u64; 4], &[u8; 32]>(&fr_int.0) };
+        let mut answer = [0u8; 8];
+        answer[..5].copy_from_slice(&byte_array[index * 5..(index + 1) * 5]);
+        u64::from_le_bytes(answer)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -104,6 +114,14 @@ mod test {
         }
 
         assert_eq!(node.as_fr_int(), answer);
+
+        assert_eq!(node.tree_version, Node::versions_from_fr_int(&answer, 0));
+        for i in 0..5 {
+            assert_eq!(
+                node.key_versions[i].1,
+                Node::versions_from_fr_int(&answer, i + 1)
+            );
+        }
     }
 
     #[test]

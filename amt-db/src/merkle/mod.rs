@@ -10,7 +10,7 @@ pub struct StaticMerkleTree {
     depth: u32,
 }
 
-pub type MerkleProof = Vec<H256>;
+pub type MerkleProof = (Vec<H256>, u64);
 
 fn combine_hash(a: &H256, b: &H256) -> H256 {
     let mut input = a.0.to_vec();
@@ -50,13 +50,14 @@ impl StaticMerkleTree {
             };
             proofs.push(answer);
         }
-        return proofs;
+        return (proofs, position);
     }
 
-    pub fn verify(root: &H256, hash: &H256, proofs: &[H256], pos: usize) -> bool {
+    pub fn verify(root: &H256, hash: &H256, proof: &MerkleProof) -> bool {
+        let (merkle_path, pos) = proof;
         let mut current_hash = hash.clone();
-        for (index, proof) in proofs.iter().enumerate() {
-            let right_append = (pos >> index) % 2 == 0;
+        for (index, proof) in merkle_path.iter().enumerate() {
+            let right_append = (*pos >> index) % 2 == 0;
             current_hash = if right_append {
                 combine_hash(&current_hash, proof)
             } else {
@@ -108,12 +109,7 @@ fn test_static_merkle_tree() {
         for i in 0..epoch {
             let proof = tree.prove(i);
             assert!(
-                StaticMerkleTree::verify(
-                    &tree.root(),
-                    &H256::from_low_u64_be(i + 65536),
-                    &proof,
-                    i as usize
-                ),
+                StaticMerkleTree::verify(&tree.root(), &H256::from_low_u64_be(i + 65536), &proof),
                 "fail proof at tree {} pos {}",
                 epoch,
                 i

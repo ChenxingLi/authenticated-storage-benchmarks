@@ -1,14 +1,17 @@
 use crate::amt::tree::AMTProof;
-use crate::amt::AMTData;
-use crate::crypto::paring_provider::FrInt;
-use crate::crypto::{paring_provider::G1, AMTParams, Pairing};
+use crate::amt::{AMTData, AMTree};
+use crate::crypto::{
+    paring_provider::{Fr, FrInt, G1},
+    AMTParams, Pairing,
+};
 use crate::merkle::{MerkleProof, StaticMerkleTree};
 use crate::storage::{
     KeyValueDbTrait, KeyValueDbTraitRead, KvdbRocksdb, Result, StorageDecodable, StorageEncodable,
     StoreByBytes, StoreTupleByBytes, SystemDB,
 };
-use crate::ver_tree::{Commitment, Key, Node, TreeName, VerForest, VerInfo};
+use crate::ver_tree::{AMTConfig, Commitment, Key, Node, TreeName, VerForest, VerInfo};
 use algebra::bls12_381::G1Projective;
+use cfx_types::H256;
 use keccak_hash::keccak;
 use std::collections::VecDeque;
 use std::sync::Arc;
@@ -46,7 +49,6 @@ struct LevelProof {
     merkle_epoch: u64,
     merkle_proof: MerkleProof,
     amt_proof: AMTProof<G1<Pairing>>,
-    tree_name: TreeName,
     commitment: G1<Pairing>,
     node_fr_int: FrInt<Pairing>,
     node_version: u64,
@@ -189,7 +191,6 @@ impl SimpleDb {
             merkle_epoch,
             merkle_proof,
             amt_proof,
-            tree_name,
             commitment,
             node_fr_int: node.as_fr_int(),
             node_version: node.key_versions[ver_info.slot_index].1,
@@ -212,7 +213,6 @@ impl SimpleDb {
                 merkle_epoch,
                 merkle_proof,
                 amt_proof,
-                tree_name,
                 commitment,
                 node_fr_int: node.as_fr_int(),
                 node_version: node.tree_version,
@@ -220,6 +220,88 @@ impl SimpleDb {
         }
 
         Ok((assoc_proof, level_proofs))
+    }
+
+    fn verify<F: Fn(u64) -> H256>(
+        key: &Key,
+        proof: &Proof,
+        epoch_root: F,
+        pp: &AMTParams<Pairing>,
+    ) -> std::result::Result<(), String> {
+        let (assoc_proof, level_proofs) = proof;
+
+        let ver_info = assoc_proof.ver_info;
+
+        // Check the AMT proof
+        for (level, level_proof) in level_proofs.iter().enumerate() {
+            let amt_index = key.index_at_level(level) as usize;
+            let amt_proof_verified = AMTree::<AMTConfig>::verify(
+                amt_index,
+                Fr::<Pairing>::from(level_proof.node_fr_int),
+                &level_proof.commitment,
+                level_proof.amt_proof.clone(),
+                pp,
+            );
+            if !amt_proof_verified {
+                return Err(format!("Incorrect AMT proof at level {}", level));
+            }
+        }
+
+        // Check Merkle proof in the top level.
+        if let Some(value) = &assoc_proof.value {
+            let key_ver_value_hash =
+                keccak(&(key.0.clone(), ver_info, value.to_vec()).storage_encode());
+
+            let epoch = level_proofs[0].merkle_epoch;
+
+            let merkle_proof = &level_proofs[0].merkle_proof;
+
+            let merkle_proof_verified =
+                StaticMerkleTree::verify(&epoch_root(epoch), &key_ver_value_hash, merkle_proof);
+
+            if !merkle_proof_verified {
+                return Err("Incorrect Merkle proof at level 0".to_string());
+            }
+        }
+
+        // Check Merkle proof in the rest levels.
+        for level in 1..level_proofs.len() {
+            let version = level_proofs[level - 1].node_version;
+            let level_proof = &level_proofs[level];
+            let tree_name = TreeName::from_key_level(key, level);
+            let commitment = level_proof.commitment;
+
+            let key_ver_value_hash = keccak(&(tree_name, version, commitment).storage_encode());
+            let epoch = level_proof.merkle_epoch;
+            let merkle_proof = &level_proof.merkle_proof;
+
+            let merkle_proof_verified =
+                StaticMerkleTree::verify(&epoch_root(epoch), &key_ver_value_hash, merkle_proof);
+
+            if !merkle_proof_verified {
+                return Err(format!("Incorrect Merkle proof at level {}", level));
+            }
+        }
+
+        // Check version consistency in the top level.
+        let version_verified =
+            Node::versions_from_fr_int(&level_proofs[0].node_fr_int, ver_info.slot_index + 1)
+                == level_proofs[0].node_version;
+        if !version_verified {
+            return Err(format!("Inconsistent version value at level 0"));
+        }
+
+        // Check version consistency in the rest levels.
+        for (level, level_proof) in level_proofs.iter().enumerate().skip(1) {
+            let version_verified =
+                Node::versions_from_fr_int(&level_proof.node_fr_int, 0) == level_proof.node_version;
+
+            if !version_verified {
+                return Err(format!("Inconsistent version value at level {}", level));
+            }
+        }
+
+        Ok(())
     }
 
     fn prove_amt_node(
