@@ -116,7 +116,7 @@ impl SimpleDb {
         self.uncommitted_key_values.push((key.clone(), value))
     }
 
-    fn commit(&mut self, epoch: u64) -> Result<()> {
+    fn commit(&mut self, epoch: u64) -> Result<(G1Projective, H256)> {
         let kv_num = self.uncommitted_key_values.len();
         let mut hashes = Vec::with_capacity(kv_num);
 
@@ -131,6 +131,7 @@ impl SimpleDb {
                 .put(&(epoch, position).storage_encode(), &value)?;
 
             let key_ver_value_hash = keccak(&(key.0, ver_info, value.to_vec()).storage_encode());
+
             hashes.push(key_ver_value_hash);
         }
 
@@ -151,17 +152,25 @@ impl SimpleDb {
             hashes.push(name_ver_value_hash);
         }
 
-        StaticMerkleTree::dump(self.db_pos_value_merkle.clone(), epoch, hashes);
+        let merkle_root = StaticMerkleTree::dump(self.db_pos_value_merkle.clone(), epoch, hashes);
+        let amt_root = self
+            .version_tree
+            .tree_manager
+            .get_mut_or_load(TreeName::root())
+            .commitment()
+            .clone();
 
         self.dirty_guard = false;
 
-        Ok(())
+        Ok((amt_root, merkle_root))
     }
 
     #[allow(unused_variables, unused_mut)]
     fn prove(&mut self, key: &Key) -> Result<Proof> {
         let ver_info = self.version_tree.get_key(&key);
+
         let maybe_pos = self.db_key_pos.get(key.as_ref())?;
+
         let maybe_value = if let Some(pos) = &maybe_pos {
             Some(self.db_pos_value.get(pos)?.expect("Should find a key"))
         } else {
@@ -209,7 +218,7 @@ impl SimpleDb {
             let index = key.index_at_level(level) as usize;
             let (commitment, node, amt_proof) = self.prove_amt_node(tree_name, index);
 
-            level_proofs.push_back(LevelProof {
+            level_proofs.push_front(LevelProof {
                 merkle_epoch,
                 merkle_proof,
                 amt_proof,
@@ -247,31 +256,34 @@ impl SimpleDb {
             }
         }
 
-        // Check Merkle proof in the top level.
+        // Check Merkle proof in the bottom level.
         if let Some(value) = &assoc_proof.value {
+            let bottom_level_proof = &level_proofs[level_proofs.len() - 1];
+
             let key_ver_value_hash =
                 keccak(&(key.0.clone(), ver_info, value.to_vec()).storage_encode());
 
-            let epoch = level_proofs[0].merkle_epoch;
+            let epoch = bottom_level_proof.merkle_epoch;
 
-            let merkle_proof = &level_proofs[0].merkle_proof;
+            let merkle_proof = &bottom_level_proof.merkle_proof;
 
             let merkle_proof_verified =
                 StaticMerkleTree::verify(&epoch_root(epoch), &key_ver_value_hash, merkle_proof);
 
             if !merkle_proof_verified {
-                return Err("Incorrect Merkle proof at level 0".to_string());
+                return Err("Incorrect Merkle proof at level -1".to_string());
             }
         }
 
         // Check Merkle proof in the rest levels.
-        for level in 1..level_proofs.len() {
-            let version = level_proofs[level - 1].node_version;
+        for level in 0..level_proofs.len() - 1 {
+            let version = level_proofs[level].node_version;
             let level_proof = &level_proofs[level];
-            let tree_name = TreeName::from_key_level(key, level);
-            let commitment = level_proof.commitment;
+            let tree_name = TreeName::from_key_level(key, level + 1);
+            let commitment = level_proofs[level + 1].commitment;
 
             let key_ver_value_hash = keccak(&(tree_name, version, commitment).storage_encode());
+
             let epoch = level_proof.merkle_epoch;
             let merkle_proof = &level_proof.merkle_proof;
 
@@ -284,15 +296,20 @@ impl SimpleDb {
         }
 
         // Check version consistency in the top level.
-        let version_verified =
-            Node::versions_from_fr_int(&level_proofs[0].node_fr_int, ver_info.slot_index + 1)
-                == level_proofs[0].node_version;
-        if !version_verified {
-            return Err(format!("Inconsistent version value at level 0"));
+        {
+            let bottom_level_proof = &level_proofs[level_proofs.len() - 1];
+            let version_verified = Node::versions_from_fr_int(
+                &bottom_level_proof.node_fr_int,
+                ver_info.slot_index + 1,
+            ) == bottom_level_proof.node_version;
+            if !version_verified {
+                return Err(format!("Inconsistent version value at level -1"));
+            }
         }
 
         // Check version consistency in the rest levels.
-        for (level, level_proof) in level_proofs.iter().enumerate().skip(1) {
+        for level in 0..(level_proofs.len() - 1) {
+            let level_proof = &level_proofs[level];
             let version_verified =
                 Node::versions_from_fr_int(&level_proof.node_fr_int, 0) == level_proof.node_version;
 
@@ -346,17 +363,22 @@ fn test_simple_db() {
     // enable_debug_log();
 
     let mut db = new_test_simple_db("./__test_simple_db");
+    let pp = db.version_tree.pp.clone();
+
+    let mut epoch_root_dict = std::collections::HashMap::new();
 
     for i in 1..=255 {
         db.set(&Key(vec![1, 2, i, 0]), vec![1, 2, i].into());
-        db.commit(i as u64).unwrap();
+        let (_, epoch_root) = db.commit(i as u64).unwrap();
+        epoch_root_dict.insert(i as u64, epoch_root);
     }
 
     for i in 1..=20 {
-        assert_eq!(
-            vec![1, 2, i],
-            db.get(&Key(vec![1, 2, i, 0])).unwrap().unwrap().into_vec()
-        );
+        println!("Verify key {}", i);
+        let key = Key(vec![1, 2, i, 0]);
+        assert_eq!(vec![1, 2, i], db.get(&key).unwrap().unwrap().into_vec());
+        let proof = db.prove(&key).unwrap();
+        SimpleDb::verify(&key, &proof, |epoch| epoch_root_dict[&epoch], &pp).unwrap();
     }
 
     std::fs::remove_dir_all("./__test_simple_db").unwrap();

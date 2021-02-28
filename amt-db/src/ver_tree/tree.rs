@@ -50,10 +50,10 @@ impl TreeManager {
 
 pub struct VerForest {
     pub(crate) tree_manager: TreeManager,
-    pp: Arc<AMTParams<Pairing>>,
+    pub(crate) pp: Arc<AMTParams<Pairing>>,
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct VerInfo {
     pub version: u64,
     pub level: usize, //When serialized, `level` and `slot_index` are regarded as u8.
