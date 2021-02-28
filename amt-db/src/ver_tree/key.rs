@@ -1,6 +1,8 @@
 use super::DEPTHS;
 
-use algebra::{CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write};
+use crate::crypto::export::{
+    CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write,
+};
 use std::cmp::min;
 use std::convert::TryFrom;
 

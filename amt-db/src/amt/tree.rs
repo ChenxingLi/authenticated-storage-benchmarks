@@ -1,11 +1,11 @@
 use super::node::{AMTNode, NodeIndex};
 use super::write_guard::AMTNodeWriteGuard;
+use crate::crypto::export::{Field, PairingEngine, PrimeField, ProjectiveCurve, Zero};
 use crate::crypto::{
     paring_provider::{Fr, FrInt, G1},
     AMTParams, TypeUInt,
 };
 use crate::storage::{DBAccess, KvdbRocksdb, LayoutTrait, StorageDecodable, StorageEncodable};
-use algebra::{Field, PairingEngine, PrimeField, ProjectiveCurve, Zero};
 use std::sync::Arc;
 
 pub trait AMTConfigTrait {

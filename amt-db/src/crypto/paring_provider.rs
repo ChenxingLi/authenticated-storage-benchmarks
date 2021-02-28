@@ -1,4 +1,4 @@
-use algebra::{bls12_381::Bls12_381, PairingEngine, PrimeField};
+use crate::crypto::export::{Bls12_381, PairingEngine, PrimeField};
 
 pub type G1<PE> = <PE as PairingEngine>::G1Projective;
 pub type G1Aff<PE> = <PE as PairingEngine>::G1Affine;

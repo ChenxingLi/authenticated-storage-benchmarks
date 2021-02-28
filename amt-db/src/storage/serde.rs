@@ -1,4 +1,4 @@
-use algebra_core::{FromBytes, ToBytes};
+use crate::crypto::export::{FromBytes, ToBytes};
 use keccak_hash::H256;
 
 pub trait StoreByBytes {}
@@ -75,7 +75,7 @@ error_chain! {
     }
 
     foreign_links {
-        AlgebraSerializeErr(algebra_core::serialize::SerializationError);
+        AlgebraSerializeErr(crate::crypto::export::SerializationError);
         StdIoErr(std::io::Error);
     }
 }

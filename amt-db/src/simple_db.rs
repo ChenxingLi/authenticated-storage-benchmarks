@@ -1,6 +1,7 @@
 use crate::amt::tree::AMTProof;
 use crate::amt::{AMTData, AMTree};
 use crate::crypto::{
+    export::G1Projective,
     paring_provider::{Fr, FrInt, G1},
     AMTParams, Pairing,
 };
@@ -10,7 +11,6 @@ use crate::storage::{
     StoreByBytes, StoreTupleByBytes, SystemDB,
 };
 use crate::ver_tree::{AMTConfig, Commitment, Key, Node, TreeName, VerForest, VerInfo};
-use algebra::bls12_381::G1Projective;
 use cfx_types::H256;
 use keccak_hash::keccak;
 use std::collections::VecDeque;
@@ -358,27 +358,89 @@ fn new_test_simple_db(dir: &str) -> SimpleDb {
 }
 
 #[test]
+fn tmp_test() {
+    println!("{}", std::mem::size_of::<LevelProof>());
+}
+
+#[test]
 fn test_simple_db() {
     // use crate::enable_log::enable_debug_log;
     // enable_debug_log();
+    use std::collections::HashMap;
 
     let mut db = new_test_simple_db("./__test_simple_db");
     let pp = db.version_tree.pp.clone();
 
-    let mut epoch_root_dict = std::collections::HashMap::new();
+    let mut epoch_root_dict = HashMap::new();
 
-    for i in 1..=255 {
-        db.set(&Key(vec![1, 2, i, 0]), vec![1, 2, i].into());
-        let (_, epoch_root) = db.commit(i as u64).unwrap();
-        epoch_root_dict.insert(i as u64, epoch_root);
+    let mut current_epoch = 0;
+    let mut _latest_amt_root = G1Projective::default();
+
+    let verify_key =
+        |key: Vec<u8>, value: Vec<u8>, db: &mut SimpleDb, epoch_root_dict: &HashMap<u64, H256>| {
+            println!("Verify key {:?}", key);
+            let key = Key(key.to_vec());
+            assert_eq!(value, db.get(&key).unwrap().unwrap().into_vec());
+            let proof = db.prove(&key).unwrap();
+            SimpleDb::verify(&key, &proof, |epoch| epoch_root_dict[&epoch], &pp).unwrap();
+        };
+
+    for i in 0..=255 {
+        db.set(&Key(vec![1, 2, i, 0]), vec![1, 2, i, 5].into());
+        let (amt_root, epoch_root) = db.commit(current_epoch).unwrap();
+        _latest_amt_root = amt_root;
+        epoch_root_dict.insert(current_epoch, epoch_root);
+        current_epoch += 1;
     }
 
-    for i in 1..=20 {
-        println!("Verify key {}", i);
-        let key = Key(vec![1, 2, i, 0]);
-        assert_eq!(vec![1, 2, i], db.get(&key).unwrap().unwrap().into_vec());
-        let proof = db.prove(&key).unwrap();
-        SimpleDb::verify(&key, &proof, |epoch| epoch_root_dict[&epoch], &pp).unwrap();
+    for i in 0..=40 {
+        verify_key(
+            vec![1, 2, i, 0],
+            vec![1, 2, i, 5],
+            &mut db,
+            &epoch_root_dict,
+        );
+    }
+
+    for i in 0..=255 {
+        db.set(&Key(vec![1, 2, i, 1]), vec![1, 2, i, 10].into());
+        let (amt_root, epoch_root) = db.commit(current_epoch).unwrap();
+        _latest_amt_root = amt_root;
+        epoch_root_dict.insert(current_epoch, epoch_root);
+        current_epoch += 1;
+    }
+
+    for i in 0..=40 {
+        verify_key(
+            vec![1, 2, i, 1],
+            vec![1, 2, i, 10],
+            &mut db,
+            &epoch_root_dict,
+        );
+    }
+
+    for i in 0..=255 {
+        db.set(&Key(vec![1, 2, i, 0]), vec![1, 2, i, 15].into());
+        db.set(&Key(vec![1, 2, i, 1]), vec![1, 2, i, 20].into());
+        let (amt_root, epoch_root) = db.commit(current_epoch).unwrap();
+        _latest_amt_root = amt_root;
+        epoch_root_dict.insert(current_epoch, epoch_root);
+        current_epoch += 1;
+    }
+
+    for i in 0..=40 {
+        verify_key(
+            vec![1, 2, i, 0],
+            vec![1, 2, i, 15],
+            &mut db,
+            &epoch_root_dict,
+        );
+        verify_key(
+            vec![1, 2, i, 1],
+            vec![1, 2, i, 20],
+            &mut db,
+            &epoch_root_dict,
+        );
     }
 
     std::fs::remove_dir_all("./__test_simple_db").unwrap();

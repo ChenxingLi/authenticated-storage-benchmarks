@@ -1,4 +1,6 @@
 use super::tree::{AMTConfigTrait, AMTData, AMTree};
+use crate::crypto::export::bls12_381;
+use crate::crypto::export::{One, PairingEngine, PrimeField, Zero};
 use crate::crypto::{
     paring_provider::{Fr, Pairing},
     AMTParams, TypeUInt, PP,
@@ -7,8 +9,6 @@ use crate::storage::{
     serde::Result, FlattenArray, FlattenTree, StorageDecodable, StorageEncodable, StoreByBytes,
 };
 use crate::type_uint;
-use algebra::bls12_381;
-use algebra::{One, PairingEngine, PrimeField, Zero};
 use std::{marker::PhantomData, sync::Arc};
 
 impl<P: PrimeField> AMTData<P> for P {

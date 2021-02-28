@@ -1,4 +1,4 @@
-use algebra::{
+use crate::crypto::export::{
     AffineCurve, CanonicalDeserialize, CanonicalSerialize, Field, PairingEngine, ProjectiveCurve,
     SerializationError, UniformRand,
 };
@@ -106,7 +106,7 @@ mod error {
 
         foreign_links {
             File(std::io::Error);
-            Serialize(algebra_core::serialize::SerializationError);
+            Serialize(crate::crypto::export::SerializationError);
         }
 
         errors {

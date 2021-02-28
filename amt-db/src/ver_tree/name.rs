@@ -1,6 +1,6 @@
 use super::{key::Key, DEPTHS};
+use crate::crypto::export::{FromBytes, ToBytes};
 use crate::storage::StoreByBytes;
-use algebra::{FromBytes, ToBytes};
 use std::io::{Error, ErrorKind, Read, Result, Write};
 
 #[derive(Default, Debug, Copy, Clone, Hash, PartialEq, Eq, Ord, PartialOrd)]

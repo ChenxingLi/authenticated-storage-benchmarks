@@ -1,7 +1,11 @@
 use crate::crypto::paring_provider::{Fr, G2Aff, G1, G2};
 use crate::crypto::trusted_setup::PP;
-use algebra::{fields::utils::k_adicity, AffineCurve, FftField, Field, PairingEngine, Zero};
-use ff_fft::{EvaluationDomain, Radix2EvaluationDomain};
+// use algebra::{fields::utils::k_adicity, AffineCurve, FftField, Field, PairingEngine, Zero};
+// use ff_fft::{EvaluationDomain, Radix2EvaluationDomain};
+use crate::crypto::export::{
+    k_adicity, AffineCurve, EvaluationDomain, FftField, Field, PairingEngine,
+    Radix2EvaluationDomain, Zero,
+};
 
 pub struct AMTParams<PE: PairingEngine> {
     indents: Vec<G1<PE>>,
@@ -128,4 +132,4 @@ fn test_ident_prove() {
 #[cfg(test)]
 use super::paring_provider::Pairing;
 #[cfg(test)]
-use algebra::{One, ProjectiveCurve};
+use crate::crypto::export::{One, ProjectiveCurve};

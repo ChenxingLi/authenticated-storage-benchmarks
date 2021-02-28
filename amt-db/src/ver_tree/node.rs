@@ -1,11 +1,11 @@
 use super::Key;
 use crate::amt::AMTData;
-use crate::crypto::paring_provider::{Fr as FrGeneric, FrInt as FrIntGeneric, Pairing};
-use crate::storage::{StorageDecodable, StorageEncodable};
-use algebra::{
+use crate::crypto::export::{
     CanonicalDeserialize, CanonicalSerialize, FpParameters, PrimeField, Read, SerializationError,
     Write,
 };
+use crate::crypto::paring_provider::{Fr as FrGeneric, FrInt as FrIntGeneric, Pairing};
+use crate::storage::{StorageDecodable, StorageEncodable};
 
 pub(super) type Fr = FrGeneric<Pairing>;
 pub(super) type FrInt = FrIntGeneric<Pairing>;
@@ -95,7 +95,7 @@ mod test {
 
     #[cfg(test)]
     fn test_random_node_as_fr_int(rng: &mut ThreadRng) {
-        use algebra::BigInteger;
+        use crate::crypto::export::BigInteger;
 
         let mut node = Node {
             key_versions: vec![Default::default(); 5],

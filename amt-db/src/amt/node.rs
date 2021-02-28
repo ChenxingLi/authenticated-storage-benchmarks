@@ -1,6 +1,6 @@
+use crate::crypto::export::{FromBytes, ProjectiveCurve};
 use crate::crypto::{serialize_length, TypeUInt};
 use crate::storage::{serde::Result, StorageDecodable, StorageEncodable};
-use algebra::{FromBytes, ProjectiveCurve};
 
 use std::marker::PhantomData;
 

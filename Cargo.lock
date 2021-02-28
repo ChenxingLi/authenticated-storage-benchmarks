@@ -353,7 +353,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "cfx-bytes"
 version = "0.1.0"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "ethcore-bytes",
 ]
@@ -361,7 +361,7 @@ dependencies = [
 [[package]]
 name = "cfx-internal-common"
 version = "1.0.0"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "cfx-bytes",
  "cfx-parameters",
@@ -383,7 +383,7 @@ dependencies = [
 [[package]]
 name = "cfx-parameters"
 version = "1.0.0"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "cfx-types",
  "lazy_static",
@@ -392,7 +392,7 @@ dependencies = [
 [[package]]
 name = "cfx-storage"
 version = "1.0.0"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "cfg-if 0.1.10",
  "cfx-bytes",
@@ -433,7 +433,7 @@ dependencies = [
 [[package]]
 name = "cfx-types"
 version = "0.1.0"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "ethereum-types",
 ]
@@ -441,7 +441,7 @@ dependencies = [
 [[package]]
 name = "cfxkey"
 version = "0.3.0"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "cfx-types",
  "edit-distance",
@@ -556,7 +556,7 @@ dependencies = [
 [[package]]
 name = "db"
 version = "0.1.0"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "kvdb",
  "kvdb-rocksdb",
@@ -1054,7 +1054,7 @@ dependencies = [
 [[package]]
 name = "kvdb-rocksdb"
 version = "0.1.6"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "cfx-types",
  "fs-swap",
@@ -1232,7 +1232,7 @@ dependencies = [
 [[package]]
 name = "malloc_size_of"
 version = "0.0.1"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "cfg-if 0.1.10",
  "cfx-types",
@@ -1246,7 +1246,7 @@ dependencies = [
 [[package]]
 name = "malloc_size_of_derive"
 version = "0.1.1"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "proc-macro2 1.0.24",
  "syn 1.0.54",
@@ -1628,7 +1628,7 @@ dependencies = [
 [[package]]
 name = "primitives"
 version = "0.1.0"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "byteorder",
  "cfx-bytes",
@@ -1780,7 +1780,7 @@ dependencies = [
 [[package]]
 name = "random-crash"
 version = "1.0.0"
-source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4e#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
+source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=3dac4ea2#3dac4ea2929fe24f6e9adb7cb15755390e7edc30"
 dependencies = [
  "lazy_static",
  "log",

@@ -1,6 +1,6 @@
 use super::tree::{AMTConfigTrait, AMTData, AMTree};
+use crate::crypto::export::BigInteger;
 use crate::crypto::paring_provider::FrInt;
-use algebra::BigInteger;
 use std::ops::{Deref, DerefMut, Drop};
 
 pub struct AMTNodeWriteGuard<'a, C: AMTConfigTrait> {
