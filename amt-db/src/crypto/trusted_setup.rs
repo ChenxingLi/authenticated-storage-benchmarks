@@ -34,7 +34,7 @@ impl<PE: PairingEngine> PP<PE> {
         let mut e = tau.clone();
         g2pp.reserve(depth + 1);
         for _ in 0..depth {
-            let value: G2<PE> = gen2.mul(e.clone());
+            let value: G2<PE> = gen2.mul(e.clone().into());
             g2pp.push(value.into_affine());
             e.square_in_place();
         }

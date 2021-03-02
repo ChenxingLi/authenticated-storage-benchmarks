@@ -123,13 +123,15 @@ fn test_ident_prove() {
                 Pairing::pairing(
                     prove_data[i],
                     g2pp[TEST_LEVEL - depth]
-                        + g2.mul(w_inv.pow([(i * (TEST_LENGTH >> depth)) as u64])),
+                        + g2.mul::<FrInt<Pairing>>(
+                            w_inv.pow([(i * (TEST_LENGTH >> depth)) as u64]).into()
+                        ),
                 )
             );
         }
     }
 }
 #[cfg(test)]
-use super::paring_provider::Pairing;
+use super::paring_provider::{FrInt, Pairing};
 #[cfg(test)]
 use crate::crypto::export::{One, ProjectiveCurve};

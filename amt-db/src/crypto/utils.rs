@@ -35,7 +35,7 @@ pub(crate) fn type_hash<T: Any>() -> String {
     base64::encode(s.finish().to_be_bytes())
 }
 
-use crate::crypto::export::{ConstantSerializedSize, ProjectiveCurve};
+use crate::crypto::export::{CanonicalSerialize, ProjectiveCurve};
 
 // This is an ad-hoc fix due to the upstream crate provides insufficient APIs for projective curve.
 // when the const generic stabilized, this function could be a constant function.
@@ -45,7 +45,7 @@ pub fn serialize_length<G: ProjectiveCurve>() -> usize {
 
     assert_eq!(mem_point % mem_base, 0);
     let coords: usize = mem_point / mem_base;
-    <G::BaseField as ConstantSerializedSize>::UNCOMPRESSED_SIZE * coords
+    (G::BaseField::default()).uncompressed_size() * coords
 }
 
 #[test]

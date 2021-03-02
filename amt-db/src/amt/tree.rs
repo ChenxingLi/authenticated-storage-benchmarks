@@ -96,9 +96,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
 
         self.dirty = true;
 
-        let update_fr: Fr<C::PE> = update_fr_int.into();
-
-        let inc_comm = self.pp.get_idents(index).mul(update_fr);
+        let inc_comm = self.pp.get_idents(index).mul(update_fr_int);
 
         // Update proof
         self.inner_nodes.get_mut(&NodeIndex::root()).commitment += &inc_comm;
@@ -108,7 +106,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
 
         for (height, depth) in (0..C::DEPTHS).map(|height| (height, C::DEPTHS - height)) {
             let visit_node_index = node_index.to_ancestor(height);
-            let proof = self.pp.get_quotient(depth, index).mul(update_fr);
+            let proof = self.pp.get_quotient(depth, index).mul(update_fr_int);
             let node = self.inner_nodes.get_mut(&visit_node_index);
             node.commitment += &inc_comm;
             node.proof += &proof;
@@ -138,7 +136,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
         pp: &AMTParams<C::PE>,
     ) -> bool {
         assert!(index < C::LENGTH);
-        let self_indent = pp.get_idents(index).mul(value);
+        let self_indent = pp.get_idents(index).mul(value.into());
         let others: G1<C::PE> = proof.iter().map(|node| node.commitment).sum();
 
         let w_inv = pp.w_inv();
@@ -155,7 +153,8 @@ impl<C: AMTConfigTrait> AMTree<C> {
         }
 
         let tau_pow = |height: usize| *pp.get_g2_pow_tau(height);
-        let w_pow = |height: usize| g2.mul(w_inv.pow([(index << height & C::IDX_MASK) as u64]));
+        let w_pow =
+            |height: usize| g2.mul(w_inv.pow([(index << height & C::IDX_MASK) as u64]).into());
 
         for (index, node) in proof.iter().copied().enumerate() {
             let height = C::DEPTHS - index - 1;

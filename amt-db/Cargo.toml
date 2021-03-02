@@ -7,17 +7,18 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#ark-ec = { git =  "https://github.com/arkworks-rs/algebra" }
-#ark-ff = { git =  "https://github.com/arkworks-rs/algebra" }
-#ark-poly = { git =  "https://github.com/arkworks-rs/algebra" }
-#ark-serialize = { git =  "https://github.com/arkworks-rs/algebra" }
-#ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves"}
-algebra-core = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
-ff-fft = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
-algebra =  { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
-cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4ea2"}
-db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4ea2"}
-cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "3dac4ea2"}
+ark-ec = { git =  "https://github.com/arkworks-rs/algebra", features = ["std"] }
+ark-ff = { git =  "https://github.com/arkworks-rs/algebra", features = ["std"] }
+ark-poly = { git =  "https://github.com/arkworks-rs/algebra", features = ["std"] }
+ark-serialize = { git =  "https://github.com/arkworks-rs/algebra",  features = ["std"]  }
+ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves", features = ["curve"]}
+ark-std = { git = "https://github.com/arkworks-rs/utils" }
+#algebra-core = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
+#ff-fft = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
+#algebra =  { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
+cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "73b8f69"}
+db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "73b8f69"}
+cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "73b8f69"}
 keccak-hash = "0.5.1"
 lazy_static = "1.4"
 log = "0.4"
@@ -33,4 +34,4 @@ static_assertions = "0.1"
 
 
 [features]
-default = [ "algebra/bls12_381", "algebra/std", "algebra-core/derive" ]
+#default = [ "algebra/bls12_381", "algebra/std", "algebra-core/derive",  ]
