@@ -1,14 +1,14 @@
 use crate::amt::tree::AMTProof;
 use crate::amt::{AMTData, AMTree};
 use crate::crypto::{
-    export::G1Projective,
-    paring_provider::{Fr, FrInt, G1},
+    export::{CanonicalDeserialize, CanonicalSerialize, Fr, FrInt, G1Projective, G1},
     AMTParams, Pairing,
 };
+use crate::impl_storage_from_canonical;
 use crate::merkle::{MerkleProof, StaticMerkleTree};
 use crate::storage::{
     KeyValueDbTrait, KeyValueDbTraitRead, KvdbRocksdb, Result, StorageDecodable, StorageEncodable,
-    StoreByBytes, StoreTupleByBytes, SystemDB,
+    StoreTupleByBytes, SystemDB,
 };
 use crate::ver_tree::{AMTConfig, Commitment, Key, Node, TreeName, VerForest, VerInfo};
 use cfx_types::H256;
@@ -36,10 +36,6 @@ struct SimpleDb {
     dirty_guard: bool,
 }
 
-/// I can not implement `impl StoreByBytes for Commitment {}` here. So I implement for
-/// `G1Projective` instead.
-/// See https://github.com/arkworks-rs/algebra/issues/185 for more details.  
-impl StoreByBytes for G1Projective {}
 impl StoreTupleByBytes for (u64, u64) {}
 impl StoreTupleByBytes for (Vec<u8>, VerInfo, Vec<u8>) {}
 impl StoreTupleByBytes for (TreeName, u64, Commitment) {}
@@ -346,12 +342,12 @@ impl SimpleDb {
 
 #[cfg(test)]
 fn new_test_simple_db(dir: &str) -> SimpleDb {
-    use crate::crypto::{TypeDepths, TypeUInt, PP};
+    use crate::crypto::{PowerTau, TypeDepths, TypeUInt};
     use crate::storage::open_database;
     const DEPTHS: usize = TypeDepths::USIZE;
 
     let db = open_database(dir, NUM_COLS);
-    let pp = PP::<Pairing>::from_file_or_new("./pp", DEPTHS);
+    let pp = PowerTau::<Pairing>::from_file_or_new("./pp", DEPTHS);
     let amt_param = Arc::new(AMTParams::<Pairing>::from_pp(pp, DEPTHS));
 
     SimpleDb::new(db, amt_param)

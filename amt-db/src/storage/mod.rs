@@ -1,6 +1,7 @@
 pub mod access;
 pub mod layout;
 pub mod rocksdb;
+#[macro_use]
 pub mod serde;
 
 pub use self::access::DBAccess;

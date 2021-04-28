@@ -1,37 +1,21 @@
-use crate::crypto::export::{FromBytes, ProjectiveCurve};
-use crate::crypto::{serialize_length, TypeUInt};
-use crate::storage::{serde::Result, StorageDecodable, StorageEncodable};
-
+use crate::impl_storage_from_canonical;
+use crate::{
+    crypto::{
+        export::{CanonicalDeserialize, CanonicalSerialize, ProjectiveCurve, SerializationError},
+        TypeUInt,
+    },
+    storage::{StorageDecodable, StorageEncodable},
+};
+use std::io::{Read, Write};
 use std::marker::PhantomData;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, CanonicalDeserialize, CanonicalSerialize)]
 pub struct AMTNode<G: ProjectiveCurve> {
     pub commitment: G,
     pub proof: G,
 }
 
-impl<G: ProjectiveCurve> StorageEncodable for AMTNode<G> {
-    fn storage_encode(&self) -> Vec<u8> {
-        let mut answer = Vec::with_capacity(2 * serialize_length::<G>());
-        self.commitment
-            .write(&mut answer)
-            .expect("Write to Vec<u8> should always success");
-        self.proof
-            .write(&mut answer)
-            .expect("Write to Vec<u8> should always success");
-
-        answer
-    }
-}
-
-impl<G: ProjectiveCurve> StorageDecodable for AMTNode<G> {
-    fn storage_decode(mut data: &[u8]) -> Result<Self> {
-        Ok(Self {
-            commitment: FromBytes::read(&mut data)?,
-            proof: FromBytes::read(&mut data)?,
-        })
-    }
-}
+impl_storage_from_canonical!(AMTNode<G: ProjectiveCurve>);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct NodeIndex<N: TypeUInt> {

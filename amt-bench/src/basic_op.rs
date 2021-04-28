@@ -117,7 +117,7 @@ fn mem_swap_read_fold(b: &mut Bencher) {
 }
 
 use algebra::BigInteger;
-use amt_db::crypto::paring_provider::{FrInt, Pairing};
+use amt_db::crypto::export::{FrInt, Pairing};
 
 #[bench]
 fn muln_fold(b: &mut Bencher) {

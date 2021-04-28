@@ -4,7 +4,8 @@ use crate::crypto::export::{
     CanonicalDeserialize, CanonicalSerialize, FpParameters, PrimeField, Read, SerializationError,
     Write,
 };
-use crate::crypto::paring_provider::{Fr as FrGeneric, FrInt as FrIntGeneric, Pairing};
+use crate::crypto::export::{Fr as FrGeneric, FrInt as FrIntGeneric, Pairing};
+use crate::impl_storage_from_canonical;
 use crate::storage::{StorageDecodable, StorageEncodable};
 
 pub(super) type Fr = FrGeneric<Pairing>;
@@ -25,19 +26,21 @@ pub struct Node {
     pub(crate) tree_version: u64,
 }
 
-impl StorageEncodable for Node {
-    fn storage_encode(&self) -> Vec<u8> {
-        let mut serialized = Vec::with_capacity(self.serialized_size());
-        self.serialize_unchecked(&mut serialized).unwrap();
-        serialized
-    }
-}
+impl_storage_from_canonical!(Node);
 
-impl StorageDecodable for Node {
-    fn storage_decode(data: &[u8]) -> crate::storage::serde::Result<Self> {
-        Ok(Self::deserialize_unchecked(data)?)
-    }
-}
+// impl StorageEncodable for Node {
+//     fn storage_encode(&self) -> Vec<u8> {
+//         let mut serialized = Vec::with_capacity(self.serialized_size());
+//         self.serialize_unchecked(&mut serialized).unwrap();
+//         serialized
+//     }
+// }
+//
+// impl StorageDecodable for Node {
+//     fn storage_decode(data: &[u8]) -> crate::storage::serde::Result<Self> {
+//         Ok(Self::deserialize_unchecked(data)?)
+//     }
+// }
 
 impl AMTData<Fr> for Node {
     #[cfg(target_endian = "little")]

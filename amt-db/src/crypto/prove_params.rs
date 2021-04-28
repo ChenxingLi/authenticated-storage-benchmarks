@@ -1,12 +1,11 @@
-use crate::crypto::paring_provider::{Fr, G2Aff, G1, G2};
-use crate::crypto::trusted_setup::PP;
-// use algebra::{fields::utils::k_adicity, AffineCurve, FftField, Field, PairingEngine, Zero};
-// use ff_fft::{EvaluationDomain, Radix2EvaluationDomain};
 use crate::crypto::export::{
-    k_adicity, AffineCurve, EvaluationDomain, FftField, Field, PairingEngine,
-    Radix2EvaluationDomain, Zero,
+    k_adicity, AffineCurve, CanonicalDeserialize, CanonicalSerialize, EvaluationDomain, FftField,
+    Field, Fr, G2Aff, PairingEngine, Radix2EvaluationDomain, SerializationError, Zero, G1, G2,
 };
+use crate::crypto::power_tau::PowerTau;
+use std::io::{Read, Write};
 
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct AMTParams<PE: PairingEngine> {
     indents: Vec<G1<PE>>,
     quotients: Vec<Vec<G1<PE>>>,
@@ -36,7 +35,7 @@ impl<PE: PairingEngine> AMTParams<PE> {
         self.w_inv.clone()
     }
 
-    pub fn from_pp(pp: PP<PE>, depth: usize) -> Self {
+    pub fn from_pp(pp: PowerTau<PE>, depth: usize) -> Self {
         let (g1pp, g2pp) = pp.into_projective();
 
         let length: usize = 1 << depth;
@@ -103,7 +102,7 @@ fn test_ident_prove() {
     const TEST_LEVEL: usize = 6;
     const TEST_LENGTH: usize = 1 << TEST_LEVEL;
 
-    let (g1pp, g2pp) = PP::<Pairing>::from_file_or_new("./pp", TEST_LEVEL).into_projective();
+    let (g1pp, g2pp) = PowerTau::<Pairing>::from_file_or_new("./pp", TEST_LEVEL).into_projective();
 
     let w = Fr::<Pairing>::get_root_of_unity(TEST_LENGTH).unwrap();
     let w_inv = w.inverse().unwrap();
@@ -132,6 +131,6 @@ fn test_ident_prove() {
     }
 }
 #[cfg(test)]
-use super::paring_provider::{FrInt, Pairing};
+use super::export::{FrInt, Pairing};
 #[cfg(test)]
 use crate::crypto::export::{One, ProjectiveCurve};

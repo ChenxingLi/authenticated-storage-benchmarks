@@ -7,15 +7,17 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-ec = { git =  "https://github.com/arkworks-rs/algebra", features = ["std"] }
-ark-ff = { git =  "https://github.com/arkworks-rs/algebra", features = ["std"] }
-ark-poly = { git =  "https://github.com/arkworks-rs/algebra", features = ["std"] }
-ark-serialize = { git =  "https://github.com/arkworks-rs/algebra",  features = ["std"]  }
-ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves", features = ["curve"]}
-ark-std = { git = "https://github.com/arkworks-rs/utils" }
-#algebra-core = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
-#ff-fft = { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
-#algebra =  { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
+ark-ec = { version="^0.2.0", features = ["std"] }
+ark-ff = { version="^0.2.0", features = ["std"] }
+ark-poly = { version="^0.2.0", features = ["std"] }
+ark-serialize = { version="^0.2.0",  features = ["std"]  }
+ark-std = { version="^0.2.0" }
+
+ark-bls12-381 = {  version = "^0.2.0", features = ["curve"]}
+ark-bn254 = {  version = "^0.2.0", features = ["curve"]}
+
+ppot2ark = { path = "../ppot2ark" }
+
 cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "73b8f69"}
 db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "73b8f69"}
 cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "73b8f69"}
@@ -28,6 +30,7 @@ bencher = "0.1.5"
 error-chain = { version = "0.12", default-features = false }
 base64 = "0.13.0"
 static_assertions = "0.1"
+exitcode = "1.1.2"
 
 #[dev-dependencies]
 #pprof = { version = "0.3", features = ["flamegraph"] }

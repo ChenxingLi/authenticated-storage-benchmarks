@@ -1,60 +1,44 @@
 use super::tree::{AMTConfigTrait, AMTData, AMTree};
-use crate::crypto::export::bls12_381;
-use crate::crypto::export::{One, PairingEngine, PrimeField, Zero};
+use crate::crypto::export::FrInt;
 use crate::crypto::{
-    paring_provider::{Fr, Pairing},
-    AMTParams, TypeUInt, PP,
+    export::{
+        CanonicalDeserialize, CanonicalSerialize, Fr, One, Pairing, PairingEngine, PrimeField, Zero,
+    },
+    AMTParams, PowerTau, TypeUInt,
 };
+use crate::impl_storage_from_canonical;
 use crate::storage::{
     serde::Result, FlattenArray, FlattenTree, StorageDecodable, StorageEncodable, StoreByBytes,
 };
 use crate::type_uint;
 use std::{marker::PhantomData, sync::Arc};
 
-impl<P: PrimeField> AMTData<P> for P {
-    fn as_fr_int(&self) -> P::BigInt {
-        self.clone().into()
-    }
-    fn as_fr(&self) -> P {
-        self.clone()
-    }
-}
-
-struct TestConfig<PE: PairingEngine> {
-    _phantom: PhantomData<PE>,
-}
+struct TestConfig {}
 
 type_uint! {
     struct TestDepths(6);
 }
 
-impl StoreByBytes for [u8; 4] {}
+impl_storage_from_canonical!(u64);
 
-impl<PE: PairingEngine> AMTConfigTrait for TestConfig<PE>
-where
-    Fr<PE>: StorageDecodable + StorageEncodable,
-{
-    type PE = PE;
-    type Name = [u8; 4];
-    type Data = Fr<PE>;
+impl AMTConfigTrait for TestConfig {
+    type PE = Pairing;
+    type Name = u64;
+    type Data = u64;
     type DataLayout = FlattenArray;
     type TreeLayout = FlattenTree;
     type Height = TestDepths;
 }
 
-type TestTree<PE> = AMTree<TestConfig<PE>>;
+type TestTree = AMTree<TestConfig>;
 
-fn test_all<PE: PairingEngine>(amt: &mut TestTree<PE>, public_parameter: &AMTParams<PE>, task: &str)
-where
-    Fr<PE>: StorageDecodable + StorageEncodable,
-{
-    // super::utils::type_hash::<PE>();
-    for i in 0..TestConfig::<PE>::LENGTH {
+fn test_all(amt: &mut TestTree, public_parameter: &AMTParams<Pairing>, task: &str) {
+    for i in 0..TestConfig::LENGTH {
         let proof = amt.prove(i);
         let value = amt.get(i);
 
         assert!(
-            TestTree::verify(i, *value, amt.commitment(), proof, public_parameter),
+            TestTree::verify(i, value.as_fr(), amt.commitment(), proof, public_parameter),
             "fail at task {} pos {}",
             task,
             i
@@ -62,41 +46,33 @@ where
     }
 }
 
-impl StorageEncodable for bls12_381::Fr {
-    fn storage_encode(&self) -> Vec<u8> {
-        unimplemented!()
+impl AMTData<Fr<Pairing>> for u64 {
+    fn as_fr_int(&self) -> FrInt<Pairing> {
+        FrInt::<Pairing>::from(*self)
     }
 }
-
-impl StorageDecodable for bls12_381::Fr {
-    fn storage_decode(_: &[u8]) -> Result<Self> {
-        unimplemented!()
-    }
-}
-
-impl StoreByBytes for u64 {}
 
 #[test]
 fn test_amt() {
     let db = crate::storage::open_col("./__test_amt", 0);
 
-    const DEPTHS: usize = TestConfig::<Pairing>::DEPTHS;
+    const DEPTHS: usize = TestConfig::DEPTHS;
     const LENGTH: usize = 1 << DEPTHS;
 
-    let pp = PP::<Pairing>::from_file_or_new("./pp", DEPTHS);
+    let pp = PowerTau::<Pairing>::from_file_or_new("./pp", DEPTHS);
     let pp = Arc::new(AMTParams::<Pairing>::from_pp(pp, DEPTHS));
 
-    let mut amt = TestTree::<Pairing>::new(b"test".clone(), db, pp.clone());
+    let mut amt = TestTree::new(64, db, pp.clone());
 
     test_all(&mut amt, &pp, "Empty");
 
-    *amt.write(0) += Fr::<Pairing>::one();
-    assert_eq!(amt.get(0), &Fr::<Pairing>::one());
-    assert_eq!(amt.get(1), &Fr::<Pairing>::zero());
+    *amt.write(0) += 1;
+    assert_eq!(amt.get(0), &1);
+    assert_eq!(amt.get(1), &0);
     test_all(&mut amt, &pp, "one-hot");
 
-    *amt.write(0) += Fr::<Pairing>::one();
-    *amt.write(LENGTH / 2) += Fr::<Pairing>::one();
+    *amt.write(0) += &1;
+    *amt.write(LENGTH / 2) += &1;
     test_all(&mut amt, &pp, "sibling pair");
 
     ::std::fs::remove_dir_all("./__test_amt").unwrap();

@@ -1,7 +1,7 @@
 use super::{Commitment, Key, Node, Tree, TreeName, IDX_MASK, MAX_VERSION_NUMBER};
 use crate::crypto::export::{ToBytes, Write};
 use crate::{
-    crypto::{paring_provider::Pairing, AMTParams},
+    crypto::{export::Pairing, AMTParams},
     storage::KvdbRocksdb,
 };
 use std::{collections::BTreeMap, sync::Arc};

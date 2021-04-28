@@ -14,7 +14,7 @@ pub use self::{
 };
 use crate::{
     amt::{AMTConfigTrait, AMTree},
-    crypto::paring_provider::{Pairing, G1},
+    crypto::export::{Pairing, G1},
     storage::{FlattenArray, FlattenTree},
 };
 
