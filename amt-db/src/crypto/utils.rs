@@ -44,6 +44,10 @@ pub fn pp_file_name<PE: PairingEngine>(depth: usize) -> String {
     file_name::<PE>("power-tau", depth)
 }
 
+pub fn amtp_file_name<PE: PairingEngine>(depth: usize) -> String {
+    file_name::<PE>("amt-params", depth)
+}
+
 // This is an ad-hoc fix due to the upstream crate provides insufficient APIs for projective curve.
 // when the const generic stabilized, this function could be a constant function.
 // pub fn serialize_length<G: ProjectiveCurve>() -> usize {

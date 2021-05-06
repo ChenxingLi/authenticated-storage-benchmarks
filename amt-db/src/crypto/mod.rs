@@ -1,3 +1,4 @@
+mod error;
 pub mod export;
 mod power_tau;
 mod prove_params;

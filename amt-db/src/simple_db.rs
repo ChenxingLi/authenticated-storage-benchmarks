@@ -405,13 +405,12 @@ impl SimpleDb {
 
 #[cfg(test)]
 fn new_test_simple_db(dir: &str) -> SimpleDb {
-    use crate::crypto::{PowerTau, TypeDepths, TypeUInt};
+    use crate::crypto::{TypeDepths, TypeUInt};
     use crate::storage::open_database;
     const DEPTHS: usize = TypeDepths::USIZE;
 
     let db = open_database(dir, NUM_COLS);
-    let pp = PowerTau::<Pairing>::from_file_or_new("./pp", DEPTHS);
-    let amt_param = Arc::new(AMTParams::<Pairing>::from_pp(pp, DEPTHS));
+    let amt_param = Arc::new(AMTParams::<Pairing>::from_dir("./pp", DEPTHS, true));
 
     SimpleDb::new(db, amt_param)
 }

@@ -1,8 +1,9 @@
-use crate::crypto::export::{
+use super::error;
+use super::export::{
     AffineCurve, CanonicalDeserialize, CanonicalSerialize, Field, Fr, G1Aff, G2Aff, PairingEngine,
     ProjectiveCurve, SerializationError, UniformRand, G1, G2,
 };
-use crate::crypto::pp_file_name;
+use super::pp_file_name;
 use rand;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -73,7 +74,6 @@ impl<PE: PairingEngine> PowerTau<PE> {
         ))
     }
 
-    #[cfg(test)]
     pub fn from_dir_or_new(dir: &str, expected_depth: usize) -> PowerTau<PE> {
         let file = &format!("{}/{}", dir, pp_file_name::<PE>(expected_depth));
         match Self::from_dir_inner(file, expected_depth) {
@@ -104,23 +104,4 @@ fn test_partial_load() {
 
     assert_eq!(small_pp.0[..], large_pp.0[..(small_pp.0.len())]);
     assert_eq!(small_pp.1[..], large_pp.1[..(small_pp.1.len())]);
-}
-
-mod error {
-    error_chain! {
-        links {
-        }
-
-        foreign_links {
-            File(std::io::Error);
-            Serialize(crate::crypto::export::SerializationError);
-        }
-
-        errors {
-            InconsistentLength {
-                description("In consistent length between expected params and real params")
-                display("In consistent length between expected params and real params")
-            }
-        }
-    }
 }

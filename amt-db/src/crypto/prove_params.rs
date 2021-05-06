@@ -1,8 +1,10 @@
-use crate::crypto::export::{
+use super::error;
+use super::export::{
     k_adicity, AffineCurve, CanonicalDeserialize, CanonicalSerialize, EvaluationDomain, FftField,
     Field, Fr, G2Aff, PairingEngine, Radix2EvaluationDomain, SerializationError, Zero, G1, G2,
 };
-use crate::crypto::power_tau::PowerTau;
+use super::power_tau::PowerTau;
+use super::utils::amtp_file_name;
 use std::io::{Read, Write};
 
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
@@ -35,13 +37,38 @@ impl<PE: PairingEngine> AMTParams<PE> {
         self.w_inv.clone()
     }
 
-    pub fn from_pp(pp: PowerTau<PE>, depth: usize) -> Self {
+    fn load_cached(file: &str) -> Result<Self, error::Error> {
+        let buffer = File::open(file)?;
+        Ok(CanonicalDeserialize::deserialize_unchecked(buffer)?)
+    }
+
+    pub fn from_dir(dir: &str, expected_depth: usize, create_mode: bool) -> Self {
+        let file = &format!("{}/{}", dir, amtp_file_name::<PE>(expected_depth));
+        match Self::load_cached(file) {
+            Ok(params) => params,
+            Err(_) => {
+                let pp = if create_mode {
+                    PowerTau::<PE>::from_dir_or_new(dir, expected_depth)
+                } else {
+                    PowerTau::<PE>::from_dir(dir, expected_depth)
+                };
+
+                let params = Self::from_pp(pp);
+                let buffer = File::create(file).unwrap();
+                params.serialize_uncompressed(&buffer).unwrap();
+                params
+            }
+        }
+    }
+
+    fn from_pp(pp: PowerTau<PE>) -> Self {
         let (g1pp, g2pp) = pp.into_projective();
+
+        let depth = g2pp.len();
 
         let length: usize = 1 << depth;
 
         assert_eq!(g1pp.len(), length);
-        assert_eq!(g2pp.len(), depth);
 
         let fft_domain = Radix2EvaluationDomain::<Fr<PE>>::new(length).unwrap();
 
@@ -102,7 +129,7 @@ fn test_ident_prove() {
     const TEST_LEVEL: usize = 6;
     const TEST_LENGTH: usize = 1 << TEST_LEVEL;
 
-    let (g1pp, g2pp) = PowerTau::<Pairing>::from_file_or_new("./pp", TEST_LEVEL).into_projective();
+    let (g1pp, g2pp) = PowerTau::<Pairing>::from_dir_or_new("./pp", TEST_LEVEL).into_projective();
 
     let w = Fr::<Pairing>::get_root_of_unity(TEST_LENGTH).unwrap();
     let w_inv = w.inverse().unwrap();
@@ -134,3 +161,4 @@ fn test_ident_prove() {
 use super::export::{FrInt, Pairing};
 #[cfg(test)]
 use crate::crypto::export::{One, ProjectiveCurve};
+use std::fs::File;

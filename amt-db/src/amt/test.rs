@@ -2,7 +2,7 @@ use super::tree::{AMTConfigTrait, AMTData, AMTree};
 use crate::crypto::export::FrInt;
 use crate::crypto::{
     export::{CanonicalDeserialize, CanonicalSerialize, Fr, Pairing},
-    AMTParams, PowerTau, TypeUInt,
+    AMTParams, TypeUInt,
 };
 use crate::impl_storage_from_canonical;
 use crate::storage::{FlattenArray, FlattenTree, StorageDecodable, StorageEncodable};
@@ -55,8 +55,7 @@ fn test_amt() {
     const DEPTHS: usize = TestConfig::DEPTHS;
     const LENGTH: usize = 1 << DEPTHS;
 
-    let pp = PowerTau::<Pairing>::from_file_or_new("./pp", DEPTHS);
-    let pp = Arc::new(AMTParams::<Pairing>::from_pp(pp, DEPTHS));
+    let pp = Arc::new(AMTParams::<Pairing>::from_dir("./pp", DEPTHS, true));
 
     let mut amt = TestTree::new(64, db, pp.clone());
 
