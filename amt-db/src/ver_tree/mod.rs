@@ -3,9 +3,6 @@ mod name;
 mod node;
 mod tree;
 
-#[cfg(test)]
-mod test;
-
 pub use self::{
     key::Key,
     name::TreeName,

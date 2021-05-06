@@ -1,80 +1,61 @@
-use super::{key::Key, DEPTHS};
-use crate::crypto::export::{FromBytes, ToBytes};
-use crate::storage::StoreByBytes;
-use std::io::{Error, ErrorKind, Read, Result, Write};
+use super::key::Key;
+use crate::crypto::export::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
+use crate::impl_storage_from_canonical;
+use crate::storage::{StorageDecodable, StorageEncodable};
+use std::io::{Read, Write};
 
-#[derive(Default, Debug, Copy, Clone, Hash, PartialEq, Eq, Ord, PartialOrd)]
-pub struct TreeName(pub(super) usize, pub(super) u128);
+#[derive(Default, Debug, Clone, Hash, PartialEq, Eq, Ord, PartialOrd)]
+pub struct TreeName(pub(super) Vec<u32>);
 
-impl StoreByBytes for TreeName {}
-
-impl FromBytes for TreeName {
-    fn read<R: Read>(mut reader: R) -> Result<Self> {
-        let level = u8::read(&mut reader)? as usize;
-        let length = u8::read(&mut reader)? as usize;
-
-        if length > 16 {
-            let err = Error::new(ErrorKind::InvalidData, "The index length can not exceed 16");
-            return Err(err);
+impl CanonicalSerialize for TreeName {
+    fn serialize<W: Write>(&self, mut writer: W) -> Result<(), SerializationError> {
+        let length = self.0.len() as u8;
+        length.serialize(&mut writer)?;
+        for item in &self.0 {
+            item.serialize(&mut writer)?;
         }
-
-        let mut index_bytes = [0u8; 16];
-        reader.read_exact(&mut index_bytes[(16 - length)..])?;
-
-        let index = u128::from_be_bytes(index_bytes);
-
-        Ok(TreeName(level, index))
-    }
-}
-
-impl ToBytes for TreeName {
-    fn write<W: Write>(&self, mut writer: W) -> Result<()> {
-        let TreeName(level, index) = self;
-        let truncates = (index.leading_zeros() / 8) as usize;
-        let vec_index = &index.to_be_bytes()[truncates..];
-
-        (*level as u8).write(&mut writer)?;
-        ((16 - truncates) as u8).write(&mut writer)?;
-        vec_index.write(writer)?;
-
         Ok(())
     }
+
+    fn serialized_size(&self) -> usize {
+        1 + 4 * self.0.len()
+    }
 }
+
+impl CanonicalDeserialize for TreeName {
+    fn deserialize<R: Read>(mut reader: R) -> Result<Self, SerializationError> {
+        let len = u8::deserialize(&mut reader)?;
+        let mut values = Vec::new();
+        for _ in 0..len {
+            values.push(u32::deserialize(&mut reader)?);
+        }
+        Ok(TreeName(values))
+    }
+}
+
+impl_storage_from_canonical!(TreeName);
 
 impl TreeName {
     pub const fn root() -> Self {
-        TreeName(0, 0)
+        TreeName(Vec::new())
     }
 
-    pub fn from_key_level(key: &Key, level: usize) -> Self {
-        TreeName(level, key.tree_at_level(level))
-    }
-
-    pub fn parent(&self) -> Option<Self> {
-        let TreeName(level, index) = self.clone();
-        if level == 0 {
-            None
-        } else {
-            Some(TreeName(level - 1, index >> DEPTHS))
-        }
+    pub fn from_key_level(key: &Key, level: u8) -> Self {
+        TreeName(key.tree_at_level(level))
     }
 }
 
 #[test]
 fn test_tree_name_string() {
-    use crate::storage::{StorageDecodable, StorageEncodable};
+    assert_eq!(TreeName(vec![]).storage_encode(), [0u8]);
 
-    assert_eq!(TreeName(0, 0).storage_encode(), [0u8, 0u8]);
     assert_eq!(
-        TreeName(0, 0),
-        TreeName::storage_decode(&[0u8, 0u8]).unwrap()
+        TreeName(vec![1]).storage_encode(),
+        [1u8, 1u8, 0u8, 0u8, 0u8]
     );
 
-    assert_eq!(TreeName(1, 0).storage_encode(), [1u8, 0u8]);
     assert_eq!(
-        TreeName(1, 0),
-        TreeName::storage_decode(&[1u8, 0u8]).unwrap()
+        TreeName::storage_decode(&TreeName(vec![1, 2, 3]).storage_encode()).unwrap(),
+        TreeName(vec![1, 2, 3])
     );
-
-    assert_eq!(TreeName(1, 1).storage_encode(), [1u8, 1u8, 1u8]);
 }

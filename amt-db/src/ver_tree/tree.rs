@@ -1,16 +1,20 @@
-use super::{Commitment, Key, Node, Tree, TreeName, IDX_MASK, MAX_VERSION_NUMBER};
-use crate::crypto::export::{ToBytes, Write};
+use super::{Commitment, Key, Node, Tree, TreeName, MAX_VERSION_NUMBER};
 use crate::{
-    crypto::{export::Pairing, AMTParams},
+    crypto::{
+        export::{CanonicalDeserialize, CanonicalSerialize, Pairing, SerializationError, ToBytes},
+        AMTParams,
+    },
     storage::KvdbRocksdb,
 };
+use std::io::{Read, Write};
 use std::{collections::BTreeMap, sync::Arc};
 
+type TreesLayer = BTreeMap<Vec<u32>, Tree>;
 #[derive(Clone)]
 pub struct TreeManager {
     db: KvdbRocksdb,
     pp: Arc<AMTParams<Pairing>>,
-    forest: Vec<BTreeMap<u128, Tree>>,
+    forest: Vec<TreesLayer>,
 }
 
 impl TreeManager {
@@ -21,17 +25,18 @@ impl TreeManager {
     }
 
     pub fn get(&self, name: TreeName) -> Option<&Tree> {
-        let TreeName(level, index) = name;
-        self.forest.get(level).and_then(|tree| tree.get(&index))
+        self.forest
+            .get(name.0.len())
+            .and_then(|tree| tree.get(&name.0))
     }
 
     pub fn get_mut_or_load(&mut self, name: TreeName) -> &mut Tree {
-        let TreeName(level, index) = name;
+        let level = name.0.len();
         if self.forest.len() < level + 1 {
             self.forest.resize(level + 1, BTreeMap::new())
         }
         self.forest[level]
-            .entry(index)
+            .entry(name.0.clone())
             .or_insert(Tree::new(name, self.db.clone(), self.pp.clone()))
     }
 
@@ -39,10 +44,7 @@ impl TreeManager {
         self.forest.len() - 1
     }
 
-    fn get_neiboring_levels(
-        &mut self,
-        level: usize,
-    ) -> (&mut BTreeMap<u128, Tree>, &mut BTreeMap<u128, Tree>) {
+    fn get_neiboring_levels(&mut self, level: usize) -> (&mut TreesLayer, &mut TreesLayer) {
         let (parent_level, level) = self.forest[(level - 1)..=level].split_first_mut().unwrap();
         (parent_level, &mut level[0])
     }
@@ -53,11 +55,11 @@ pub struct VerForest {
     pub(crate) pp: Arc<AMTParams<Pairing>>,
 }
 
-#[derive(Default, Copy, Clone, Debug)]
+#[derive(Default, Copy, Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
 pub struct VerInfo {
     pub version: u64,
-    pub level: usize, //When serialized, `level` and `slot_index` are regarded as u8.
-    pub slot_index: usize,
+    pub level: u8, //When serialized, `level` and `slot_index` are regarded as u8.
+    pub slot_index: u8,
 }
 
 impl ToBytes for VerInfo {
@@ -88,7 +90,7 @@ impl VerForest {
                     return VerInfo {
                         version: *ver as u64,
                         level,
-                        slot_index,
+                        slot_index: slot_index as u8,
                     };
                 }
             }
@@ -102,7 +104,7 @@ impl VerForest {
             if node.tree_version == 0
                 && self
                     .tree_manager
-                    .get(tree_name)
+                    .get(tree_name.clone())
                     .map_or(true, |tree| !tree.dirty())
             {
                 // returns the empty slot that allocate for this key.
@@ -110,7 +112,7 @@ impl VerForest {
                     VerInfo {
                         version: 0,
                         level: level - 1,
-                        slot_index: num_alloc_slots,
+                        slot_index: num_alloc_slots as u8,
                     }
                 } else {
                     VerInfo {
@@ -132,7 +134,7 @@ impl VerForest {
             let node_index = key.index_at_level(level) as usize;
 
             debug!(
-                "Access key {:?} at level {}, tree_index {}, node_index {}",
+                "Access key {:?} at level {}, tree_index {:?}, node_index {}",
                 key.0,
                 level,
                 key.tree_at_level(level),
@@ -150,7 +152,7 @@ impl VerForest {
                     return VerInfo {
                         version: *ver as u64,
                         level,
-                        slot_index,
+                        slot_index: slot_index as u8,
                     };
                 }
             }
@@ -164,7 +166,7 @@ impl VerForest {
                 return VerInfo {
                     version: 1,
                     level,
-                    slot_index,
+                    slot_index: slot_index as u8,
                 };
             }
 
@@ -188,28 +190,32 @@ impl VerForest {
 
         for level in (1..=max_level).rev() {
             let (parent_level_trees, level_trees) = self.tree_manager.get_neiboring_levels(level);
-            for (&index, tree) in level_trees.iter_mut().filter(|(_index, tree)| tree.dirty()) {
+            for (index, tree) in level_trees.iter_mut().filter(|(_index, tree)| tree.dirty()) {
                 tree.flush();
 
-                let TreeName(parent_level, parent_index) = TreeName(level, index).parent().unwrap();
+                let parent_index = {
+                    let mut tmp = index.clone();
+                    tmp.pop().expect("Should not fail");
+                    tmp
+                };
                 let default_tree =
-                    || Tree::new(TreeName(parent_level, parent_index), db.clone(), pp.clone());
+                    || Tree::new(TreeName(parent_index.clone()), db.clone(), pp.clone());
                 let mut parent_node_guard = parent_level_trees
-                    .entry(parent_index)
+                    .entry(parent_index.clone())
                     .or_insert_with(default_tree)
-                    .write((index & IDX_MASK as u128) as usize);
+                    .write(*index.last().unwrap() as usize);
 
                 let ver = &mut parent_node_guard.tree_version;
                 *ver += 1;
                 assert!(*ver <= MAX_VERSION_NUMBER);
 
-                update.push((TreeName(level, index), tree.commitment().clone(), *ver));
+                update.push((TreeName(index.clone()), tree.commitment().clone(), *ver));
             }
         }
 
         self.tree_manager.get_mut_or_load(TreeName::root());
 
-        update.sort_unstable_by_key(|(name, _, _)| *name);
+        update.sort_unstable_by_key(|(name, _, _)| name.clone());
 
         return update;
     }

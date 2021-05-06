@@ -47,7 +47,7 @@ impl<PE: PairingEngine> PowerTau<PE> {
         return PowerTau(g1pp, g2pp);
     }
 
-    fn from_file_inner(file: &str, expected_depth: usize) -> Result<PowerTau<PE>, error::Error> {
+    fn from_dir_inner(file: &str, expected_depth: usize) -> Result<PowerTau<PE>, error::Error> {
         let buffer = File::open(file)?;
         let pp: PowerTau<PE> = CanonicalDeserialize::deserialize_unchecked(buffer)?;
         let (g1_len, g2_len) = (pp.0.len(), pp.1.len());
@@ -64,9 +64,9 @@ impl<PE: PairingEngine> PowerTau<PE> {
         }
     }
 
-    pub fn from_file(dir: &str, expected_depth: usize) -> PowerTau<PE> {
+    pub fn from_dir(dir: &str, expected_depth: usize) -> PowerTau<PE> {
         let file = &format!("{}/{}", dir, pp_file_name::<PE>(expected_depth));
-        Self::from_file_inner(file, expected_depth).expect(&format!(
+        Self::from_dir_inner(file, expected_depth).expect(&format!(
             "Fail to load public parameters for {} at depth {}, read TODO to generate",
             std::any::type_name::<PE>(),
             expected_depth
@@ -74,9 +74,9 @@ impl<PE: PairingEngine> PowerTau<PE> {
     }
 
     #[cfg(test)]
-    pub fn from_file_or_new(dir: &str, expected_depth: usize) -> PowerTau<PE> {
+    pub fn from_dir_or_new(dir: &str, expected_depth: usize) -> PowerTau<PE> {
         let file = &format!("{}/{}", dir, pp_file_name::<PE>(expected_depth));
-        match Self::from_file_inner(file, expected_depth) {
+        match Self::from_dir_inner(file, expected_depth) {
             Ok(pp) => pp,
             Err(_) => {
                 let pp = Self::setup(expected_depth);

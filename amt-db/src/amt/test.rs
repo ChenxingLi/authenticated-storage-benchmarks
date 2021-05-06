@@ -1,17 +1,13 @@
 use super::tree::{AMTConfigTrait, AMTData, AMTree};
 use crate::crypto::export::FrInt;
 use crate::crypto::{
-    export::{
-        CanonicalDeserialize, CanonicalSerialize, Fr, One, Pairing, PairingEngine, PrimeField, Zero,
-    },
+    export::{CanonicalDeserialize, CanonicalSerialize, Fr, Pairing},
     AMTParams, PowerTau, TypeUInt,
 };
 use crate::impl_storage_from_canonical;
-use crate::storage::{
-    serde::Result, FlattenArray, FlattenTree, StorageDecodable, StorageEncodable, StoreByBytes,
-};
+use crate::storage::{FlattenArray, FlattenTree, StorageDecodable, StorageEncodable};
 use crate::type_uint;
-use std::{marker::PhantomData, sync::Arc};
+use std::sync::Arc;
 
 struct TestConfig {}
 

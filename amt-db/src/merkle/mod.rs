@@ -16,7 +16,6 @@ fn combine_hash(a: &H256, b: &H256) -> H256 {
     let mut input = a.0.to_vec();
     input.extend_from_slice(&b.0);
     let answer = keccak(&input);
-    // println!("{:?}=hash({:?},{:?})", answer, a, b);
     answer
 }
 

@@ -7,7 +7,7 @@ pub mod serde;
 pub use self::access::DBAccess;
 pub use self::layout::{FlattenArray, FlattenTree, LayoutTrait};
 pub use self::rocksdb::{open_col, open_database, KvdbRocksdb, SystemDB};
-pub use self::serde::{StorageDecodable, StorageEncodable, StoreByBytes, StoreTupleByBytes};
+pub use self::serde::{StorageDecodable, StorageEncodable, StoreByBytes};
 
 use error_chain;
 error_chain! {

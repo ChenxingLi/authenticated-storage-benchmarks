@@ -7,7 +7,16 @@ use std::cmp::min;
 use std::convert::TryFrom;
 
 #[derive(
-    Default, Hash, PartialEq, Eq, Clone, PartialOrd, Ord, CanonicalDeserialize, CanonicalSerialize,
+    Default,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    Clone,
+    PartialOrd,
+    Ord,
+    CanonicalDeserialize,
+    CanonicalSerialize,
 )]
 pub struct Key(pub Vec<u8>);
 
@@ -27,8 +36,6 @@ impl Key {
         if length == 0 {
             return 0;
         }
-        assert!(length <= 120);
-        assert!(start < 8 * self.0.len());
 
         let start_byte = start / 8;
         let start_bit = start - start_byte * 8;
@@ -44,13 +51,12 @@ impl Key {
         return entry >> (start_bit + (128 - length));
     }
 
-    pub fn tree_at_level(&self, level: usize) -> u128 {
-        let length = level * DEPTHS;
-        self.mid(0, length)
+    pub fn tree_at_level(&self, level: u8) -> Vec<u32> {
+        (0..level).map(|level| self.index_at_level(level)).collect()
     }
 
-    pub fn index_at_level(&self, level: usize) -> u128 {
-        let length = level * DEPTHS;
-        self.mid(length, DEPTHS)
+    pub fn index_at_level(&self, level: u8) -> u32 {
+        let length = (level as usize) * DEPTHS;
+        self.mid(length, DEPTHS) as u32
     }
 }

@@ -20,27 +20,13 @@ fn const_assert() {
     const_assert!(CAPACITY > 40 * 6);
 }
 
-#[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(Default, Clone, Debug, CanonicalDeserialize, CanonicalSerialize)]
 pub struct Node {
     pub(crate) key_versions: Vec<(Key, u64)>,
     pub(crate) tree_version: u64,
 }
 
 impl_storage_from_canonical!(Node);
-
-// impl StorageEncodable for Node {
-//     fn storage_encode(&self) -> Vec<u8> {
-//         let mut serialized = Vec::with_capacity(self.serialized_size());
-//         self.serialize_unchecked(&mut serialized).unwrap();
-//         serialized
-//     }
-// }
-//
-// impl StorageDecodable for Node {
-//     fn storage_decode(data: &[u8]) -> crate::storage::serde::Result<Self> {
-//         Ok(Self::deserialize_unchecked(data)?)
-//     }
-// }
 
 impl AMTData<Fr> for Node {
     #[cfg(target_endian = "little")]
