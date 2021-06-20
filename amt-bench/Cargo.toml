@@ -9,4 +9,4 @@ edition = "2018"
 [dev-dependencies]
 rand = "0.7"
 amt-db = {path="../amt-db"}
-algebra =  { git = "https://github.com/scipr-lab/zexe.git", default-features = false, rev = "85cac177" }
+ark-ff = { version="^0.2.0", default-features = false }
