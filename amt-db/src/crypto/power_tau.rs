@@ -5,9 +5,10 @@ use super::export::{
 };
 use super::pp_file_name;
 use rand;
-use std::fs::File;
+use std::fs::{create_dir_all, File};
 use std::io::{Read, Write};
 use std::ops::MulAssign;
+use std::path::Path;
 
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct PowerTau<PE: PairingEngine>(pub Vec<G1Aff<PE>>, pub Vec<G2Aff<PE>>);
@@ -80,6 +81,7 @@ impl<PE: PairingEngine> PowerTau<PE> {
             Ok(pp) => pp,
             Err(_) => {
                 let pp = Self::setup(expected_depth);
+                create_dir_all(Path::new(file).parent().unwrap()).unwrap();
                 let buffer = File::create(file).unwrap();
                 pp.serialize_uncompressed(&buffer).unwrap();
                 pp

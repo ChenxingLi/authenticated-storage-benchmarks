@@ -18,8 +18,8 @@ where
 
 #[macro_export]
 macro_rules! impl_storage_from_canonical {
-    ( $name:ident<$t:ident: $trait_name:ident> ) => {
-        impl<$t: $trait_name> StorageEncodable for $name<$t> {
+    ( $name:ident<$s:ident> where $t:ident: $trait_name:ident ) => {
+        impl<$t: $trait_name> StorageEncodable for $name<$s> {
             fn storage_encode(&self) -> Vec<u8> {
                 let mut serialized = Vec::with_capacity(self.serialized_size());
                 self.serialize_unchecked(&mut serialized).unwrap();
@@ -27,7 +27,7 @@ macro_rules! impl_storage_from_canonical {
             }
         }
 
-        impl<$t: $trait_name> StorageDecodable for $name<$t> {
+        impl<$t: $trait_name> StorageDecodable for $name<$s> {
             fn storage_decode(data: &[u8]) -> crate::storage::serde::Result<Self> {
                 Ok(Self::deserialize_unchecked(data)?)
             }

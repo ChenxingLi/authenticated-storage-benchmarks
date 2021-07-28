@@ -32,7 +32,8 @@ use cfx_storage::storage_db::{KeyValueDbTrait, KeyValueDbTraitRead};
 
 #[test]
 fn test() {
-    let db = open_col("./db", 0);
+    let db = open_col("./__db", 0);
     db.put(&vec![0u8], &vec![1u8, 2u8, 4u8]).unwrap();
     println!("{:?}", db.get(&vec![0u8]).unwrap().unwrap());
+    std::fs::remove_dir_all("./__db").unwrap();
 }

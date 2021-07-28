@@ -15,7 +15,7 @@ pub struct AMTNode<G: ProjectiveCurve> {
     pub proof: G,
 }
 
-impl_storage_from_canonical!(AMTNode<G: ProjectiveCurve>);
+impl_storage_from_canonical!(AMTNode<T> where T: ProjectiveCurve);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct NodeIndex<N: TypeUInt> {
