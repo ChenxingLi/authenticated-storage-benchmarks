@@ -18,9 +18,9 @@ ark-bn254 = {  version = "^0.2.0", features = ["curve"]}
 
 ppot2ark = { path = "../ppot2ark" }
 
-cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "73b8f69"}
-db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "73b8f69"}
-cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "73b8f69"}
+cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
 keccak-hash = "0.5.1"
 lazy_static = "1.4"
 log = "0.4"

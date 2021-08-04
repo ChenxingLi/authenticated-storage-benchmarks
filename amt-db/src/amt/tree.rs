@@ -37,13 +37,14 @@ pub struct AMTree<C: AMTConfigTrait> {
     inner_nodes: DBAccess<NodeIndex<C::Height>, AMTNode<G1<C::PE>>, C::TreeLayout>,
     pp: Arc<AMTParams<C::PE>>,
 
+    only_root: bool,
     dirty: bool,
 }
 
 pub type AMTProof<G> = Vec<AMTNode<G>>;
 
 impl<C: AMTConfigTrait> AMTree<C> {
-    pub fn new(name: C::Name, db: KvdbRocksdb, pp: Arc<AMTParams<C::PE>>) -> Self {
+    pub fn new(name: C::Name, db: KvdbRocksdb, pp: Arc<AMTParams<C::PE>>, only_root: bool) -> Self {
         let name_with_prefix = |mut prefix: Vec<u8>| {
             prefix.extend_from_slice(&name.storage_encode());
             prefix
@@ -54,6 +55,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
             db,
             name,
             dirty: false,
+            only_root,
             pp,
         }
     }
@@ -101,6 +103,10 @@ impl<C: AMTConfigTrait> AMTree<C> {
         // Update proof
         self.inner_nodes.get_mut(&NodeIndex::root()).commitment += &inc_comm;
 
+        if self.only_root {
+            return;
+        }
+
         let leaf_index = bitreverse(index, C::DEPTHS);
         let node_index = NodeIndex::new(C::DEPTHS, leaf_index);
 
@@ -113,7 +119,10 @@ impl<C: AMTConfigTrait> AMTree<C> {
         }
     }
 
-    pub fn prove(&mut self, index: usize) -> AMTProof<G1<C::PE>> {
+    pub fn prove(&mut self, index: usize) -> Option<AMTProof<G1<C::PE>>> {
+        if self.only_root {
+            return None;
+        }
         let leaf_index = bitreverse(index, C::DEPTHS);
         let node_index = NodeIndex::new(C::DEPTHS, leaf_index);
 
@@ -125,7 +134,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
 
             answers[visit_depth - 1] = self.inner_nodes.get_mut(&sibling_node_index).clone();
         }
-        answers
+        Some(answers)
     }
 
     pub fn verify(

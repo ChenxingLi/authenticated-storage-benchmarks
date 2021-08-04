@@ -389,7 +389,9 @@ impl SimpleDb {
 
         let commitment = tree.commitment().clone();
         let value = tree.get(index).clone();
-        let proof = tree.prove(index);
+        let proof = tree
+            .prove(index)
+            .expect("Currently, all the nodes are working in full mode");
 
         return (commitment, value, proof);
     }

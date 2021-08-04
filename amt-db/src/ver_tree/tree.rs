@@ -37,7 +37,7 @@ impl TreeManager {
         }
         self.forest[level]
             .entry(name.0.clone())
-            .or_insert(Tree::new(name, self.db.clone(), self.pp.clone()))
+            .or_insert(Tree::new(name, self.db.clone(), self.pp.clone(), false))
     }
 
     fn max_level(&self) -> usize {
@@ -198,8 +198,14 @@ impl VerForest {
                     tmp.pop().expect("Should not fail");
                     tmp
                 };
-                let default_tree =
-                    || Tree::new(TreeName(parent_index.clone()), db.clone(), pp.clone());
+                let default_tree = || {
+                    Tree::new(
+                        TreeName(parent_index.clone()),
+                        db.clone(),
+                        pp.clone(),
+                        false,
+                    )
+                };
                 let mut parent_node_guard = parent_level_trees
                     .entry(parent_index.clone())
                     .or_insert_with(default_tree)
