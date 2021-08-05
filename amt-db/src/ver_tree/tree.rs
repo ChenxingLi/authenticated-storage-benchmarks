@@ -15,13 +15,19 @@ pub struct TreeManager {
     db: KvdbRocksdb,
     pp: Arc<AMTParams<Pairing>>,
     forest: Vec<TreesLayer>,
+    only_root: bool,
 }
 
 impl TreeManager {
-    fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>) -> Self {
+    fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
         let mut forest = Vec::with_capacity(8);
         forest.push(BTreeMap::new());
-        Self { db, forest, pp }
+        Self {
+            db,
+            forest,
+            pp,
+            only_root,
+        }
     }
 
     pub fn get(&self, name: TreeName) -> Option<&Tree> {
@@ -37,7 +43,12 @@ impl TreeManager {
         }
         self.forest[level]
             .entry(name.0.clone())
-            .or_insert(Tree::new(name, self.db.clone(), self.pp.clone(), false))
+            .or_insert(Tree::new(
+                name,
+                self.db.clone(),
+                self.pp.clone(),
+                self.only_root,
+            ))
     }
 
     fn max_level(&self) -> usize {
@@ -49,6 +60,8 @@ impl TreeManager {
         (parent_level, &mut level[0])
     }
 }
+
+pub struct VerForestStatistic;
 
 pub struct VerForest {
     pub(crate) tree_manager: TreeManager,
@@ -72,9 +85,9 @@ impl ToBytes for VerInfo {
 }
 
 impl VerForest {
-    pub fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>) -> Self {
+    pub fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
         Self {
-            tree_manager: TreeManager::new(db, pp.clone()),
+            tree_manager: TreeManager::new(db, pp.clone(), only_root),
             pp,
         }
     }

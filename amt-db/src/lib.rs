@@ -14,7 +14,7 @@ pub mod amt;
 pub mod crypto;
 mod enable_log;
 pub mod merkle;
-mod simple_db;
+pub mod simple_db;
 pub mod storage;
 pub mod ver_tree;
 

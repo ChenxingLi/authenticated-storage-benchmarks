@@ -2,4 +2,6 @@
 /.idea
 /dat
 /amt-db/pp
+/pp
+/profile
 flamegraph.svg

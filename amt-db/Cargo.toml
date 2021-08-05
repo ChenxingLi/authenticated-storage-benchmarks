@@ -26,14 +26,16 @@ lazy_static = "1.4"
 log = "0.4"
 log4rs = { version = "1.0.0", features = ["background_rotation", "gzip"] }
 rand = "0.7"
+rand_pcg = "0.2"
 bencher = "0.1.5"
 error-chain = { version = "0.12", default-features = false }
 base64 = "0.13.0"
 static_assertions = "0.1"
 exitcode = "1.1.2"
+pprof = { version = "0.3", features = ["flamegraph", "protobuf"] }
 
-#[dev-dependencies]
-#pprof = { version = "0.3", features = ["flamegraph"] }
+
+[dev-dependencies]
 
 
 [features]

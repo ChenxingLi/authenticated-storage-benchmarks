@@ -2,7 +2,7 @@ use crate::amt::tree::AMTProof;
 use crate::amt::{AMTData, AMTree};
 use crate::crypto::{
     export::{Fr, FrInt, G1Projective, G1},
-    AMTParams, Pairing,
+    AMTParams, Pairing, TypeUInt,
 };
 use crate::impl_storage_from_canonical;
 use crate::merkle::{MerkleProof, StaticMerkleTree};
@@ -25,7 +25,7 @@ const NUM_COLS: u32 = COL_POS_VALUE_MERKLE + 1;
 
 const WRITE_IN_BATCH: bool = false;
 
-struct SimpleDb {
+pub struct SimpleDb {
     version_tree: VerForest,
     db_key_pos: KvdbRocksdb,
     db_tree_pos: KvdbRocksdb,
@@ -72,7 +72,7 @@ mod metadata {
 use metadata::*;
 
 #[derive(Default)]
-struct LevelProof {
+pub struct LevelProof {
     merkle_epoch: u64,
     merkle_proof: MerkleProof,
     amt_proof: AMTProof<G1<Pairing>>,
@@ -82,7 +82,7 @@ struct LevelProof {
 }
 
 #[derive(Default)]
-struct AssociateProof {
+pub struct AssociateProof {
     value: Option<Box<[u8]>>,
     ver_info: VerInfo,
 }
@@ -90,12 +90,12 @@ struct AssociateProof {
 type Proof = (AssociateProof, VecDeque<LevelProof>);
 
 impl SimpleDb {
-    fn new(database: Arc<SystemDB>, pp: Arc<AMTParams<Pairing>>) -> Self {
+    pub fn new(database: Arc<SystemDB>, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
         let db_ver_tree = KvdbRocksdb {
             kvdb: database.key_value().clone(),
             col: COL_VER_TREE,
         };
-        let version_tree = VerForest::new(db_ver_tree, pp);
+        let version_tree = VerForest::new(db_ver_tree, pp, only_root);
         let db_key_pos = KvdbRocksdb {
             kvdb: database.key_value().clone(),
             col: COL_KEY_POS,
@@ -123,7 +123,7 @@ impl SimpleDb {
         }
     }
 
-    fn get(&self, key: &Key) -> Result<Option<Box<[u8]>>> {
+    pub fn get(&self, key: &Key) -> Result<Option<Box<[u8]>>> {
         assert!(
             !self.dirty_guard,
             "Can not read db if set operations have not been committed."
@@ -138,12 +138,12 @@ impl SimpleDb {
         Ok(None)
     }
 
-    fn set(&mut self, key: &Key, value: Box<[u8]>) {
+    pub fn set(&mut self, key: &Key, value: Box<[u8]>) {
         self.dirty_guard = true;
         self.uncommitted_key_values.push((key.clone(), value))
     }
 
-    fn commit(&mut self, epoch: u64) -> Result<(G1Projective, H256)> {
+    pub fn commit(&mut self, epoch: u64) -> Result<(G1Projective, H256)> {
         let kv_num = self.uncommitted_key_values.len();
         let mut hashes = Vec::with_capacity(kv_num);
 
@@ -211,7 +211,7 @@ impl SimpleDb {
     }
 
     #[allow(unused_variables, unused_mut)]
-    fn prove(&mut self, key: &Key) -> Result<Proof> {
+    pub fn prove(&mut self, key: &Key) -> Result<Proof> {
         println!("***** Prove Key {:?} ******", key);
         let ver_info = self.version_tree.get_key(&key);
 
@@ -277,7 +277,7 @@ impl SimpleDb {
         Ok((assoc_proof, level_proofs))
     }
 
-    fn verify<F: Fn(u64) -> H256>(
+    pub fn verify<F: Fn(u64) -> H256>(
         key: &Key,
         proof: &Proof,
         epoch_root: F,
@@ -380,7 +380,7 @@ impl SimpleDb {
         Ok(())
     }
 
-    fn prove_amt_node(
+    pub fn prove_amt_node(
         &mut self,
         name: TreeName,
         index: usize,
@@ -396,7 +396,7 @@ impl SimpleDb {
         return (commitment, value, proof);
     }
 
-    fn prove_merkle(&mut self, pos: &[u8]) -> Result<(u64, MerkleProof)> {
+    pub fn prove_merkle(&mut self, pos: &[u8]) -> Result<(u64, MerkleProof)> {
         let epoch_pos = EpochPosition::storage_decode(pos)?;
         let mut tree = StaticMerkleTree::new(self.db_pos_value_merkle.clone(), epoch_pos.epoch);
 
@@ -405,16 +405,12 @@ impl SimpleDb {
     }
 }
 
-#[cfg(test)]
-fn new_test_simple_db(dir: &str) -> SimpleDb {
-    use crate::crypto::{TypeDepths, TypeUInt};
+pub fn new_simple_db<T: TypeUInt>(dir: &str, only_root: bool) -> SimpleDb {
     use crate::storage::open_database;
-    const DEPTHS: usize = TypeDepths::USIZE;
-
     let db = open_database(dir, NUM_COLS);
-    let amt_param = Arc::new(AMTParams::<Pairing>::from_dir("./pp", DEPTHS, true));
+    let amt_param = Arc::new(AMTParams::<Pairing>::from_dir("./pp", T::USIZE, true));
 
-    SimpleDb::new(db, amt_param)
+    SimpleDb::new(db, amt_param, only_root)
 }
 
 #[test]
@@ -423,7 +419,7 @@ fn test_simple_db() {
     // enable_debug_log();
     use std::collections::HashMap;
 
-    let mut db = new_test_simple_db("./__test_simple_db");
+    let mut db = new_simple_db::<TypeDepths>("./__test_simple_db", false);
     let pp = db.version_tree.pp.clone();
 
     let mut epoch_root_dict = HashMap::new();
