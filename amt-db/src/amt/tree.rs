@@ -5,6 +5,7 @@ use crate::crypto::{
     export::{Fr, FrInt, G1},
     AMTParams, TypeUInt,
 };
+use crate::storage::access::PUT_MODE;
 use crate::storage::{DBAccess, KvdbRocksdb, LayoutTrait, StorageDecodable, StorageEncodable};
 use std::sync::Arc;
 
@@ -32,7 +33,7 @@ pub trait AMTData<P: PrimeField> {
 #[derive(Clone)]
 pub struct AMTree<C: AMTConfigTrait> {
     db: KvdbRocksdb,
-    name: C::Name,
+    pub name: C::Name,
     data: DBAccess<usize, C::Data, C::DataLayout>,
     inner_nodes: DBAccess<NodeIndex<C::Height>, AMTNode<G1<C::PE>>, C::TreeLayout>,
     pp: Arc<AMTParams<C::PE>>,
@@ -85,8 +86,13 @@ impl<C: AMTConfigTrait> AMTree<C> {
     }
 
     pub fn flush(&mut self) {
+        *PUT_MODE.lock_mut().unwrap() = 0;
         self.data.flush();
+
+        *PUT_MODE.lock_mut().unwrap() = 1;
         self.inner_nodes.flush();
+
+        self.dirty = false;
     }
 
     pub fn update(&mut self, index: usize, update_fr_int: FrInt<C::PE>) {

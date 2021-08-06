@@ -1,3 +1,4 @@
+use crate::storage::access::PUT_MODE;
 use crate::storage::{DBAccess, FlattenArray, KvdbRocksdb};
 use cfx_types::H256;
 use keccak_hash::{keccak, KECCAK_EMPTY};
@@ -77,7 +78,7 @@ impl StaticMerkleTree {
 
         for level in (0..=depth).rev() {
             for (i, hash) in this_level.iter().enumerate() {
-                *backend.get_mut(&((1 << level) + i)) = hash.clone();
+                backend.set(&((1 << level) + i), hash.clone());
                 // println!("pos {:02}, value {:?}", ((1 << level) + i), hash.clone());
             }
             if this_level.len() % 2 != 0 {
@@ -89,10 +90,11 @@ impl StaticMerkleTree {
                 .collect();
         }
 
-        *backend.get_mut(&0) = H256::from_low_u64_be(depth as u64);
+        backend.set(&0, H256::from_low_u64_be(depth as u64));
 
         let root = backend.get(&1).clone();
 
+        *PUT_MODE.lock_mut().unwrap() = 2;
         backend.flush();
 
         return root;

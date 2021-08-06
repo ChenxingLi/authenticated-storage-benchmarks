@@ -25,6 +25,9 @@ const NUM_COLS: u32 = COL_POS_VALUE_MERKLE + 1;
 
 const WRITE_IN_BATCH: bool = false;
 
+pub static INC_KEY_LEVEL_SUM: Global<u64> = Global::INIT;
+pub static INC_KEY_COUNT: Global<u64> = Global::INIT;
+
 pub struct SimpleDb {
     version_tree: VerForest,
     db_key_pos: KvdbRocksdb,
@@ -36,10 +39,14 @@ pub struct SimpleDb {
     dirty_guard: bool,
 }
 
+#[allow(unused)]
 mod metadata {
     use super::{impl_storage_from_canonical, TreeName, VerInfo};
+    use crate::crypto::export::G1Aff;
     use crate::crypto::{
-        export::{CanonicalDeserialize, CanonicalSerialize, SerializationError, G1},
+        export::{
+            CanonicalDeserialize, CanonicalSerialize, FromBytes, SerializationError, ToBytes, G1,
+        },
         Pairing,
     };
     use crate::storage::{StorageDecodable, StorageEncodable};
@@ -56,8 +63,30 @@ mod metadata {
     pub struct TreeValue {
         pub(crate) key: TreeName,
         pub(crate) version_number: u64,
-        pub(crate) commitment: G1<Pairing>,
+        pub(crate) commitment: G1Aff<Pairing>,
     }
+    // impl StorageEncodable for TreeValue {
+    //     fn storage_encode(&self) -> Vec<u8> {
+    //         let mut serialized = Vec::with_capacity(
+    //             self.key.serialized_size() + self.version_number.serialized_size() + 64,
+    //         );
+    //         self.key.serialize_unchecked(&mut serialized).unwrap();
+    //         self.version_number
+    //             .serialize_unchecked(&mut serialized)
+    //             .unwrap();
+    //         self.commitment.write(&mut serialized).unwrap();
+    //         serialized
+    //     }
+    // }
+    // impl StorageDecodable for TreeValue {
+    //     fn storage_decode(mut data: &[u8]) -> crate::storage::serde::Result<Self> {
+    //         Ok(Self {
+    //             key: TreeName::deserialize_unchecked(&mut data)?,
+    //             version_number: u64::deserialize_unchecked(&mut data)?,
+    //             commitment: FromBytes::read(&mut data)?,
+    //         })
+    //     }
+    // }
     impl_storage_from_canonical!(TreeValue);
 
     #[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
@@ -69,6 +98,8 @@ mod metadata {
     impl_storage_from_canonical!(KeyValue);
 }
 
+use crate::crypto::export::G1Aff;
+use global::Global;
 use metadata::*;
 
 #[derive(Default)]
@@ -147,9 +178,12 @@ impl SimpleDb {
         let kv_num = self.uncommitted_key_values.len();
         let mut hashes = Vec::with_capacity(kv_num);
 
+        // println!("commit key value");
         for (position, (key, value)) in self.uncommitted_key_values.drain(..).enumerate() {
             let position = position as u64;
             let ver_info = self.version_tree.inc_key(&key);
+            *INC_KEY_COUNT.lock_mut().unwrap() += 1;
+            *INC_KEY_LEVEL_SUM.lock_mut().unwrap() += ver_info.level as u64 + 1;
 
             self.db_key_pos.put(
                 key.as_ref(),
@@ -171,10 +205,12 @@ impl SimpleDb {
             hashes.push(key_ver_value_hash);
         }
 
+        // println!("commit position");
         for (position, (tree, commitment, version)) in
             self.version_tree.commit().drain(..).enumerate()
         {
             let position = (kv_num + position) as u64;
+            let affine_commitment: G1Aff<Pairing> = commitment.into();
 
             self.db_tree_pos.put(
                 &tree.storage_encode(),
@@ -183,20 +219,21 @@ impl SimpleDb {
 
             self.db_pos_value.put(
                 &EpochPosition { epoch, position }.storage_encode(),
-                &commitment.storage_encode(),
+                &affine_commitment.storage_encode(),
             )?;
 
             let name_ver_value_hash = keccak(
                 &TreeValue {
                     key: tree,
                     version_number: version,
-                    commitment,
+                    commitment: affine_commitment,
                 }
                 .storage_encode(),
             );
             hashes.push(name_ver_value_hash);
         }
 
+        // println!("commit merkle tree");
         let merkle_root = StaticMerkleTree::dump(self.db_pos_value_merkle.clone(), epoch, hashes);
         let amt_root = self
             .version_tree
@@ -212,7 +249,7 @@ impl SimpleDb {
 
     #[allow(unused_variables, unused_mut)]
     pub fn prove(&mut self, key: &Key) -> Result<Proof> {
-        println!("***** Prove Key {:?} ******", key);
+        // println!("***** Prove Key {:?} ******", key);
         let ver_info = self.version_tree.get_key(&key);
 
         let maybe_pos = self.db_key_pos.get(key.as_ref())?;
@@ -338,7 +375,7 @@ impl SimpleDb {
                 &TreeValue {
                     key: tree_name,
                     version_number: version,
-                    commitment,
+                    commitment: commitment.into(),
                 }
                 .storage_encode(),
             );
@@ -415,8 +452,7 @@ pub fn new_simple_db<T: TypeUInt>(dir: &str, only_root: bool) -> SimpleDb {
 
 #[test]
 fn test_simple_db() {
-    // use crate::enable_log::enable_debug_log;
-    // enable_debug_log();
+    use crate::crypto::TypeDepths;
     use std::collections::HashMap;
 
     let mut db = new_simple_db::<TypeDepths>("./__test_simple_db", false);

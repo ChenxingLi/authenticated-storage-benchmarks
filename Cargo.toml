@@ -2,3 +2,6 @@
 
 members = ["amt-db","amt-bench","ppot2ark"]
 default-members = ["amt-db"]
+
+#[profile.release.package.amt-db]
+#opt-level = "z"

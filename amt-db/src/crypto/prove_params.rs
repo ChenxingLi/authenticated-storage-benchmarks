@@ -1,13 +1,12 @@
 use super::error;
 use super::export::{
     k_adicity, AffineCurve, CanonicalDeserialize, CanonicalSerialize, EvaluationDomain, FftField,
-    Field, Fr, G2Aff, PairingEngine, Radix2EvaluationDomain, SerializationError, Zero, G1, G2,
+    Field, Fr, G2Aff, PairingEngine, Radix2EvaluationDomain, Zero, G1, G2,
 };
 use super::power_tau::PowerTau;
 use super::utils::amtp_file_name;
-use std::io::{Read, Write};
+// use std::io::{Read, Write};
 
-#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct AMTParams<PE: PairingEngine> {
     indents: Vec<G1<PE>>,
     quotients: Vec<Vec<G1<PE>>>,
@@ -38,8 +37,14 @@ impl<PE: PairingEngine> AMTParams<PE> {
     }
 
     fn load_cached(file: &str) -> Result<Self, error::Error> {
-        let buffer = File::open(file)?;
-        Ok(CanonicalDeserialize::deserialize_unchecked(buffer)?)
+        let mut buffer = File::open(file)?;
+        Ok(Self {
+            indents: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
+            quotients: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
+            g2pp: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
+            g2: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
+            w_inv: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
+        })
     }
 
     pub fn from_dir(dir: &str, expected_depth: usize, create_mode: bool) -> Self {
@@ -55,7 +60,13 @@ impl<PE: PairingEngine> AMTParams<PE> {
 
                 let params = Self::from_pp(pp);
                 let buffer = File::create(file).unwrap();
-                params.serialize_uncompressed(&buffer).unwrap();
+
+                params.indents.serialize_uncompressed(&buffer).unwrap();
+                params.quotients.serialize_uncompressed(&buffer).unwrap();
+                params.g2pp.serialize_uncompressed(&buffer).unwrap();
+                params.g2.serialize_uncompressed(&buffer).unwrap();
+                params.w_inv.serialize_uncompressed(&buffer).unwrap();
+
                 params
             }
         }
@@ -99,6 +110,7 @@ impl<PE: PairingEngine> AMTParams<PE> {
         fft_domain: &Radix2EvaluationDomain<Fr<PE>>,
         depth: usize,
     ) -> Vec<G1<PE>> {
+        println!("gen_quotients level {}", depth);
         assert!(g1pp.len() <= 1 << 32);
 
         let length = g1pp.len();

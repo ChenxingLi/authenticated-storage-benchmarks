@@ -1,4 +1,5 @@
 use super::export::PairingEngine;
+use crate::DEPTHS;
 use std::any::Any;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::Debug;
@@ -7,8 +8,6 @@ use std::hash::{Hash, Hasher};
 pub trait TypeUInt: Copy + Eq + Hash + Debug + Sized {
     const USIZE: usize;
 }
-
-const DEPTHS: usize = 8;
 
 #[macro_export]
 macro_rules! type_uint {
@@ -26,8 +25,6 @@ macro_rules! type_uint {
 type_uint! {
     pub struct TypeDepths(DEPTHS);
 }
-
-pub const ALLOW_RECOMPUTE: bool = true;
 
 pub(crate) fn type_hash<T: Any>() -> String {
     let type_name = std::any::type_name::<T>().to_string();

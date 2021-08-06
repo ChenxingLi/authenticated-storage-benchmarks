@@ -10,6 +10,7 @@ use std::io::{Read, Write};
 use std::{collections::BTreeMap, sync::Arc};
 
 type TreesLayer = BTreeMap<Vec<u32>, Tree>;
+
 #[derive(Clone)]
 pub struct TreeManager {
     db: KvdbRocksdb,
@@ -198,12 +199,17 @@ impl VerForest {
         let db = self.tree_manager.db.clone();
         let pp = self.pp.clone();
         let max_level = self.tree_manager.max_level();
+        let only_root = self.tree_manager.only_root;
 
-        let mut update = Vec::new();
+        let mut update = Vec::with_capacity(1024);
 
         for level in (1..=max_level).rev() {
             let (parent_level_trees, level_trees) = self.tree_manager.get_neiboring_levels(level);
-            for (index, tree) in level_trees.iter_mut().filter(|(_index, tree)| tree.dirty()) {
+            for (index, tree) in level_trees.iter_mut() {
+                if !tree.dirty() {
+                    continue;
+                }
+
                 tree.flush();
 
                 let parent_index = {
@@ -216,7 +222,7 @@ impl VerForest {
                         TreeName(parent_index.clone()),
                         db.clone(),
                         pp.clone(),
-                        false,
+                        only_root,
                     )
                 };
                 let mut parent_node_guard = parent_level_trees
@@ -230,6 +236,10 @@ impl VerForest {
 
                 update.push((TreeName(index.clone()), tree.commitment().clone(), *ver));
             }
+            // if level > 1 {
+            // TODO: add an cache plan later
+            std::mem::take(level_trees);
+            // }
         }
 
         self.tree_manager.get_mut_or_load(TreeName::root());

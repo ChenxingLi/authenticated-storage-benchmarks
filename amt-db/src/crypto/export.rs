@@ -24,7 +24,7 @@ pub type FrInt<PE> = <Fr<PE> as PrimeField>::BigInt;
 
 pub type Pairing = Bn254;
 pub type G1Projective = ark_bn254::G1Projective;
-
+pub type G1Affine = ark_bn254::G1Affine;
 // The following is Zexe's path
 
 // pub use algebra::bls12_381;

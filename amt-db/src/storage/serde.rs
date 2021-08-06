@@ -1,5 +1,5 @@
 use crate::crypto::export::{
-    CanonicalDeserialize, CanonicalSerialize, FromBytes, G1Projective, ToBytes,
+    CanonicalDeserialize, CanonicalSerialize, FromBytes, G1Affine, G1Projective, ToBytes,
 };
 use keccak_hash::H256;
 
@@ -66,6 +66,7 @@ impl StorageDecodable for H256 {
 // `G1Projective` instead.
 // See https://github.com/arkworks-rs/algebra/issues/185 for more details.
 impl_storage_from_canonical!(G1Projective);
+impl_storage_from_canonical!(G1Affine);
 
 impl<T: ToBytes + StoreByBytes> StorageEncodable for T {
     fn storage_encode(&self) -> Vec<u8> {

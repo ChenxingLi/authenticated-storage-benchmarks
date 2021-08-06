@@ -7,4 +7,4 @@ mod utils;
 pub use export::Pairing;
 pub use power_tau::PowerTau;
 pub use prove_params::AMTParams;
-pub use utils::{pp_file_name, TypeDepths, TypeUInt, ALLOW_RECOMPUTE};
+pub use utils::{pp_file_name, TypeDepths, TypeUInt};

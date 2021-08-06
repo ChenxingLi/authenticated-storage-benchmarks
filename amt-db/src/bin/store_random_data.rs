@@ -1,21 +1,25 @@
 #![allow(unused_imports, dead_code, unused_variables)]
-use amt_db::crypto::TypeDepths;
 use amt_db::{
-    simple_db::{new_simple_db, SimpleDb},
-    storage::Result,
+    crypto::TypeUInt,
+    simple_db::{new_simple_db, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM},
+    storage::{access::PUT_COUNT, Result},
+    type_uint,
     ver_tree::Key,
 };
 use cfx_types::{H256, U256};
 use keccak_hash::keccak;
-use pprof;
-use pprof::protos::Message;
-use pprof::ProfilerGuard;
-use rand::prelude::*;
-use rand::RngCore;
+use pprof::{self, protos::Message, ProfilerGuard};
+use rand::{prelude::*, RngCore};
 use rand_pcg::Pcg64;
 use std::fs::File;
 use std::io::Write;
+use std::ops::Sub;
 use std::time::{Duration, Instant};
+
+const DEPTHS: usize = 16;
+type_uint! {
+    pub struct BenchDepths(DEPTHS);
+}
 
 type Value = Vec<u8>;
 
@@ -46,34 +50,63 @@ pub struct TimeProducer<R: Rng> {
     write_size: usize,
     count: usize,
     random: R,
-    last_display: Instant,
+    last_stat: Option<Statistic>,
+}
+
+pub struct Statistic {
+    display: Instant,
+    put_count: [u64; 3],
+    inc_key_count: u64,
+    inc_key_level_count: u64,
+}
+
+impl Statistic {
+    fn now() -> Self {
+        return Self {
+            display: Instant::now(),
+            put_count: *PUT_COUNT.lock().unwrap(),
+            inc_key_count: *INC_KEY_COUNT.lock().unwrap(),
+            inc_key_level_count: *INC_KEY_LEVEL_SUM.lock().unwrap(),
+        };
+    }
+
+    fn delta(&self, other: &Self, writes: usize) -> String {
+        let key_diff = self.inc_key_count - other.inc_key_count;
+        let level_diff = self.inc_key_level_count - other.inc_key_level_count;
+        let avg_level = (level_diff as f64) / (key_diff as f64);
+
+        let last = self.display.checked_duration_since(other.display).unwrap();
+
+        format!(
+            "Time {:.3?}, {:.0} ops, avg levels: {:.3}, put count {:?}",
+            last,
+            writes as f64 / last.as_secs_f64(),
+            avg_level,
+            self.put_count
+                .iter()
+                .zip(other.put_count.iter())
+                .map(|(x, y)| x - y)
+                .collect::<Vec<u64>>(),
+        )
+    }
 }
 
 impl<R: Rng> Iterator for TimeProducer<R> {
     type Item = EpochEvents;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.count % 100 == 0 {
+        const STEP: usize = 10;
+        if self.count == 0 {
+            self.last_stat = Some(Statistic::now());
+        } else if self.count % STEP == 0 {
+            let new_stat = Statistic::now();
             println!(
-                "Time {:?}: Epoch {} (last display {:?})",
+                "Time {:.2?}: Epoch {:>5}, {}",
                 self.start_time.elapsed(),
                 self.count,
-                self.last_display.elapsed(),
+                new_stat.delta(self.last_stat.as_ref().unwrap(), STEP * self.write_size)
             );
-            self.last_display = Instant::now();
-
-            match self.guard.report().build() {
-                Ok(report) => {
-                    let mut file =
-                        File::create(format!("./profile/epoch_{}.pb", self.count)).unwrap();
-                    let profile = report.pprof().unwrap();
-
-                    let mut content = Vec::new();
-                    profile.encode(&mut content).unwrap();
-                    file.write_all(&content).unwrap();
-                }
-                Err(_) => {}
-            };
+            self.last_stat = Some(new_stat);
         }
 
         if self.start_time.elapsed() > self.total_seconds {
@@ -107,18 +140,30 @@ impl<R: Rng + SeedableRng> TimeProducer<R> {
             write_size,
             count: 0,
             random: SeedableRng::seed_from_u64(seed),
-            last_display: Instant::now(),
+            last_stat: None,
         }
     }
 }
 
 fn main() {
-    let mut db = new_simple_db::<TypeDepths>("./__benchmark_db", true);
-    let tasks = TimeProducer::<Pcg64>::new((20, 20), 18, 64);
-    let guard = pprof::ProfilerGuard::new(100).unwrap();
+    let mut db = new_simple_db::<BenchDepths>("./__benchmark_db", true);
+    let tasks = TimeProducer::<Pcg64>::new((0, 2000), 60, 64);
+    let guard = pprof::ProfilerGuard::new(500).unwrap();
     let no_opt_answer = run_tasks(&mut db, tasks).expect("no db error");
 
-    println!("No optimization answer {}", no_opt_answer);
+    match guard.report().build() {
+        Ok(report) => {
+            let mut file = File::create("./profile/profile.pb").unwrap();
+            let profile = report.pprof().unwrap();
+
+            let mut content = Vec::new();
+            profile.encode(&mut content).unwrap();
+            file.write_all(&content).unwrap();
+        }
+        Err(_) => {}
+    };
+
+    println!("Don't optimization answer {}", no_opt_answer);
     std::fs::remove_dir_all("./__benchmark_db").unwrap();
     println!("Hello world");
 }

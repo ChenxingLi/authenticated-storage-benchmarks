@@ -20,3 +20,8 @@ pub mod ver_tree;
 
 #[allow(unused)]
 use enable_log::*;
+
+#[cfg(not(test))]
+const DEPTHS: usize = 16;
+#[cfg(test)]
+const DEPTHS: usize = 8;

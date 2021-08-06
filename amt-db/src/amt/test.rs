@@ -34,7 +34,13 @@ fn test_all(amt: &mut TestTree, public_parameter: &AMTParams<Pairing>, task: &st
         let value = amt.get(i);
 
         assert!(
-            TestTree::verify(i, value.as_fr(), amt.commitment(), proof, public_parameter),
+            TestTree::verify(
+                i,
+                value.as_fr(),
+                amt.commitment(),
+                proof.unwrap(),
+                public_parameter
+            ),
             "fail at task {} pos {}",
             task,
             i
@@ -57,7 +63,7 @@ fn test_amt() {
 
     let pp = Arc::new(AMTParams::<Pairing>::from_dir("./pp", DEPTHS, true));
 
-    let mut amt = TestTree::new(64, db, pp.clone());
+    let mut amt = TestTree::new(64, db, pp.clone(), false);
 
     test_all(&mut amt, &pp, "Empty");
 

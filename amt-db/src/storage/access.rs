@@ -7,8 +7,12 @@ use cfx_storage::{
 use std::collections::HashMap;
 use std::marker::PhantomData;
 
+use global::Global;
 use std::fmt::Debug;
 use std::hash::Hash;
+
+pub static PUT_COUNT: Global<[u64; 3]> = Global::INIT;
+pub static PUT_MODE: Global<usize> = Global::INIT;
 
 #[derive(Clone)]
 pub struct DBAccess<
@@ -20,6 +24,7 @@ pub struct DBAccess<
     name: Vec<u8>,
     db: KvdbRocksdb,
     cache: HashMap<K, (V, bool)>,
+    dump_mode: bool,
     _phantom: PhantomData<L>,
 }
 
@@ -34,6 +39,7 @@ impl<
             name,
             db,
             cache: HashMap::new(),
+            dump_mode: false,
             _phantom: PhantomData,
         }
     }
@@ -49,12 +55,18 @@ impl<
         value
     }
 
+    pub fn set(&mut self, node_index: &K, value: V) {
+        self.cache.insert(*node_index, (value, true));
+    }
+
     pub fn flush(&mut self) {
         for (key, (value, dirty)) in self.cache.iter_mut().filter(|(_k, (_v, dirty))| *dirty) {
+            (*PUT_COUNT.lock_mut().unwrap())[*PUT_MODE.lock().unwrap()] += 1;
             let db_key = Self::compute_key(&self.name, key);
             self.db.put(&db_key, &value.storage_encode()).unwrap();
             *dirty = false;
         }
+        self.cache.clear();
     }
 
     fn get_cached(&mut self, node_index: &K) -> &mut (V, bool) {
