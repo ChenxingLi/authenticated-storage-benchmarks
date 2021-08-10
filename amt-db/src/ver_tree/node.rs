@@ -4,12 +4,15 @@ use crate::crypto::export::{
     CanonicalDeserialize, CanonicalSerialize, FpParameters, PrimeField, Read, SerializationError,
     Write,
 };
-use crate::crypto::export::{Fr as FrGeneric, FrInt as FrIntGeneric, Pairing};
-use crate::impl_storage_from_canonical;
+use crate::crypto::export::{
+    Fr as FrGeneric, FrInt as FrIntGeneric, FromBytes, Pairing, ToBytes, G1 as G1Generic,
+};
 use crate::storage::{StorageDecodable, StorageEncodable};
+use std::ops::{Deref, DerefMut};
 
 pub(super) type Fr = FrGeneric<Pairing>;
 pub(super) type FrInt = FrIntGeneric<Pairing>;
+pub(super) type G1 = G1Generic<Pairing>;
 
 pub const VERSION_BITS: usize = 40;
 pub const MAX_VERSION_NUMBER: u64 = (1 << VERSION_BITS) - 1;
@@ -21,12 +24,53 @@ fn const_assert() {
 }
 
 #[derive(Default, Clone, Debug, CanonicalDeserialize, CanonicalSerialize)]
-pub struct Node {
-    pub(crate) key_versions: Vec<(Key, u64)>,
-    pub(crate) tree_version: u64,
+pub struct KeyVersions(pub Vec<(Key, u64)>);
+impl Deref for KeyVersions {
+    type Target = Vec<(Key, u64)>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-impl_storage_from_canonical!(Node);
+impl DerefMut for KeyVersions {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(Default, Clone, Debug)]
+pub struct Node {
+    pub(crate) key_versions: KeyVersions,
+    pub(crate) tree_version: u64,
+    pub(crate) commitment: G1,
+}
+
+impl StorageEncodable for Node {
+    fn storage_encode(&self) -> Vec<u8> {
+        let mut serialized = Vec::with_capacity(self.key_versions.serialized_size() + 200);
+        self.key_versions
+            .serialize_unchecked(&mut serialized)
+            .unwrap();
+        self.tree_version
+            .serialize_unchecked(&mut serialized)
+            .unwrap();
+        self.commitment.write(&mut serialized).unwrap();
+        serialized
+    }
+}
+
+impl StorageDecodable for Node {
+    fn storage_decode(mut data: &[u8]) -> crate::storage::serde::Result<Self> {
+        Ok(Self {
+            key_versions: CanonicalDeserialize::deserialize_unchecked(&mut data)?,
+            tree_version: CanonicalDeserialize::deserialize_unchecked(&mut data)?,
+            commitment: FromBytes::read(&mut data)?,
+        })
+    }
+}
+
+// impl_storage_from_canonical!(Node);
 
 impl AMTData<Fr> for Node {
     #[cfg(target_endian = "little")]
@@ -64,8 +108,9 @@ mod test {
     #[test]
     fn test_array_transmute() {
         let mut node = Node {
-            key_versions: Vec::new(),
+            key_versions: KeyVersions(Vec::new()),
             tree_version: 0,
+            commitment: Default::default(),
         };
         node.tree_version = 1;
         (2..=6).for_each(|x: u64| node.key_versions.push((Key::default(), x)));
@@ -87,8 +132,9 @@ mod test {
         use crate::crypto::export::BigInteger;
 
         let mut node = Node {
-            key_versions: vec![Default::default(); 5],
+            key_versions: KeyVersions(vec![Default::default(); 5]),
             tree_version: 0,
+            commitment: Default::default(),
         };
 
         const MASK: u64 = (1 << VERSION_BITS) - 1;

@@ -1,4 +1,5 @@
 use super::{Commitment, Key, Node, Tree, TreeName, MAX_VERSION_NUMBER};
+use crate::crypto::export::G1;
 use crate::{
     crypto::{
         export::{CanonicalDeserialize, CanonicalSerialize, Pairing, SerializationError, ToBytes},
@@ -17,6 +18,7 @@ type TreesLayer = BTreeMap<Vec<NodeIndex>, TreeWithInfo>;
 /// The `VersionTree`
 #[derive(Clone)]
 pub struct VersionTree {
+    root: G1<Pairing>,
     producer: TreeProducer,
     forest: Vec<TreesLayer>,
 }
@@ -28,6 +30,7 @@ impl VersionTree {
         Self {
             forest,
             producer: TreeProducer { db, pp, only_root },
+            root: Default::default(),
         }
     }
 
@@ -59,23 +62,31 @@ impl VersionTree {
             .entry(name.0.clone())
             .or_insert_with(|| new_tree(&name));
 
+        let mut last_tree = &mut tree_with_info.tree;
+
         if !tree_with_info.mark_in_parent {
+            tree_with_info.mark_in_parent = true;
+            if name.0.len() == 0 {
+                last_tree.set_commitment(&self.root);
+            }
+
             for (level, layer) in ancestor_layers.iter_mut().enumerate().rev() {
                 let anc_tree_name = TreeName(name.0[..level].to_vec());
+                let sub_index = name.0[level];
                 let tree_with_info = layer
                     .entry(anc_tree_name.clone().0)
                     .or_insert_with(|| new_tree(&anc_tree_name));
-                tree_with_info.children_marks.insert(name.0[level]);
+                tree_with_info.children_marks.insert(sub_index);
+                last_tree.set_commitment(&tree_with_info.tree.get(sub_index as usize).commitment);
+                last_tree = &mut tree_with_info.tree;
 
-                let early_stop = tree_with_info.mark_in_parent;
-                tree_with_info.mark_in_parent = true;
-
-                if early_stop {
+                if tree_with_info.mark_in_parent {
                     break;
+                } else {
+                    tree_with_info.mark_in_parent = true;
                 }
             }
         }
-        tree_with_info.mark_in_parent = true;
         &mut tree_with_info.tree
     }
 
@@ -189,24 +200,24 @@ impl VersionTree {
             let child_name = name.child(index);
             let (dirty, commitment) = Self::commit_tree(&child_name, rest_layers, updates);
             if dirty {
-                let version = &mut tree_with_info.tree.write(index as usize).tree_version;
-                *version += 1;
-                updates.push((child_name, commitment, *version));
+                let node = &mut tree_with_info.tree.write(index as usize);
+                node.tree_version += 1;
+                node.commitment = commitment;
+                updates.push((child_name, commitment, node.tree_version));
             }
         }
         tree_with_info.children_marks.clear();
         tree_with_info.mark_in_parent = false;
         let tree = &mut tree_with_info.tree;
 
-        let result = (tree.dirty(), tree.commitment().clone());
-        if cfg!(not(test)) {
-            if name.0.len() == 0 {
-                return result;
-            }
-        }
-        tree.flush();
+        let dirty = tree.dirty();
+        let commitment = if name.0.len() > 0 {
+            tree.flush()
+        } else {
+            tree.commitment().clone()
+        };
 
-        return result;
+        return (dirty, commitment);
     }
 
     pub fn commit(&mut self) -> (Commitment, Vec<(TreeName, Commitment, u64)>) {

@@ -76,7 +76,7 @@ mod metadata {
     impl_storage_from_canonical!(KeyValue);
 }
 
-use crate::crypto::export::G1Aff;
+use crate::crypto::export::{G1Aff, ProjectiveCurve};
 use global::Global;
 use metadata::*;
 
@@ -163,13 +163,19 @@ impl SimpleDb {
             *INC_KEY_COUNT.lock_mut().unwrap() += 1;
             *INC_KEY_LEVEL_SUM.lock_mut().unwrap() += ver_info.level as u64 + 1;
 
-            self.db_key_pos.put(
-                key.as_ref(),
-                &EpochPosition { epoch, position }.storage_encode(),
-            )?;
+            if cfg!(test) {
+                self.db_key_pos.put(
+                    key.as_ref(),
+                    &EpochPosition { epoch, position }.storage_encode(),
+                )?;
 
-            self.db_pos_value
-                .put(&EpochPosition { epoch, position }.storage_encode(), &value)?;
+                self.db_pos_value
+                    .put(&EpochPosition { epoch, position }.storage_encode(), &value)?;
+            }
+
+            if cfg!(not(test)) {
+                self.db_key_pos.put(key.as_ref(), &value)?;
+            }
 
             let key_ver_value_hash = keccak(
                 &KeyValue {
@@ -185,31 +191,37 @@ impl SimpleDb {
 
         // println!("commit position");
         let (amt_root, mut updates) = self.version_tree.commit();
-        for (position, (tree, commitment, version)) in updates.drain(..).enumerate() {
-            let position = (kv_num + position) as u64;
-            let affine_commitment: G1Aff<Pairing> = commitment.into();
+        if cfg!(test) {
+            let commitments: Vec<G1<Pairing>> = updates.iter().map(|x| x.1.clone()).collect();
+            let affine_commitments = ProjectiveCurve::batch_normalization_into_affine(&commitments);
+            for (position, ((tree, _commitment, version), affine_commitment)) in
+                updates.drain(..).zip(affine_commitments.iter()).enumerate()
+            {
+                let position = (kv_num + position) as u64;
+                // let affine_commitment: G1Aff<Pairing> = commitment.into();
 
-            *INC_TREE_COUNT.lock_mut().unwrap() += 1;
+                *INC_TREE_COUNT.lock_mut().unwrap() += 1;
 
-            self.db_tree_pos.put(
-                &tree.storage_encode(),
-                &EpochPosition { epoch, position }.storage_encode(),
-            )?;
+                self.db_tree_pos.put(
+                    &tree.storage_encode(),
+                    &EpochPosition { epoch, position }.storage_encode(),
+                )?;
 
-            self.db_pos_value.put(
-                &EpochPosition { epoch, position }.storage_encode(),
-                &affine_commitment.storage_encode(),
-            )?;
+                self.db_pos_value.put(
+                    &EpochPosition { epoch, position }.storage_encode(),
+                    &affine_commitment.storage_encode(),
+                )?;
 
-            let name_ver_value_hash = keccak(
-                &TreeValue {
-                    key: tree.clone(),
-                    version_number: version,
-                    commitment: affine_commitment,
-                }
-                .storage_encode(),
-            );
-            hashes.push(name_ver_value_hash);
+                let name_ver_value_hash = keccak(
+                    &TreeValue {
+                        key: tree.clone(),
+                        version_number: version,
+                        commitment: *affine_commitment,
+                    }
+                    .storage_encode(),
+                );
+                hashes.push(name_ver_value_hash);
+            }
         }
 
         // println!("commit merkle tree");

@@ -64,6 +64,7 @@ fn test_amt() {
     let pp = Arc::new(AMTParams::<Pairing>::from_dir("./pp", DEPTHS, true));
 
     let mut amt = TestTree::new(64, db, pp.clone(), false);
+    amt.set_commitment(&Default::default());
 
     test_all(&mut amt, &pp, "Empty");
 

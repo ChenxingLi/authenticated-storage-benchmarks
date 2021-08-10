@@ -35,6 +35,7 @@ pub struct AMTree<C: AMTConfigTrait> {
     pub name: C::Name,
     data: DBAccess<usize, C::Data, C::DataLayout>,
     inner_nodes: DBAccess<NodeIndex<C::Height>, AMTNode<G1<C::PE>>, C::TreeLayout>,
+    commitment: Option<G1<C::PE>>,
 
     only_root: bool,
     dirty: bool,
@@ -56,9 +57,16 @@ impl<C: AMTConfigTrait> AMTree<C> {
             inner_nodes: DBAccess::new(name_with_prefix(vec![1u8]), db.clone()),
             db,
             name,
+            commitment: None,
             dirty: false,
             only_root,
             pp,
+        }
+    }
+
+    pub fn set_commitment(&mut self, commitment: &G1<C::PE>) {
+        if self.commitment.is_none() {
+            self.commitment = Some(commitment.clone())
         }
     }
 
@@ -83,10 +91,10 @@ impl<C: AMTConfigTrait> AMTree<C> {
     }
 
     pub fn commitment(&mut self) -> &G1<C::PE> {
-        &self.inner_nodes.get(&NodeIndex::root()).commitment
+        self.commitment.as_ref().unwrap()
     }
 
-    pub fn flush(&mut self) {
+    pub fn flush(&mut self) -> G1<C::PE> {
         *PUT_MODE.lock_mut().unwrap() = 0;
         self.data.flush();
 
@@ -94,6 +102,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
         self.inner_nodes.flush();
 
         self.dirty = false;
+        self.commitment.unwrap().clone()
     }
 
     pub fn update(&mut self, index: usize, update_fr_int: FrInt<C::PE>) {
@@ -108,12 +117,12 @@ impl<C: AMTConfigTrait> AMTree<C> {
         // let inc_comm = self.pp.get_idents(index).mul(update_fr_int);
         let inc_comm = self.pp.get_idents_pow(index, &update_fr_int);
 
+        // Update proof
+        *self.commitment.as_mut().unwrap() += &inc_comm;
+
         if self.only_root {
             return;
         }
-
-        // Update proof
-        self.inner_nodes.get_mut(&NodeIndex::root()).commitment += &inc_comm;
 
         let leaf_index = bitreverse(index, C::DEPTHS);
         let node_index = NodeIndex::new(C::DEPTHS, leaf_index);
