@@ -121,6 +121,7 @@ dependencies = [
  "bencher",
  "cfx-storage",
  "cfx-types",
+ "crc64fast",
  "db",
  "error-chain",
  "exitcode",
@@ -133,6 +134,7 @@ dependencies = [
  "pprof",
  "rand 0.7.3",
  "rand_pcg",
+ "slab",
  "static_assertions 0.1.1",
 ]
 
@@ -691,6 +693,12 @@ checksum = "81156fece84ab6a9f2afdb109ce3ae577e42b1228441eded99bd77f627953b1a"
 dependencies = [
  "cfg-if 1.0.0",
 ]
+
+[[package]]
+name = "crc64fast"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd3d10c557924c719a61e583165e31a0d8131b20415d6858983e67d1eb8a82bd"
 
 [[package]]
 name = "crossbeam"
@@ -2795,9 +2803,9 @@ checksum = "fa8f3741c7372e75519bd9346068370c9cdaabcc1f9599cbcf2a2719352286b7"
 
 [[package]]
 name = "slab"
-version = "0.4.2"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
+checksum = "c307a32c1c5c437f38c7fd45d753050587732ba8628319fbdf12a7e289ccc590"
 
 [[package]]
 name = "smallvec"

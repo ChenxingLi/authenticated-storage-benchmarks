@@ -43,6 +43,26 @@ impl TreeName {
     pub fn from_key_level(key: &Key, level: u8) -> Self {
         TreeName(key.tree_at_level(level))
     }
+
+    pub fn level_index(&self) -> Option<u32> {
+        self.0.last().cloned()
+    }
+
+    pub fn child(&self, index: u32) -> Self {
+        let mut answer = self.clone();
+        answer.0.push(index);
+        answer
+    }
+
+    pub fn parent(&self) -> Option<Self> {
+        let mut answer = self.clone();
+        let top_element = answer.0.pop();
+        if top_element.is_none() {
+            None
+        } else {
+            Some(answer)
+        }
+    }
 }
 
 #[test]

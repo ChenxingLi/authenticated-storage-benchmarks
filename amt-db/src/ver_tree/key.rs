@@ -26,10 +26,6 @@ impl AsRef<[u8]> for Key {
     }
 }
 
-const fn mask(length: usize) -> u128 {
-    (1 << length) - 1
-}
-
 impl Key {
     #[inline]
     fn mid(&self, start: usize, length: usize) -> u128 {

@@ -6,17 +6,45 @@ use crate::{
     },
     storage::KvdbRocksdb,
 };
+use std::collections::BTreeSet;
 use std::io::{Read, Write};
 use std::{collections::BTreeMap, sync::Arc};
 
-type TreesLayer = BTreeMap<Vec<u32>, Tree>;
-
+type NodeIndex = u32;
 #[derive(Clone)]
-pub struct TreeManager {
+struct TreeWithInfo {
+    tree: Tree,
+    mark_in_parent: bool,
+    children_marks: BTreeSet<NodeIndex>,
+}
+
+type TreesLayer = BTreeMap<Vec<NodeIndex>, TreeWithInfo>;
+
+struct TreeProducer {
     db: KvdbRocksdb,
     pp: Arc<AMTParams<Pairing>>,
-    forest: Vec<TreesLayer>,
     only_root: bool,
+}
+
+impl TreeProducer {
+    fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
+        Self { db, pp, only_root }
+    }
+
+    fn new_tree(&self, name: &TreeName) -> Tree {
+        Tree::new(
+            name.clone(),
+            self.db.clone(),
+            self.pp.clone(),
+            self.only_root,
+        )
+    }
+}
+
+// #[derive(Clone)]
+pub struct TreeManager {
+    producer: TreeProducer,
+    forest: Vec<TreesLayer>,
 }
 
 impl TreeManager {
@@ -24,49 +52,63 @@ impl TreeManager {
         let mut forest = Vec::with_capacity(8);
         forest.push(BTreeMap::new());
         Self {
-            db,
             forest,
-            pp,
-            only_root,
+            producer: TreeProducer::new(db, pp, only_root),
         }
     }
 
-    pub fn get(&self, name: TreeName) -> Option<&Tree> {
+    pub fn get(&self, name: &TreeName) -> Option<&Tree> {
         self.forest
             .get(name.0.len())
             .and_then(|tree| tree.get(&name.0))
+            .map(|tree_with_info| &tree_with_info.tree)
     }
 
-    pub fn get_mut_or_load(&mut self, name: TreeName) -> &mut Tree {
-        let level = name.0.len();
-        if self.forest.len() < level + 1 {
-            self.forest.resize(level + 1, BTreeMap::new())
-        }
-        self.forest[level]
+    pub fn get_mut_or_load(&mut self, name: &TreeName) -> &mut Tree {
+        let (ancestor_layers, tree_layer) = {
+            let level = name.0.len();
+            if self.forest.len() < level + 1 {
+                self.forest.resize(level + 1, BTreeMap::new())
+            }
+            let (front, end) = self.forest.split_at_mut(level);
+            (front, &mut end[0])
+        };
+
+        let producer = &self.producer;
+        let new_tree = |tree_name: &TreeName| TreeWithInfo {
+            tree: producer.new_tree(tree_name),
+            mark_in_parent: false,
+            children_marks: Default::default(),
+        };
+
+        let tree_with_info = tree_layer
             .entry(name.0.clone())
-            .or_insert(Tree::new(
-                name,
-                self.db.clone(),
-                self.pp.clone(),
-                self.only_root,
-            ))
-    }
+            .or_insert_with(|| new_tree(&name));
 
-    fn max_level(&self) -> usize {
-        self.forest.len() - 1
-    }
+        if !tree_with_info.mark_in_parent {
+            // println!("{} {:?}", ancestor_layers.len(), name);
+            for (level, layer) in ancestor_layers.iter_mut().enumerate().rev() {
+                let anc_tree_name = TreeName(name.0[..level].to_vec());
+                let tree_with_info = layer
+                    .entry(anc_tree_name.clone().0)
+                    .or_insert_with(|| new_tree(&anc_tree_name));
+                tree_with_info.children_marks.insert(name.0[level]);
 
-    fn get_neiboring_levels(&mut self, level: usize) -> (&mut TreesLayer, &mut TreesLayer) {
-        let (parent_level, level) = self.forest[(level - 1)..=level].split_first_mut().unwrap();
-        (parent_level, &mut level[0])
+                let early_stop = tree_with_info.mark_in_parent;
+                tree_with_info.mark_in_parent = true;
+
+                if early_stop {
+                    break;
+                }
+            }
+        }
+        tree_with_info.mark_in_parent = true;
+        &mut tree_with_info.tree
     }
 }
 
-pub struct VerForestStatistic;
-
 pub struct VerForest {
     pub(crate) tree_manager: TreeManager,
-    pub(crate) pp: Arc<AMTParams<Pairing>>,
 }
 
 #[derive(Default, Copy, Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
@@ -89,13 +131,12 @@ impl VerForest {
     pub fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
         Self {
             tree_manager: TreeManager::new(db, pp.clone(), only_root),
-            pp,
         }
     }
 
     pub fn get_key(&mut self, key: &Key) -> VerInfo {
         let mut level = 0;
-        let mut visit_amt = self.tree_manager.get_mut_or_load(TreeName::root());
+        let mut visit_amt = self.tree_manager.get_mut_or_load(&TreeName::root());
         loop {
             let node_index = key.index_at_level(level) as usize;
             let node: &Node = visit_amt.get(node_index);
@@ -118,7 +159,7 @@ impl VerForest {
             if node.tree_version == 0
                 && self
                     .tree_manager
-                    .get(tree_name.clone())
+                    .get(&tree_name)
                     .map_or(true, |tree| !tree.dirty())
             {
                 // returns the empty slot that allocate for this key.
@@ -137,13 +178,13 @@ impl VerForest {
                 };
             }
 
-            visit_amt = self.tree_manager.get_mut_or_load(tree_name);
+            visit_amt = self.tree_manager.get_mut_or_load(&tree_name);
         }
     }
 
     pub fn inc_key(&mut self, key: &Key) -> VerInfo {
         let mut level = 0;
-        let mut visit_amt = self.tree_manager.get_mut_or_load(TreeName::root());
+        let mut visit_amt = self.tree_manager.get_mut_or_load(&TreeName::root());
         loop {
             let node_index = key.index_at_level(level) as usize;
 
@@ -191,68 +232,49 @@ impl VerForest {
             level += 1;
             visit_amt = self
                 .tree_manager
-                .get_mut_or_load(TreeName::from_key_level(key, level));
+                .get_mut_or_load(&TreeName::from_key_level(key, level));
         }
     }
 
-    pub fn commit(&mut self) -> Vec<(TreeName, Commitment, u64)> {
-        let db = self.tree_manager.db.clone();
-        let pp = self.pp.clone();
-        let max_level = self.tree_manager.max_level();
-        let only_root = self.tree_manager.only_root;
+    fn commit_tree(
+        name: &TreeName,
+        layers: &mut [TreesLayer],
+        updates: &mut Vec<(TreeName, Commitment, u64)>,
+    ) -> (bool, Commitment) {
+        let (this_layer, rest_layers) = layers.split_first_mut().unwrap();
 
-        let mut update = Vec::with_capacity(1024);
+        let tree_with_info = this_layer.get_mut(&name.0).unwrap();
 
-        for level in (1..=max_level).rev() {
-            let (parent_level_trees, level_trees) = self.tree_manager.get_neiboring_levels(level);
-            for (index, tree) in level_trees.iter_mut() {
-                if !tree.dirty() {
-                    continue;
-                }
-
-                tree.flush();
-
-                let parent_index = {
-                    let mut tmp = index.clone();
-                    tmp.pop().expect("Should not fail");
-                    tmp
-                };
-                let default_tree = || {
-                    Tree::new(
-                        TreeName(parent_index.clone()),
-                        db.clone(),
-                        pp.clone(),
-                        only_root,
-                    )
-                };
-                let mut parent_node_guard = parent_level_trees
-                    .entry(parent_index.clone())
-                    .or_insert_with(default_tree)
-                    .write(*index.last().unwrap() as usize);
-
-                let ver = &mut parent_node_guard.tree_version;
-                *ver += 1;
-                assert!(*ver <= MAX_VERSION_NUMBER);
-
-                update.push((TreeName(index.clone()), tree.commitment().clone(), *ver));
+        for &index in tree_with_info.children_marks.iter() {
+            let child_name = name.child(index);
+            let (dirty, commitment) = Self::commit_tree(&child_name, rest_layers, updates);
+            if dirty {
+                let version = &mut tree_with_info.tree.write(index as usize).tree_version;
+                *version += 1;
+                updates.push((child_name, commitment, *version));
             }
-            // if level > 1 {
-            // TODO: add an cache plan later
-            std::mem::take(level_trees);
-            // }
         }
+        tree_with_info.children_marks.clear();
+        tree_with_info.mark_in_parent = false;
+        let tree = &mut tree_with_info.tree;
 
-        self.tree_manager.get_mut_or_load(TreeName::root());
+        let result = (tree.dirty(), tree.commitment().clone());
+        tree.flush();
 
-        update.sort_unstable_by_key(|(name, _, _)| name.clone());
-
-        return update;
+        return result;
     }
 
-    fn commitment(&mut self) -> Commitment {
-        self.tree_manager
-            .get_mut_or_load(TreeName::root())
-            .commitment()
-            .clone()
+    pub fn commit(&mut self) -> (Commitment, Vec<(TreeName, Commitment, u64)>) {
+        let mut updates = Vec::with_capacity(1024);
+
+        let (_, commitment) = Self::commit_tree(
+            &TreeName::root(),
+            &mut self.tree_manager.forest,
+            &mut updates,
+        );
+
+        updates.sort_unstable_by_key(|(name, _, _)| name.clone());
+
+        return (commitment, updates);
     }
 }

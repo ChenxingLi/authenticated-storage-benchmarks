@@ -1,7 +1,8 @@
 use super::error;
 use super::export::{
-    k_adicity, AffineCurve, CanonicalDeserialize, CanonicalSerialize, EvaluationDomain, FftField,
-    Field, Fr, G2Aff, PairingEngine, Radix2EvaluationDomain, Zero, G1, G2,
+    k_adicity, AffineCurve, BigInteger, CanonicalDeserialize, CanonicalSerialize, EvaluationDomain,
+    FftField, Field, Fr, FrInt, G2Aff, PairingEngine, ProjectiveCurve, Radix2EvaluationDomain,
+    Zero, G1, G2,
 };
 use super::power_tau::PowerTau;
 use super::utils::amtp_file_name;
@@ -9,6 +10,7 @@ use super::utils::amtp_file_name;
 
 pub struct AMTParams<PE: PairingEngine> {
     indents: Vec<G1<PE>>,
+    indents_cache: RefCell<Vec<BTreeMap<usize, G1<PE>>>>,
     quotients: Vec<Vec<G1<PE>>>,
     g2pp: Vec<G2<PE>>,
     g2: G2<PE>,
@@ -18,6 +20,27 @@ pub struct AMTParams<PE: PairingEngine> {
 impl<PE: PairingEngine> AMTParams<PE> {
     pub fn get_idents(&self, index: usize) -> &G1<PE> {
         &self.indents[index]
+    }
+
+    pub fn get_idents_pow(&self, index: usize, power: &FrInt<PE>) -> G1<PE> {
+        let caches = &mut self.indents_cache.borrow_mut()[index];
+        let mut answer = G1::<PE>::zero();
+        for (idx, _) in power
+            .to_bits_le()
+            .iter()
+            .enumerate()
+            .filter(|(_, bit)| **bit)
+        {
+            answer += &*caches.entry(idx).or_insert_with(|| {
+                let mut fr_int = FrInt::<PE>::from(1);
+                fr_int.muln(idx as u32);
+                self.indents[index].mul(fr_int)
+            });
+        }
+        if cfg!(test) {
+            assert_eq!(self.indents[index].mul(power), answer);
+        }
+        answer
     }
 
     pub fn get_quotient(&self, depth: usize, index: usize) -> &G1<PE> {
@@ -38,12 +61,15 @@ impl<PE: PairingEngine> AMTParams<PE> {
 
     fn load_cached(file: &str) -> Result<Self, error::Error> {
         let mut buffer = File::open(file)?;
+        let indents: Vec<G1<PE>> = CanonicalDeserialize::deserialize_unchecked(&mut buffer)?;
+        let length = indents.len();
         Ok(Self {
-            indents: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
+            indents,
             quotients: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
             g2pp: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
             g2: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
             w_inv: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
+            indents_cache: RefCell::new(vec![Default::default(); length]),
         })
     }
 
@@ -102,6 +128,7 @@ impl<PE: PairingEngine> AMTParams<PE> {
             g2pp,
             g2,
             w_inv,
+            indents_cache: RefCell::new(vec![Default::default(); g1pp.len()]),
         }
     }
 
@@ -170,7 +197,9 @@ fn test_ident_prove() {
     }
 }
 #[cfg(test)]
-use super::export::{FrInt, Pairing};
+use super::export::Pairing;
 #[cfg(test)]
-use crate::crypto::export::{One, ProjectiveCurve};
+use crate::crypto::export::One;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::fs::File;

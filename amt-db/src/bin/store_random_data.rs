@@ -95,7 +95,7 @@ impl<R: Rng> Iterator for TimeProducer<R> {
     type Item = EpochEvents;
 
     fn next(&mut self) -> Option<Self::Item> {
-        const STEP: usize = 10;
+        const STEP: usize = 100;
         if self.count == 0 {
             self.last_stat = Some(Statistic::now());
         } else if self.count % STEP == 0 {
@@ -146,9 +146,9 @@ impl<R: Rng + SeedableRng> TimeProducer<R> {
 }
 
 fn main() {
-    let mut db = new_simple_db::<BenchDepths>("./__benchmark_db", true);
-    let tasks = TimeProducer::<Pcg64>::new((0, 2000), 60, 64);
-    let guard = pprof::ProfilerGuard::new(500).unwrap();
+    let (mut db, _) = new_simple_db::<BenchDepths>("./__benchmark_simple_db", true);
+    let tasks = TimeProducer::<Pcg64>::new((0, 2000), 120, 64);
+    let guard = pprof::ProfilerGuard::new(250).unwrap();
     let no_opt_answer = run_tasks(&mut db, tasks).expect("no db error");
 
     match guard.report().build() {
@@ -164,6 +164,6 @@ fn main() {
     };
 
     println!("Don't optimization answer {}", no_opt_answer);
-    std::fs::remove_dir_all("./__benchmark_db").unwrap();
+    std::fs::remove_dir_all("./__benchmark_simple_db").unwrap();
     println!("Hello world");
 }

@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+// #![allow(dead_code)]
 // unused_imports
 // non_camel_case_types
 #[macro_use]
@@ -22,6 +22,6 @@ pub mod ver_tree;
 use enable_log::*;
 
 #[cfg(not(test))]
-const DEPTHS: usize = 16;
+const DEPTHS: usize = 8;
 #[cfg(test)]
 const DEPTHS: usize = 8;

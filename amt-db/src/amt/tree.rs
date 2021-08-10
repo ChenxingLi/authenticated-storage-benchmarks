@@ -104,14 +104,15 @@ impl<C: AMTConfigTrait> AMTree<C> {
 
         self.dirty = true;
 
-        let inc_comm = self.pp.get_idents(index).mul(update_fr_int);
-
-        // Update proof
-        self.inner_nodes.get_mut(&NodeIndex::root()).commitment += &inc_comm;
+        // let inc_comm = self.pp.get_idents(index).mul(update_fr_int);
+        let inc_comm = self.pp.get_idents_pow(index, &update_fr_int);
 
         if self.only_root {
             return;
         }
+
+        // Update proof
+        self.inner_nodes.get_mut(&NodeIndex::root()).commitment += &inc_comm;
 
         let leaf_index = bitreverse(index, C::DEPTHS);
         let node_index = NodeIndex::new(C::DEPTHS, leaf_index);

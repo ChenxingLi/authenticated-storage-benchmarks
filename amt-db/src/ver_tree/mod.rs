@@ -31,4 +31,3 @@ type Tree = AMTree<AMTConfig>;
 pub type Commitment = G1<<AMTConfig as AMTConfigTrait>::PE>;
 
 const DEPTHS: usize = <AMTConfig as AMTConfigTrait>::DEPTHS;
-const IDX_MASK: usize = <AMTConfig as AMTConfigTrait>::IDX_MASK;

@@ -4,8 +4,6 @@ use cfx_types::H256;
 use keccak_hash::{keccak, KECCAK_EMPTY};
 
 pub struct StaticMerkleTree {
-    db: KvdbRocksdb,
-    epoch: u64,
     data: DBAccess<usize, H256, FlattenArray>,
     root: H256,
     depth: u32,
@@ -23,12 +21,10 @@ fn combine_hash(a: &H256, b: &H256) -> H256 {
 impl StaticMerkleTree {
     pub fn new(db: KvdbRocksdb, epoch: u64) -> Self {
         let mut backend: DBAccess<usize, H256, FlattenArray> =
-            DBAccess::new(epoch.to_be_bytes().into(), db.clone());
+            DBAccess::new(epoch.to_be_bytes().into(), db);
         let depth = backend.get(&0).to_low_u64_be() as u32;
         let root = backend.get(&1).clone();
         Self {
-            db,
-            epoch,
             data: backend,
             depth,
             root,
@@ -67,7 +63,7 @@ impl StaticMerkleTree {
         current_hash == *root
     }
 
-    pub fn dump<'a>(db: KvdbRocksdb, epoch: u64, data: Vec<H256>) -> H256 {
+    pub fn dump<'a>(db: KvdbRocksdb, epoch: u64, data: Vec<H256>, only_root: bool) -> H256 {
         let length = data.len();
         let depth = length.next_power_of_two().trailing_zeros();
 
@@ -75,11 +71,16 @@ impl StaticMerkleTree {
             DBAccess::new(epoch.to_be_bytes().into(), db.clone());
 
         let mut this_level = data;
+        let mut root: H256 = Default::default();
 
         for level in (0..=depth).rev() {
             for (i, hash) in this_level.iter().enumerate() {
-                backend.set(&((1 << level) + i), hash.clone());
-                // println!("pos {:02}, value {:?}", ((1 << level) + i), hash.clone());
+                if !only_root {
+                    backend.set(&((1 << level) + i), hash.clone());
+                }
+                if level == 0 {
+                    root = hash.clone()
+                }
             }
             if this_level.len() % 2 != 0 {
                 this_level.push(KECCAK_EMPTY);
@@ -91,8 +92,6 @@ impl StaticMerkleTree {
         }
 
         backend.set(&0, H256::from_low_u64_be(depth as u64));
-
-        let root = backend.get(&1).clone();
 
         *PUT_MODE.lock_mut().unwrap() = 2;
         backend.flush();
@@ -108,7 +107,7 @@ fn test_static_merkle_tree() {
         let data: Vec<H256> = (0..epoch)
             .map(|x| H256::from_low_u64_be(x + 65536))
             .collect();
-        let root = StaticMerkleTree::dump(db.clone(), epoch, data);
+        let root = StaticMerkleTree::dump(db.clone(), epoch, data, false);
 
         let mut tree = StaticMerkleTree::new(db.clone(), epoch);
         assert_eq!(root, tree.root().clone());
