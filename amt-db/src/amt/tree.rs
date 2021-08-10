@@ -32,14 +32,15 @@ pub trait AMTData<P: PrimeField> {
 
 #[derive(Clone)]
 pub struct AMTree<C: AMTConfigTrait> {
-    db: KvdbRocksdb,
     pub name: C::Name,
     data: DBAccess<usize, C::Data, C::DataLayout>,
     inner_nodes: DBAccess<NodeIndex<C::Height>, AMTNode<G1<C::PE>>, C::TreeLayout>,
-    pp: Arc<AMTParams<C::PE>>,
 
     only_root: bool,
     dirty: bool,
+
+    db: KvdbRocksdb,
+    pp: Arc<AMTParams<C::PE>>,
 }
 
 pub type AMTProof<G> = Vec<AMTNode<G>>;

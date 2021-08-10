@@ -10,7 +10,7 @@ use crate::storage::{
     KeyValueDbTrait, KeyValueDbTraitRead, KvdbRocksdb, Result, StorageDecodable, StorageEncodable,
     SystemDB,
 };
-use crate::ver_tree::{AMTConfig, Key, Node, TreeName, VerForest, VerInfo};
+use crate::ver_tree::{AMTConfig, Key, Node, TreeName, VerInfo, VersionTree};
 use cfx_types::H256;
 use keccak_hash::keccak;
 use std::collections::VecDeque;
@@ -25,9 +25,10 @@ const NUM_COLS: u32 = COL_POS_VALUE_MERKLE + 1;
 
 pub static INC_KEY_LEVEL_SUM: Global<u64> = Global::INIT;
 pub static INC_KEY_COUNT: Global<u64> = Global::INIT;
+pub static INC_TREE_COUNT: Global<u64> = Global::INIT;
 
 pub struct SimpleDb {
-    version_tree: VerForest,
+    version_tree: VersionTree,
     db_key_pos: KvdbRocksdb,
     db_tree_pos: KvdbRocksdb,
     db_pos_value: KvdbRocksdb,
@@ -103,7 +104,7 @@ impl SimpleDb {
             kvdb: database.key_value().clone(),
             col: COL_VER_TREE,
         };
-        let version_tree = VerForest::new(db_ver_tree, pp, only_root);
+        let version_tree = VersionTree::new(db_ver_tree, pp, only_root);
         let db_key_pos = KvdbRocksdb {
             kvdb: database.key_value().clone(),
             col: COL_KEY_POS,
@@ -156,10 +157,9 @@ impl SimpleDb {
         let kv_num = self.uncommitted_key_values.len();
         let mut hashes = Vec::with_capacity(kv_num);
 
-        // println!("commit key value");
         for (position, (key, value)) in self.uncommitted_key_values.drain(..).enumerate() {
             let position = position as u64;
-            let ver_info = self.version_tree.inc_key(&key);
+            let ver_info = self.version_tree.inc_key_ver(&key);
             *INC_KEY_COUNT.lock_mut().unwrap() += 1;
             *INC_KEY_LEVEL_SUM.lock_mut().unwrap() += ver_info.level as u64 + 1;
 
@@ -189,6 +189,8 @@ impl SimpleDb {
             let position = (kv_num + position) as u64;
             let affine_commitment: G1Aff<Pairing> = commitment.into();
 
+            *INC_TREE_COUNT.lock_mut().unwrap() += 1;
+
             self.db_tree_pos.put(
                 &tree.storage_encode(),
                 &EpochPosition { epoch, position }.storage_encode(),
@@ -207,12 +209,6 @@ impl SimpleDb {
                 }
                 .storage_encode(),
             );
-            if version == 251 {
-                println!(
-                    "Commit info, tree name {:?}, hash {:?}",
-                    tree, name_ver_value_hash
-                )
-            }
             hashes.push(name_ver_value_hash);
         }
 
@@ -231,8 +227,7 @@ impl SimpleDb {
 
     #[allow(unused_variables, unused_mut)]
     pub fn prove(&mut self, key: &Key) -> Result<Proof> {
-        // println!("***** Prove Key {:?} ******", key);
-        let ver_info = self.version_tree.get_key(&key);
+        let ver_info = self.version_tree.get_key_info(&key);
 
         let maybe_pos = self.db_key_pos.get(key.as_ref())?;
 
@@ -411,7 +406,7 @@ impl SimpleDb {
         name: TreeName,
         index: usize,
     ) -> (G1<Pairing>, Node, AMTProof<G1<Pairing>>) {
-        let tree = self.version_tree.tree_manager.get_mut_or_load(&name);
+        let tree = self.version_tree.get_tree_mut(&name);
 
         let commitment = tree.commitment().clone();
         let value = tree.get(index).clone();

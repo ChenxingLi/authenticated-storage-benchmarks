@@ -7,5 +7,5 @@ mod test;
 
 pub use self::{
     node::NodeIndex,
-    tree::{AMTConfigTrait, AMTData, AMTree},
+    tree::{AMTConfigTrait, AMTData, AMTProof, AMTree},
 };

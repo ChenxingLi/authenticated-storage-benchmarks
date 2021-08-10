@@ -4,67 +4,41 @@ use crate::{
         export::{CanonicalDeserialize, CanonicalSerialize, Pairing, SerializationError, ToBytes},
         AMTParams,
     },
-    storage::KvdbRocksdb,
+    impl_storage_from_canonical,
+    storage::{KvdbRocksdb, StorageDecodable, StorageEncodable},
 };
 use std::collections::BTreeSet;
 use std::io::{Read, Write};
 use std::{collections::BTreeMap, sync::Arc};
 
 type NodeIndex = u32;
-#[derive(Clone)]
-struct TreeWithInfo {
-    tree: Tree,
-    mark_in_parent: bool,
-    children_marks: BTreeSet<NodeIndex>,
-}
-
 type TreesLayer = BTreeMap<Vec<NodeIndex>, TreeWithInfo>;
 
-struct TreeProducer {
-    db: KvdbRocksdb,
-    pp: Arc<AMTParams<Pairing>>,
-    only_root: bool,
-}
-
-impl TreeProducer {
-    fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
-        Self { db, pp, only_root }
-    }
-
-    fn new_tree(&self, name: &TreeName) -> Tree {
-        Tree::new(
-            name.clone(),
-            self.db.clone(),
-            self.pp.clone(),
-            self.only_root,
-        )
-    }
-}
-
-// #[derive(Clone)]
-pub struct TreeManager {
+/// The `VersionTree`
+#[derive(Clone)]
+pub struct VersionTree {
     producer: TreeProducer,
     forest: Vec<TreesLayer>,
 }
 
-impl TreeManager {
-    fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
+impl VersionTree {
+    pub fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
         let mut forest = Vec::with_capacity(8);
         forest.push(BTreeMap::new());
         Self {
             forest,
-            producer: TreeProducer::new(db, pp, only_root),
+            producer: TreeProducer { db, pp, only_root },
         }
     }
 
-    pub fn get(&self, name: &TreeName) -> Option<&Tree> {
+    fn get_tree(&self, name: &TreeName) -> Option<&Tree> {
         self.forest
             .get(name.0.len())
             .and_then(|tree| tree.get(&name.0))
             .map(|tree_with_info| &tree_with_info.tree)
     }
 
-    pub fn get_mut_or_load(&mut self, name: &TreeName) -> &mut Tree {
+    pub(crate) fn get_tree_mut(&mut self, name: &TreeName) -> &mut Tree {
         let (ancestor_layers, tree_layer) = {
             let level = name.0.len();
             if self.forest.len() < level + 1 {
@@ -86,7 +60,6 @@ impl TreeManager {
             .or_insert_with(|| new_tree(&name));
 
         if !tree_with_info.mark_in_parent {
-            // println!("{} {:?}", ancestor_layers.len(), name);
             for (level, layer) in ancestor_layers.iter_mut().enumerate().rev() {
                 let anc_tree_name = TreeName(name.0[..level].to_vec());
                 let tree_with_info = layer
@@ -105,38 +78,10 @@ impl TreeManager {
         tree_with_info.mark_in_parent = true;
         &mut tree_with_info.tree
     }
-}
 
-pub struct VerForest {
-    pub(crate) tree_manager: TreeManager,
-}
-
-#[derive(Default, Copy, Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct VerInfo {
-    pub version: u64,
-    pub level: u8, //When serialized, `level` and `slot_index` are regarded as u8.
-    pub slot_index: u8,
-}
-
-impl ToBytes for VerInfo {
-    fn write<W: Write>(&self, mut writer: W) -> ::std::io::Result<()> {
-        self.version.write(&mut writer)?;
-        (self.level as u8).write(&mut writer)?;
-        (self.slot_index as u8).write(writer)?;
-        Ok(())
-    }
-}
-
-impl VerForest {
-    pub fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
-        Self {
-            tree_manager: TreeManager::new(db, pp.clone(), only_root),
-        }
-    }
-
-    pub fn get_key(&mut self, key: &Key) -> VerInfo {
+    pub fn get_key_info(&mut self, key: &Key) -> VerInfo {
         let mut level = 0;
-        let mut visit_amt = self.tree_manager.get_mut_or_load(&TreeName::root());
+        let mut visit_amt = self.get_tree_mut(&TreeName::root());
         loop {
             let node_index = key.index_at_level(level) as usize;
             let node: &Node = visit_amt.get(node_index);
@@ -157,10 +102,7 @@ impl VerForest {
 
             // In case the subtree does not exist
             if node.tree_version == 0
-                && self
-                    .tree_manager
-                    .get(&tree_name)
-                    .map_or(true, |tree| !tree.dirty())
+                && self.get_tree(&tree_name).map_or(true, |tree| !tree.dirty())
             {
                 // returns the empty slot that allocate for this key.
                 return if num_alloc_slots < 5 {
@@ -178,13 +120,13 @@ impl VerForest {
                 };
             }
 
-            visit_amt = self.tree_manager.get_mut_or_load(&tree_name);
+            visit_amt = self.get_tree_mut(&tree_name);
         }
     }
 
-    pub fn inc_key(&mut self, key: &Key) -> VerInfo {
+    pub fn inc_key_ver(&mut self, key: &Key) -> VerInfo {
         let mut level = 0;
-        let mut visit_amt = self.tree_manager.get_mut_or_load(&TreeName::root());
+        let mut visit_amt = self.get_tree_mut(&TreeName::root());
         loop {
             let node_index = key.index_at_level(level) as usize;
 
@@ -230,9 +172,7 @@ impl VerForest {
 
             // Access the next level.
             level += 1;
-            visit_amt = self
-                .tree_manager
-                .get_mut_or_load(&TreeName::from_key_level(key, level));
+            visit_amt = self.get_tree_mut(&TreeName::from_key_level(key, level));
         }
     }
 
@@ -259,6 +199,11 @@ impl VerForest {
         let tree = &mut tree_with_info.tree;
 
         let result = (tree.dirty(), tree.commitment().clone());
+        if cfg!(not(test)) {
+            if name.0.len() == 0 {
+                return result;
+            }
+        }
         tree.flush();
 
         return result;
@@ -266,15 +211,52 @@ impl VerForest {
 
     pub fn commit(&mut self) -> (Commitment, Vec<(TreeName, Commitment, u64)>) {
         let mut updates = Vec::with_capacity(1024);
-
-        let (_, commitment) = Self::commit_tree(
-            &TreeName::root(),
-            &mut self.tree_manager.forest,
-            &mut updates,
-        );
-
+        let (_, commitment) = Self::commit_tree(&TreeName::root(), &mut self.forest, &mut updates);
         updates.sort_unstable_by_key(|(name, _, _)| name.clone());
 
         return (commitment, updates);
     }
+}
+
+#[derive(Clone)]
+struct TreeProducer {
+    pub db: KvdbRocksdb,
+    pub pp: Arc<AMTParams<Pairing>>,
+    pub only_root: bool,
+}
+
+impl TreeProducer {
+    fn new_tree(&self, name: &TreeName) -> Tree {
+        Tree::new(
+            name.clone(),
+            self.db.clone(),
+            self.pp.clone(),
+            self.only_root,
+        )
+    }
+}
+
+#[derive(Default, Copy, Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+pub struct VerInfo {
+    pub version: u64,
+    pub level: u8,
+    pub slot_index: u8,
+}
+
+impl ToBytes for VerInfo {
+    fn write<W: Write>(&self, mut writer: W) -> ::std::io::Result<()> {
+        self.version.write(&mut writer)?;
+        self.level.write(&mut writer)?;
+        self.slot_index.write(writer)?;
+        Ok(())
+    }
+}
+
+impl_storage_from_canonical!(VerInfo);
+
+#[derive(Clone)]
+struct TreeWithInfo {
+    tree: Tree,
+    mark_in_parent: bool,
+    children_marks: BTreeSet<NodeIndex>,
 }

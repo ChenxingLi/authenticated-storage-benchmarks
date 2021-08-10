@@ -33,7 +33,6 @@ base64 = "0.13.0"
 static_assertions = "0.1"
 exitcode = "1.1.2"
 pprof = { version = "0.3", features = ["flamegraph", "protobuf"] }
-
 global = "0.3.0"
 crc64fast = "1.0.0"
 slab = "0.4.4"

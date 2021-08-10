@@ -1,7 +1,7 @@
 #![allow(unused_imports, dead_code, unused_variables)]
 use amt_db::{
     crypto::TypeUInt,
-    simple_db::{new_simple_db, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM},
+    simple_db::{new_simple_db, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT},
     storage::{access::PUT_COUNT, Result},
     type_uint,
     ver_tree::Key,
@@ -57,6 +57,7 @@ pub struct Statistic {
     display: Instant,
     put_count: [u64; 3],
     inc_key_count: u64,
+    inc_tree_count: u64,
     inc_key_level_count: u64,
 }
 
@@ -66,27 +67,32 @@ impl Statistic {
             display: Instant::now(),
             put_count: *PUT_COUNT.lock().unwrap(),
             inc_key_count: *INC_KEY_COUNT.lock().unwrap(),
+            inc_tree_count: *INC_TREE_COUNT.lock().unwrap(),
             inc_key_level_count: *INC_KEY_LEVEL_SUM.lock().unwrap(),
         };
     }
 
     fn delta(&self, other: &Self, writes: usize) -> String {
         let key_diff = self.inc_key_count - other.inc_key_count;
+        let tree_diff = self.inc_tree_count - other.inc_tree_count;
         let level_diff = self.inc_key_level_count - other.inc_key_level_count;
         let avg_level = (level_diff as f64) / (key_diff as f64);
 
         let last = self.display.checked_duration_since(other.display).unwrap();
 
         format!(
-            "Time {:.3?}, {:.0} ops, avg levels: {:.3}, put count {:?}",
+            "Time {:.3?}, {:.0} ops, {:.2} us, avg levels: {:.3}, access writes {:?}, data writes {} {}",
             last,
             writes as f64 / last.as_secs_f64(),
+            last.as_secs_f64()/writes as f64 * 1_000_000f64,
             avg_level,
             self.put_count
                 .iter()
                 .zip(other.put_count.iter())
                 .map(|(x, y)| x - y)
                 .collect::<Vec<u64>>(),
+            key_diff * 2,
+            tree_diff * 2,
         )
     }
 }
@@ -95,7 +101,7 @@ impl<R: Rng> Iterator for TimeProducer<R> {
     type Item = EpochEvents;
 
     fn next(&mut self) -> Option<Self::Item> {
-        const STEP: usize = 100;
+        const STEP: usize = 10;
         if self.count == 0 {
             self.last_stat = Some(Statistic::now());
         } else if self.count % STEP == 0 {
