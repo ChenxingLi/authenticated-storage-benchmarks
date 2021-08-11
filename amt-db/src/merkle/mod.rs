@@ -93,7 +93,7 @@ impl StaticMerkleTree {
 
         backend.set(&0, H256::from_low_u64_be(depth as u64));
 
-        *PUT_MODE.lock_mut().unwrap() = 2;
+        *PUT_MODE.lock_mut().unwrap() = 3;
         backend.flush();
 
         return root;

@@ -1,5 +1,6 @@
 use super::{Commitment, Key, Node, Tree, TreeName, MAX_VERSION_NUMBER};
-use crate::crypto::export::G1;
+use crate::crypto::export::{BigInteger, FrInt, G1};
+use crate::ver_tree::node::EpochPosition;
 use crate::{
     crypto::{
         export::{CanonicalDeserialize, CanonicalSerialize, Pairing, SerializationError, ToBytes},
@@ -21,6 +22,8 @@ pub struct VersionTree {
     root: G1<Pairing>,
     producer: TreeProducer,
     forest: Vec<TreesLayer>,
+
+    fast_mode: bool,
 }
 
 impl VersionTree {
@@ -31,6 +34,7 @@ impl VersionTree {
             forest,
             producer: TreeProducer { db, pp, only_root },
             root: Default::default(),
+            fast_mode: only_root,
         }
     }
 
@@ -77,7 +81,7 @@ impl VersionTree {
                     .entry(anc_tree_name.clone().0)
                     .or_insert_with(|| new_tree(&anc_tree_name));
                 tree_with_info.children_marks.insert(sub_index);
-                last_tree.set_commitment(&tree_with_info.tree.get(sub_index as usize).commitment);
+                last_tree.set_commitment(&tree_with_info.tree.subtree_root(sub_index as usize));
                 last_tree = &mut tree_with_info.tree;
 
                 if tree_with_info.mark_in_parent {
@@ -90,105 +94,99 @@ impl VersionTree {
         &mut tree_with_info.tree
     }
 
-    pub fn get_key_info(&mut self, key: &Key) -> VerInfo {
-        let mut level = 0;
-        let mut visit_amt = self.get_tree_mut(&TreeName::root());
-        loop {
-            let node_index = key.index_at_level(level) as usize;
-            let node: &Node = visit_amt.get(node_index);
-            for (slot_index, (node_key, ver)) in node.key_versions.iter().enumerate() {
-                if *key == *node_key {
-                    return VerInfo {
-                        version: *ver as u64,
-                        level,
-                        slot_index: slot_index as u8,
-                    };
-                }
-            }
+    // pub fn get_key_info(&mut self, key: &Key) -> VerInfo {
+    //     let mut level = 0;
+    //     let mut visit_amt = self.get_tree_mut(&TreeName::root());
+    //     loop {
+    //         let node_index = key.index_at_level(level) as usize;
+    //         let node: &Node = visit_amt.get(node_index);
+    //         for (slot_index, (node_key, ver)) in node.key_versions.iter().enumerate() {
+    //             if *key == *node_key {
+    //                 return VerInfo {
+    //                     version: *ver as u64,
+    //                     level,
+    //                     slot_index: slot_index as u8,
+    //                 };
+    //             }
+    //         }
+    //
+    //         let num_alloc_slots = node.key_versions.len();
+    //
+    //         level += 1;
+    //         let tree_name = TreeName::from_key_level(key, level);
+    //
+    //         // In case the subtree does not exist
+    //         if node.tree_version == 0
+    //             && self.get_tree(&tree_name).map_or(true, |tree| !tree.dirty())
+    //         {
+    //             // returns the empty slot that allocate for this key.
+    //             return if num_alloc_slots < 5 {
+    //                 VerInfo {
+    //                     version: 0,
+    //                     level: level - 1,
+    //                     slot_index: num_alloc_slots as u8,
+    //                 }
+    //             } else {
+    //                 VerInfo {
+    //                     version: 0,
+    //                     level,
+    //                     slot_index: 0,
+    //                 }
+    //             };
+    //         }
+    //
+    //         visit_amt = self.get_tree_mut(&tree_name);
+    //     }
+    // }
 
-            let num_alloc_slots = node.key_versions.len();
+    pub fn inc_key_ver(&mut self, key: &Key, version: Option<VerInfo>) -> VerInfo {
+        let VerInfo {
+            version,
+            level,
+            slot_index,
+        } = match version {
+            None => self.allocate_vacant_slot(key),
+            Some(ver_info) => ver_info,
+        };
 
-            level += 1;
-            let tree_name = TreeName::from_key_level(key, level);
-
-            // In case the subtree does not exist
-            if node.tree_version == 0
-                && self.get_tree(&tree_name).map_or(true, |tree| !tree.dirty())
-            {
-                // returns the empty slot that allocate for this key.
-                return if num_alloc_slots < 5 {
-                    VerInfo {
-                        version: 0,
-                        level: level - 1,
-                        slot_index: num_alloc_slots as u8,
-                    }
-                } else {
-                    VerInfo {
-                        version: 0,
-                        level,
-                        slot_index: 0,
-                    }
-                };
-            }
-
-            visit_amt = self.get_tree_mut(&tree_name);
+        let mut visit_amt = self.get_tree_mut(&key.tree_at_level(level));
+        let node = key.index_at_level(level);
+        if visit_amt.only_root() {
+            visit_amt.update(node, fr_int_pow_2((slot_index as u32 + 1) * 5));
+        } else {
+            let mut node_guard = visit_amt.write_versions(node);
+            node_guard.key_versions[slot_index as usize] += 1;
         }
+        return VerInfo {
+            version: version + 1,
+            level,
+            slot_index,
+        };
     }
 
-    pub fn inc_key_ver(&mut self, key: &Key) -> VerInfo {
-        let mut level = 0;
-        let mut visit_amt = self.get_tree_mut(&TreeName::root());
-        loop {
-            let node_index = key.index_at_level(level) as usize;
+    pub fn allocate_vacant_slot(&mut self, key: &Key) -> VerInfo {
+        for level in 0..32 {
+            let mut visit_amt = self.get_tree_mut(&key.tree_at_level(level));
+            let mut node_guard = visit_amt.write_versions(key.index_at_level(level));
 
-            debug!(
-                "Access key {:?} at level {}, tree_index {:?}, node_index {}",
-                key.0,
-                level,
-                key.tree_at_level(level),
-                node_index
-            );
-
-            let mut node_guard = visit_amt.write(node_index);
-            for (slot_index, (ref mut node_key, ver)) in
-                &mut node_guard.key_versions.iter_mut().enumerate()
-            {
-                if *key == *node_key {
-                    *ver += 1;
-                    assert!(*ver <= MAX_VERSION_NUMBER);
-                    // std::mem::drop(node_guard);
-                    return VerInfo {
-                        version: *ver as u64,
-                        level,
-                        slot_index: slot_index as u8,
-                    };
-                }
-            }
-
-            // In case this level is not fulfilled, put the
             if node_guard.key_versions.len() < 5 {
                 let slot_index = node_guard.key_versions.len();
-                node_guard.key_versions.push((key.clone(), 1));
+                node_guard.key_versions.push(0);
 
-                // std::mem::drop(node_guard);
                 return VerInfo {
-                    version: 1,
+                    version: 0,
                     level,
                     slot_index: slot_index as u8,
                 };
             }
-
-            // Drop `node_guard` even if nothing changes.
-            std::mem::drop(node_guard);
-
-            // Access the next level.
-            level += 1;
-            visit_amt = self.get_tree_mut(&TreeName::from_key_level(key, level));
         }
+        panic!("Exceed maximum support level");
     }
 
     fn commit_tree(
         name: &TreeName,
+        epoch: u64,
+        start_pos: u64, //TODO: ugly.
         layers: &mut [TreesLayer],
         updates: &mut Vec<(TreeName, Commitment, u64)>,
     ) -> (bool, Commitment) {
@@ -198,11 +196,16 @@ impl VersionTree {
 
         for &index in tree_with_info.children_marks.iter() {
             let child_name = name.child(index);
-            let (dirty, commitment) = Self::commit_tree(&child_name, rest_layers, updates);
+            let (dirty, commitment) =
+                Self::commit_tree(&child_name, epoch, start_pos, rest_layers, updates);
             if dirty {
-                let node = &mut tree_with_info.tree.write(index as usize);
+                *tree_with_info.tree.subtree_root_mut(index as usize) = commitment;
+                let node = &mut tree_with_info.tree.write_versions(index as usize);
                 node.tree_version += 1;
-                node.commitment = commitment;
+                node.tree_position = EpochPosition {
+                    epoch,
+                    position: start_pos + updates.len() as u64,
+                };
                 updates.push((child_name, commitment, node.tree_version));
             }
         }
@@ -220,10 +223,20 @@ impl VersionTree {
         return (dirty, commitment);
     }
 
-    pub fn commit(&mut self) -> (Commitment, Vec<(TreeName, Commitment, u64)>) {
+    pub fn commit(
+        &mut self,
+        epoch: u64,
+        start_pos: u64,
+    ) -> (Commitment, Vec<(TreeName, Commitment, u64)>) {
         let mut updates = Vec::with_capacity(1024);
-        let (_, commitment) = Self::commit_tree(&TreeName::root(), &mut self.forest, &mut updates);
-        updates.sort_unstable_by_key(|(name, _, _)| name.clone());
+        let (_, commitment) = Self::commit_tree(
+            &TreeName::root(),
+            epoch,
+            start_pos,
+            &mut self.forest,
+            &mut updates,
+        );
+        // updates.sort_unstable_by_key(|(name, _, _)| name.clone());
 
         return (commitment, updates);
     }
@@ -270,4 +283,10 @@ struct TreeWithInfo {
     tree: Tree,
     mark_in_parent: bool,
     children_marks: BTreeSet<NodeIndex>,
+}
+
+fn fr_int_pow_2(power: u32) -> FrInt<Pairing> {
+    let mut fr_int = FrInt::<Pairing>::from(1);
+    fr_int.muln(power);
+    fr_int
 }

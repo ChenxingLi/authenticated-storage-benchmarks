@@ -62,7 +62,7 @@ impl StorageDecodable for H256 {
     }
 }
 
-// I can not implement `impl_storage_from_canonical!(G1Projective)` here. So I implement for
+// I can not implement `impl_storage_from_canonical!(G1<Pairing>)` here. So I implement for
 // `G1Projective` instead.
 // See https://github.com/arkworks-rs/algebra/issues/185 for more details.
 impl_storage_from_canonical!(G1Projective);

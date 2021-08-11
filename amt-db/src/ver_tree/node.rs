@@ -1,12 +1,10 @@
 use super::Key;
 use crate::amt::AMTData;
 use crate::crypto::export::{
-    CanonicalDeserialize, CanonicalSerialize, FpParameters, PrimeField, Read, SerializationError,
-    Write,
+    CanonicalDeserialize, CanonicalSerialize, FpParameters, Fr as FrGeneric, FrInt as FrIntGeneric,
+    FromBytes, Pairing, PrimeField, Read, SerializationError, ToBytes, Write, G1 as G1Generic,
 };
-use crate::crypto::export::{
-    Fr as FrGeneric, FrInt as FrIntGeneric, FromBytes, Pairing, ToBytes, G1 as G1Generic,
-};
+use crate::impl_storage_from_canonical;
 use crate::storage::{StorageDecodable, StorageEncodable};
 use std::ops::{Deref, DerefMut};
 
@@ -24,9 +22,9 @@ fn const_assert() {
 }
 
 #[derive(Default, Clone, Debug, CanonicalDeserialize, CanonicalSerialize)]
-pub struct KeyVersions(pub Vec<(Key, u64)>);
+pub struct KeyVersions(pub Vec<u64>);
 impl Deref for KeyVersions {
-    type Target = Vec<(Key, u64)>;
+    type Target = Vec<u64>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -39,13 +37,21 @@ impl DerefMut for KeyVersions {
     }
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Copy, Debug, CanonicalDeserialize, CanonicalSerialize)]
+pub struct EpochPosition {
+    pub(crate) epoch: u64,
+    pub(crate) position: u64,
+}
+impl_storage_from_canonical!(EpochPosition);
+
+#[derive(Default, Clone, Debug, CanonicalDeserialize, CanonicalSerialize)]
 pub struct Node {
     pub(crate) key_versions: KeyVersions,
     pub(crate) tree_version: u64,
-    pub(crate) commitment: G1,
+    pub(crate) tree_position: EpochPosition,
 }
 
+/*
 impl StorageEncodable for Node {
     fn storage_encode(&self) -> Vec<u8> {
         let mut serialized = Vec::with_capacity(self.key_versions.serialized_size() + 200);
@@ -69,8 +75,9 @@ impl StorageDecodable for Node {
         })
     }
 }
+*/
 
-// impl_storage_from_canonical!(Node);
+impl_storage_from_canonical!(Node);
 
 impl AMTData<Fr> for Node {
     #[cfg(target_endian = "little")]
@@ -79,7 +86,7 @@ impl AMTData<Fr> for Node {
         let mut result = [0u8; 32];
 
         let mut start: usize = 5;
-        for (_, ver) in self.key_versions.iter() {
+        for ver in self.key_versions.iter() {
             result[start..(start + 5)].copy_from_slice(&ver.to_le_bytes()[0..5]);
             start += 5;
         }
@@ -110,10 +117,10 @@ mod test {
         let mut node = Node {
             key_versions: KeyVersions(Vec::new()),
             tree_version: 0,
-            commitment: Default::default(),
+            tree_position: Default::default(),
         };
         node.tree_version = 1;
-        (2..=6).for_each(|x: u64| node.key_versions.push((Key::default(), x)));
+        (2..=6).for_each(|x: u64| node.key_versions.push(x));
 
         let mut answer = [0u64; 4];
         answer[0] = 1;
@@ -134,7 +141,7 @@ mod test {
         let mut node = Node {
             key_versions: KeyVersions(vec![Default::default(); 5]),
             tree_version: 0,
-            commitment: Default::default(),
+            tree_position: Default::default(),
         };
 
         const MASK: u64 = (1 << VERSION_BITS) - 1;
@@ -142,8 +149,8 @@ mod test {
         node.tree_version = rng.gen::<u64>() & MASK;
         let mut answer = FrInt::from(node.tree_version);
         for i in 0..5 {
-            node.key_versions[i].1 = rng.gen::<u64>() & MASK;
-            let mut fr_int = FrInt::from(node.key_versions[i].1);
+            node.key_versions[i] = rng.gen::<u64>() & MASK;
+            let mut fr_int = FrInt::from(node.key_versions[i]);
             fr_int.muln((VERSION_BITS * (i + 1)) as u32);
             answer.add_nocarry(&fr_int);
         }
@@ -153,7 +160,7 @@ mod test {
         assert_eq!(node.tree_version, Node::versions_from_fr_int(&answer, 0));
         for i in 0..5 {
             assert_eq!(
-                node.key_versions[i].1,
+                node.key_versions[i],
                 Node::versions_from_fr_int(&answer, i + 1)
             );
         }

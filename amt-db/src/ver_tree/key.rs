@@ -3,6 +3,7 @@ use super::DEPTHS;
 use crate::crypto::export::{
     CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write,
 };
+use crate::ver_tree::TreeName;
 use std::cmp::min;
 use std::convert::TryFrom;
 
@@ -47,12 +48,16 @@ impl Key {
         return entry >> (start_bit + (128 - length));
     }
 
-    pub fn tree_at_level(&self, level: u8) -> Vec<u32> {
-        (0..level).map(|level| self.index_at_level(level)).collect()
+    pub fn tree_at_level(&self, level: u8) -> TreeName {
+        TreeName(
+            (0..level)
+                .map(|level| self.index_at_level(level) as u32)
+                .collect(),
+        )
     }
 
-    pub fn index_at_level(&self, level: u8) -> u32 {
+    pub fn index_at_level(&self, level: u8) -> usize {
         let length = (level as usize) * DEPTHS;
-        self.mid(length, DEPTHS) as u32
+        self.mid(length, DEPTHS) as usize
     }
 }

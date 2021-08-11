@@ -5,8 +5,6 @@
 extern crate error_chain;
 #[macro_use]
 extern crate static_assertions;
-#[macro_use]
-extern crate log;
 
 extern crate base64;
 

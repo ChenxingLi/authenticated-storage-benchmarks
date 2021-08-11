@@ -11,7 +11,7 @@ use global::Global;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-pub static PUT_COUNT: Global<[u64; 3]> = Global::INIT;
+pub static PUT_COUNT: Global<[u64; 4]> = Global::INIT;
 pub static PUT_MODE: Global<usize> = Global::INIT;
 
 #[derive(Clone)]

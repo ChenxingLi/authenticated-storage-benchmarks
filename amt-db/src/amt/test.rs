@@ -1,7 +1,6 @@
 use super::tree::{AMTConfigTrait, AMTData, AMTree};
-use crate::crypto::export::FrInt;
 use crate::crypto::{
-    export::{CanonicalDeserialize, CanonicalSerialize, Fr, Pairing},
+    export::{CanonicalDeserialize, CanonicalSerialize, Fr, FrInt, Pairing, G1},
     AMTParams, TypeUInt,
 };
 use crate::impl_storage_from_canonical;
@@ -21,6 +20,7 @@ impl AMTConfigTrait for TestConfig {
     type PE = Pairing;
     type Name = u64;
     type Data = u64;
+    type Commitment = G1<Pairing>;
     type DataLayout = FlattenArray;
     type TreeLayout = FlattenTree;
     type Height = TestDepths;
@@ -68,13 +68,13 @@ fn test_amt() {
 
     test_all(&mut amt, &pp, "Empty");
 
-    *amt.write(0) += 1;
+    *amt.write_versions(0) += 1;
     assert_eq!(amt.get(0), &1);
     assert_eq!(amt.get(1), &0);
     test_all(&mut amt, &pp, "one-hot");
 
-    *amt.write(0) += &1;
-    *amt.write(LENGTH / 2) += &1;
+    *amt.write_versions(0) += &1;
+    *amt.write_versions(LENGTH / 2) += &1;
     test_all(&mut amt, &pp, "sibling pair");
 
     ::std::fs::remove_dir_all("./__test_amt").unwrap();

@@ -10,9 +10,10 @@ use crate::storage::{DBAccess, KvdbRocksdb, LayoutTrait, StorageDecodable, Stora
 use std::sync::Arc;
 
 pub trait AMTConfigTrait {
-    type PE: PairingEngine;
+    type PE: PairingEngine<G1Projective = Self::Commitment>;
     type Name: StorageEncodable;
     type Data: AMTData<Fr<Self::PE>> + Default + Clone + StorageEncodable + StorageDecodable;
+    type Commitment: ProjectiveCurve + StorageEncodable + StorageDecodable;
 
     type DataLayout: LayoutTrait<usize>;
     type TreeLayout: LayoutTrait<NodeIndex<Self::Height>>;
@@ -34,7 +35,8 @@ pub trait AMTData<P: PrimeField> {
 pub struct AMTree<C: AMTConfigTrait> {
     pub name: C::Name,
     data: DBAccess<usize, C::Data, C::DataLayout>,
-    inner_nodes: DBAccess<NodeIndex<C::Height>, AMTNode<G1<C::PE>>, C::TreeLayout>,
+    subtree_roots: DBAccess<usize, C::Commitment, C::DataLayout>,
+    inner_nodes: DBAccess<NodeIndex<C::Height>, AMTNode<C::Commitment>, C::TreeLayout>,
     commitment: Option<G1<C::PE>>,
 
     only_root: bool,
@@ -55,6 +57,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
         Self {
             data: DBAccess::new(name_with_prefix(vec![0u8]), db.clone()),
             inner_nodes: DBAccess::new(name_with_prefix(vec![1u8]), db.clone()),
+            subtree_roots: DBAccess::new(name_with_prefix(vec![2u8]), db.clone()),
             db,
             name,
             commitment: None,
@@ -85,9 +88,22 @@ impl<C: AMTConfigTrait> AMTree<C> {
         self.dirty
     }
 
-    pub fn write(&mut self, index: usize) -> AMTNodeWriteGuard<C> {
+    pub fn only_root(&self) -> bool {
+        self.only_root
+    }
+
+    pub fn write_versions(&mut self, index: usize) -> AMTNodeWriteGuard<C> {
         let value = std::mem::take(self.data.get_mut(&index));
         AMTNodeWriteGuard::new(index, value, self)
+    }
+
+    pub fn subtree_root_mut(&mut self, index: usize) -> &mut G1<C::PE> {
+        assert!(index < C::LENGTH);
+        self.subtree_roots.get_mut(&index)
+    }
+
+    pub fn subtree_root(&mut self, index: usize) -> &G1<C::PE> {
+        &*self.subtree_root_mut(index)
     }
 
     pub fn commitment(&mut self) -> &G1<C::PE> {
@@ -100,6 +116,9 @@ impl<C: AMTConfigTrait> AMTree<C> {
 
         *PUT_MODE.lock_mut().unwrap() = 1;
         self.inner_nodes.flush();
+
+        *PUT_MODE.lock_mut().unwrap() = 2;
+        self.subtree_roots.flush();
 
         self.dirty = false;
         self.commitment.unwrap().clone()
@@ -117,7 +136,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
         // let inc_comm = self.pp.get_idents(index).mul(update_fr_int);
         let inc_comm = self.pp.get_idents_pow(index, &update_fr_int);
 
-        // Update proof
+        // Update commitment
         *self.commitment.as_mut().unwrap() += &inc_comm;
 
         if self.only_root {

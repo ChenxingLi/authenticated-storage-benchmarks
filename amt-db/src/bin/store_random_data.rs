@@ -55,7 +55,7 @@ pub struct TimeProducer<R: Rng> {
 
 pub struct Statistic {
     display: Instant,
-    put_count: [u64; 3],
+    put_count: [u64; 4],
     inc_key_count: u64,
     inc_tree_count: u64,
     inc_key_level_count: u64,

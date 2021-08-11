@@ -40,9 +40,9 @@ impl TreeName {
         TreeName(Vec::new())
     }
 
-    pub fn from_key_level(key: &Key, level: u8) -> Self {
-        TreeName(key.tree_at_level(level))
-    }
+    // pub fn from_key_level(key: &Key, level: u8) -> Self {
+    //     TreeName(key.tree_at_level(level))
+    // }
 
     pub fn level_index(&self) -> Option<u32> {
         self.0.last().cloned()

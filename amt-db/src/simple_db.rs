@@ -1,3 +1,4 @@
+#![allow(unused)]
 use crate::amt::tree::AMTProof;
 use crate::amt::{AMTData, AMTree};
 use crate::crypto::{
@@ -10,7 +11,7 @@ use crate::storage::{
     KeyValueDbTrait, KeyValueDbTraitRead, KvdbRocksdb, Result, StorageDecodable, StorageEncodable,
     SystemDB,
 };
-use crate::ver_tree::{AMTConfig, Key, Node, TreeName, VerInfo, VersionTree};
+use crate::ver_tree::{AMTConfig, EpochPosition, Key, Node, TreeName, VerInfo, VersionTree};
 use cfx_types::H256;
 use keccak_hash::keccak;
 use std::collections::VecDeque;
@@ -21,7 +22,10 @@ const COL_KEY_POS: u32 = COL_VER_TREE + 1;
 const COL_TREE_POS: u32 = COL_KEY_POS + 1;
 const COL_POS_VALUE: u32 = COL_TREE_POS + 1;
 const COL_POS_VALUE_MERKLE: u32 = COL_POS_VALUE + 1;
-const NUM_COLS: u32 = COL_POS_VALUE_MERKLE + 1;
+const COL_KEY_NEW: u32 = COL_POS_VALUE_MERKLE + 1;
+const COL_TREE_NEW: u32 = COL_KEY_NEW + 1;
+const COL_MERKLE: u32 = COL_TREE_NEW + 1;
+const NUM_COLS: u32 = COL_MERKLE + 1;
 
 pub static INC_KEY_LEVEL_SUM: Global<u64> = Global::INIT;
 pub static INC_KEY_COUNT: Global<u64> = Global::INIT;
@@ -34,6 +38,10 @@ pub struct SimpleDb {
     db_pos_value: KvdbRocksdb,
     db_pos_value_merkle: KvdbRocksdb,
 
+    db_key_new: KvdbRocksdb,
+    db_tree_new: KvdbRocksdb,
+    db_merkle: KvdbRocksdb,
+
     uncommitted_key_values: Vec<(Key, Box<[u8]>)>,
     dirty_guard: bool,
     only_root: bool,
@@ -41,6 +49,7 @@ pub struct SimpleDb {
 
 #[allow(unused)]
 mod metadata {
+    use super::EpochPosition;
     use super::{impl_storage_from_canonical, TreeName, VerInfo};
     use crate::crypto::export::G1Aff;
     use crate::crypto::{
@@ -51,13 +60,6 @@ mod metadata {
     };
     use crate::storage::{StorageDecodable, StorageEncodable};
     use std::io::{Read, Write};
-
-    #[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
-    pub struct EpochPosition {
-        pub(crate) epoch: u64,
-        pub(crate) position: u64,
-    }
-    impl_storage_from_canonical!(EpochPosition);
 
     #[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
     pub struct TreeValue {
@@ -74,6 +76,14 @@ mod metadata {
         pub(crate) value: Vec<u8>,
     }
     impl_storage_from_canonical!(KeyValue);
+
+    #[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
+    pub struct Value {
+        pub(crate) value: Vec<u8>,
+        pub(crate) version: VerInfo,
+        pub(crate) position: EpochPosition,
+    }
+    impl_storage_from_canonical!(Value);
 }
 
 use crate::crypto::export::{G1Aff, ProjectiveCurve};
@@ -92,7 +102,7 @@ pub struct LevelProof {
 
 #[derive(Default)]
 pub struct AssociateProof {
-    value: Option<Box<[u8]>>,
+    value: Option<Vec<u8>>,
     ver_info: VerInfo,
 }
 
@@ -121,12 +131,27 @@ impl SimpleDb {
             kvdb: database.key_value().clone(),
             col: COL_POS_VALUE_MERKLE,
         };
+        let db_key_new = KvdbRocksdb {
+            kvdb: database.key_value().clone(),
+            col: COL_KEY_NEW,
+        };
+        let db_tree_new = KvdbRocksdb {
+            kvdb: database.key_value().clone(),
+            col: COL_TREE_NEW,
+        };
+        let db_merkle = KvdbRocksdb {
+            kvdb: database.key_value().clone(),
+            col: COL_MERKLE,
+        };
         Self {
             version_tree,
             db_key_pos,
             db_pos_value,
             db_pos_value_merkle,
             db_tree_pos: db_tree_current,
+            db_key_new,
+            db_tree_new,
+            db_merkle,
             uncommitted_key_values: Vec::new(),
             dirty_guard: false,
             only_root,
@@ -139,13 +164,12 @@ impl SimpleDb {
             "Can not read db if set operations have not been committed."
         );
 
-        let maybe_pos = self.db_key_pos.get(key.as_ref())?;
-        if let Some(pos) = maybe_pos {
-            return Ok(Some(
-                self.db_pos_value.get(&pos)?.expect("Should find a key"),
-            ));
-        }
-        Ok(None)
+        let version: Option<Value> = match self.db_key_new.get(key.as_ref())? {
+            None => None,
+            Some(value) => Some(Value::storage_decode(&value)?),
+        };
+
+        Ok(version.map(|x| x.value.into_boxed_slice()))
     }
 
     pub fn set(&mut self, key: &Key, value: Box<[u8]>) {
@@ -158,30 +182,29 @@ impl SimpleDb {
         let mut hashes = Vec::with_capacity(kv_num);
 
         for (position, (key, value)) in self.uncommitted_key_values.drain(..).enumerate() {
-            let position = position as u64;
-            let ver_info = self.version_tree.inc_key_ver(&key);
-            *INC_KEY_COUNT.lock_mut().unwrap() += 1;
-            *INC_KEY_LEVEL_SUM.lock_mut().unwrap() += ver_info.level as u64 + 1;
+            let version: Option<VerInfo> = match self.db_key_new.get(key.as_ref())? {
+                None => None,
+                Some(value) => Some(Value::storage_decode(&value)?.version),
+            };
 
-            if cfg!(test) {
-                self.db_key_pos.put(
-                    key.as_ref(),
-                    &EpochPosition { epoch, position }.storage_encode(),
-                )?;
+            let version = self.version_tree.inc_key_ver(&key, version);
 
-                self.db_pos_value
-                    .put(&EpochPosition { epoch, position }.storage_encode(), &value)?;
-            }
+            let value = Value {
+                value: value.to_vec(),
+                version,
+                position: EpochPosition {
+                    epoch,
+                    position: position as u64,
+                },
+            };
 
-            if cfg!(not(test)) {
-                self.db_key_pos.put(key.as_ref(), &value)?;
-            }
+            self.db_key_new.put(key.as_ref(), &value.storage_encode());
 
             let key_ver_value_hash = keccak(
                 &KeyValue {
                     key: key.0,
-                    version: ver_info,
-                    value: value.to_vec(),
+                    version,
+                    value: value.value,
                 }
                 .storage_encode(),
             );
@@ -190,38 +213,22 @@ impl SimpleDb {
         }
 
         // println!("commit position");
-        let (amt_root, mut updates) = self.version_tree.commit();
-        if cfg!(test) {
-            let commitments: Vec<G1<Pairing>> = updates.iter().map(|x| x.1.clone()).collect();
-            let affine_commitments = ProjectiveCurve::batch_normalization_into_affine(&commitments);
-            for (position, ((tree, _commitment, version), affine_commitment)) in
-                updates.drain(..).zip(affine_commitments.iter()).enumerate()
-            {
-                let position = (kv_num + position) as u64;
-                // let affine_commitment: G1Aff<Pairing> = commitment.into();
+        let (amt_root, mut updates) = self.version_tree.commit(epoch, hashes.len() as u64);
+        let commitments: Vec<G1<Pairing>> = updates.iter().map(|x| x.1.clone()).collect();
+        let affine_commitments = ProjectiveCurve::batch_normalization_into_affine(&commitments);
 
-                *INC_TREE_COUNT.lock_mut().unwrap() += 1;
-
-                self.db_tree_pos.put(
-                    &tree.storage_encode(),
-                    &EpochPosition { epoch, position }.storage_encode(),
-                )?;
-
-                self.db_pos_value.put(
-                    &EpochPosition { epoch, position }.storage_encode(),
-                    &affine_commitment.storage_encode(),
-                )?;
-
-                let name_ver_value_hash = keccak(
-                    &TreeValue {
-                        key: tree.clone(),
-                        version_number: version,
-                        commitment: *affine_commitment,
-                    }
-                    .storage_encode(),
-                );
-                hashes.push(name_ver_value_hash);
-            }
+        for (position, ((tree, _commitment, version), affine_commitment)) in
+            updates.drain(..).zip(affine_commitments.iter()).enumerate()
+        {
+            let name_ver_value_hash = keccak(
+                &TreeValue {
+                    key: tree.clone(),
+                    version_number: version,
+                    commitment: *affine_commitment,
+                }
+                .storage_encode(),
+            );
+            hashes.push(name_ver_value_hash);
         }
 
         // println!("commit merkle tree");
@@ -238,16 +245,16 @@ impl SimpleDb {
     }
 
     #[allow(unused_variables, unused_mut)]
+    // TODO: for non-existence proof.
     pub fn prove(&mut self, key: &Key) -> Result<Proof> {
-        let ver_info = self.version_tree.get_key_info(&key);
+        let value = self
+            .db_key_new
+            .get(key.as_ref())?
+            .expect("We only support existent proof");
+        let value = Value::storage_decode(&value)?;
+        let ver_info = value.version;
 
-        let maybe_pos = self.db_key_pos.get(key.as_ref())?;
-
-        let maybe_value = if let Some(pos) = &maybe_pos {
-            Some(self.db_pos_value.get(pos)?.expect("Should find a key"))
-        } else {
-            None
-        };
+        let maybe_value = Some(value.value);
 
         let assoc_proof = AssociateProof {
             value: maybe_value,
@@ -255,15 +262,11 @@ impl SimpleDb {
         };
 
         // Key value Merkle proof
-        let (merkle_epoch, merkle_proof) = if let Some(pos) = &maybe_pos {
-            self.prove_merkle(pos)?
-        } else {
-            (0, MerkleProof::default())
-        };
+        let (merkle_epoch, merkle_proof) = self.prove_merkle(value.position)?;
 
         // AMT Proof
-        let tree_name = TreeName::from_key_level(key, ver_info.level);
-        let index = key.index_at_level(ver_info.level) as usize;
+        let tree_name = key.tree_at_level(ver_info.level);
+        let index = key.index_at_level(ver_info.level);
         let (commitment, node, amt_proof) = self.prove_amt_node(tree_name.clone(), index);
 
         let mut level_proofs = VecDeque::with_capacity(ver_info.level as usize + 1);
@@ -274,20 +277,20 @@ impl SimpleDb {
             amt_proof,
             commitment,
             node_fr_int: node.as_fr_int(),
-            node_version: node.key_versions[ver_info.slot_index as usize].1,
+            node_version: node.key_versions[ver_info.slot_index as usize],
         });
 
         for level in (0..ver_info.level).rev() {
-            let child_tree_name = TreeName::from_key_level(key, level + 1);
-            let pos = self
-                .db_tree_pos
-                .get(&child_tree_name.storage_encode())?
-                .expect("the child_tree node should exists");
-
-            let (merkle_epoch, merkle_proof) = self.prove_merkle(&pos)?;
-
-            let tree_name = TreeName::from_key_level(key, level);
+            let tree_name = key.tree_at_level(level);
             let index = key.index_at_level(level) as usize;
+
+            let position = self
+                .version_tree
+                .get_tree_mut(&tree_name)
+                .get(index)
+                .tree_position;
+
+            let (merkle_epoch, merkle_proof) = self.prove_merkle(position)?;
             let (commitment, node, amt_proof) = self.prove_amt_node(tree_name, index);
 
             level_proofs.push_front(LevelProof {
@@ -357,7 +360,7 @@ impl SimpleDb {
         for level in 0..level_proofs.len() - 1 {
             let version = level_proofs[level].node_version;
             let level_proof = &level_proofs[level];
-            let tree_name = TreeName::from_key_level(key, level as u8 + 1);
+            let tree_name = key.tree_at_level(level as u8 + 1);
             let commitment = level_proofs[level + 1].commitment;
 
             let key_ver_value_hash = keccak(
@@ -429,10 +432,8 @@ impl SimpleDb {
         return (commitment, value, proof);
     }
 
-    pub fn prove_merkle(&mut self, pos: &[u8]) -> Result<(u64, MerkleProof)> {
-        let epoch_pos = EpochPosition::storage_decode(pos)?;
+    pub fn prove_merkle(&mut self, epoch_pos: EpochPosition) -> Result<(u64, MerkleProof)> {
         let mut tree = StaticMerkleTree::new(self.db_pos_value_merkle.clone(), epoch_pos.epoch);
-
         let merkle_proof = tree.prove(epoch_pos.position);
         Ok((epoch_pos.epoch, merkle_proof))
     }
