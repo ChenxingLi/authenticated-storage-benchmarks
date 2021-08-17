@@ -1,4 +1,3 @@
-use super::key::Key;
 use crate::crypto::export::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
 use crate::impl_storage_from_canonical;
 use crate::storage::{StorageDecodable, StorageEncodable};
@@ -39,10 +38,6 @@ impl TreeName {
     pub const fn root() -> Self {
         TreeName(Vec::new())
     }
-
-    // pub fn from_key_level(key: &Key, level: u8) -> Self {
-    //     TreeName(key.tree_at_level(level))
-    // }
 
     pub fn level_index(&self) -> Option<u32> {
         self.0.last().cloned()

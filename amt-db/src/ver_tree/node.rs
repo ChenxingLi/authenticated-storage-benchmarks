@@ -1,8 +1,7 @@
-use super::Key;
 use crate::amt::AMTData;
 use crate::crypto::export::{
     CanonicalDeserialize, CanonicalSerialize, FpParameters, Fr as FrGeneric, FrInt as FrIntGeneric,
-    FromBytes, Pairing, PrimeField, Read, SerializationError, ToBytes, Write, G1 as G1Generic,
+    Pairing, PrimeField, Read, SerializationError, Write,
 };
 use crate::impl_storage_from_canonical;
 use crate::storage::{StorageDecodable, StorageEncodable};
@@ -10,7 +9,6 @@ use std::ops::{Deref, DerefMut};
 
 pub(super) type Fr = FrGeneric<Pairing>;
 pub(super) type FrInt = FrIntGeneric<Pairing>;
-pub(super) type G1 = G1Generic<Pairing>;
 
 pub const VERSION_BITS: usize = 40;
 pub const MAX_VERSION_NUMBER: u64 = (1 << VERSION_BITS) - 1;

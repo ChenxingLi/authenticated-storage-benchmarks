@@ -62,6 +62,15 @@ dependencies = [
 
 [[package]]
 name = "ahash"
+version = "0.2.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29661b60bec623f0586702976ff4d0c9942dcb6723161c2df0eea78455cfedfb"
+dependencies = [
+ "const-random",
+]
+
+[[package]]
+name = "ahash"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8fd72866655d1904d6b0997d0b07ba561047d070fbe29de039031c641b61217"
@@ -118,20 +127,19 @@ dependencies = [
  "ark-serialize",
  "ark-std",
  "base64 0.13.0",
- "bencher",
  "cfx-storage",
  "cfx-types",
- "crc64fast",
  "db",
  "error-chain",
  "exitcode",
  "global",
+ "hashbrown 0.11.2",
+ "integer-encoding",
  "keccak-hash",
  "lazy_static",
  "log",
  "log4rs",
  "ppot2ark",
- "pprof",
  "rand 0.7.3",
  "rand_pcg",
  "slab",
@@ -296,6 +304,12 @@ dependencies = [
 
 [[package]]
 name = "autocfg"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d49d90015b3c36167a20fe2810c5cd875ad504b39cff3d4eae7977e6b7c1cb2"
+
+[[package]]
+name = "autocfg"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
@@ -347,10 +361,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "bencher"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dfdb4953a096c551ce9ace855a604d702e6e62d77fac690575ae347571717f5"
+name = "benchmarks"
+version = "0.1.0"
+dependencies = [
+ "amt-db",
+ "cfx-storage",
+ "cfx-types",
+ "crc64fast",
+ "db",
+ "global",
+ "keccak-hash",
+ "parity-journaldb",
+ "pprof",
+ "rand 0.7.3",
+ "rand_pcg",
+ "slab",
+]
 
 [[package]]
 name = "bindgen"
@@ -578,7 +604,7 @@ dependencies = [
  "futures 0.3.8",
  "hashbrown 0.7.2",
  "keccak-hash",
- "kvdb",
+ "kvdb 0.4.0",
  "kvdb-rocksdb",
  "lazy_static",
  "log",
@@ -586,7 +612,7 @@ dependencies = [
  "malloc_size_of",
  "malloc_size_of_derive",
  "memoffset",
- "parity-util-mem",
+ "parity-util-mem 0.5.2",
  "parking_lot 0.11.1",
  "primitives",
  "rand 0.7.3",
@@ -677,6 +703,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "const-random"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f590d95d011aa80b063ffe3253422ed5aa462af4e9867d43ce8337562bac77c4"
+dependencies = [
+ "const-random-macro",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "const-random-macro"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "615f6e27d000a2bffbc7f2f6a8669179378fa27ee4d0a509e985dfc0a7defb40"
+dependencies = [
+ "getrandom 0.2.2",
+ "lazy_static",
+ "proc-macro-hack",
+ "tiny-keccak 2.0.2",
+]
+
+[[package]]
 name = "cpp_demangle"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -741,7 +789,7 @@ version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "058ed274caafc1f60c4997b5fc07bf7dc7cca454af7c6e81edffe5f33f70dace"
 dependencies = [
- "autocfg",
+ "autocfg 1.0.1",
  "cfg-if 0.1.10",
  "crossbeam-utils",
  "lazy_static",
@@ -767,7 +815,7 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3c7c73a2d1e9fc0886a08b93e98eb643461230d5f1925e4036204d5f2e261a8"
 dependencies = [
- "autocfg",
+ "autocfg 1.0.1",
  "cfg-if 0.1.10",
  "lazy_static",
 ]
@@ -803,7 +851,7 @@ name = "db"
 version = "0.1.0"
 source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=2ee2765#2ee2765f5da7c46c91a10cbe2e63ed657f31f363"
 dependencies = [
- "kvdb",
+ "kvdb 0.4.0",
  "kvdb-rocksdb",
  "log",
 ]
@@ -867,6 +915,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
+name = "elastic-array"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "580f3768bd6465780d063f5b8213a2ebd506e139b345e4a81eb301ceae3d61e1"
+dependencies = [
+ "heapsize",
+]
+
+[[package]]
 name = "error-chain"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -925,6 +982,15 @@ name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
+
+[[package]]
+name = "fastmap"
+version = "0.1.0"
+source = "git+https://github.com/ChenxingLi/parity-journaldb.git#ba84396da4cc0d43f721374bac6b3b75bef1adf2"
+dependencies = [
+ "ethereum-types",
+ "plain_hasher",
+]
 
 [[package]]
 name = "ff_ce"
@@ -1212,13 +1278,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash-db"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b03501f6e1a2a97f1618879aba3156f14ca2847faa530c4e28859638bd11483"
+
+[[package]]
+name = "hashbrown"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e6073d0ca812575946eb5f35ff68dbe519907b25c42530389ff946dc84c6ead"
+dependencies = [
+ "ahash 0.2.19",
+ "autocfg 0.1.7",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96282e96bfcd3da0d3aa9938bedf1e50df3269b6db08b4876d2da0bb1a0841cf"
 dependencies = [
  "ahash 0.3.8",
- "autocfg",
+ "autocfg 1.0.1",
+]
+
+[[package]]
+name = "hashbrown"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e91b62f79061a0bc2e046024cb7ba44b08419ed238ecbd9adbd787434b9e8c25"
+dependencies = [
+ "ahash 0.3.8",
+ "autocfg 1.0.1",
 ]
 
 [[package]]
@@ -1228,6 +1320,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5ef0d4909ef3724cc8cce6ccc8572c5c817592e9285f5464f8e86f8bd3726e"
 dependencies = [
  "ahash 0.7.2",
+]
+
+[[package]]
+name = "heapsize"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1679e6ea370dee694f91f1dc469bf94cf8f52051d147aec3e1f9497c6fc22461"
+dependencies = [
+ "winapi 0.3.9",
 ]
 
 [[package]]
@@ -1339,7 +1440,7 @@ version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc633605454125dec4b66843673f01c7df2b89479b32e0ed634e43a91cff62a5"
 dependencies = [
- "autocfg",
+ "autocfg 1.0.1",
  "hashbrown 0.11.2",
 ]
 
@@ -1369,6 +1470,12 @@ checksum = "61124eeebbd69b8190558df225adf7e4caafce0d743919e5d6b19652314ec5ec"
 dependencies = [
  "cfg-if 1.0.0",
 ]
+
+[[package]]
+name = "integer-encoding"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "90c11140ffea82edce8dcd74137ce9324ec24b3cf0175fc9d7e29164da9915b8"
 
 [[package]]
 name = "iovec"
@@ -1414,6 +1521,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "keccak-hasher"
+version = "0.1.1"
+source = "git+https://github.com/ChenxingLi/parity-journaldb.git#ba84396da4cc0d43f721374bac6b3b75bef1adf2"
+dependencies = [
+ "ethereum-types",
+ "hash-db",
+ "plain_hasher",
+ "tiny-keccak 1.5.0",
+]
+
+[[package]]
 name = "kernel32-sys"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1425,12 +1543,22 @@ dependencies = [
 
 [[package]]
 name = "kvdb"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1b2f251f01a7224426abdb2563707d856f7de995d821744fd8fa8e2874f69e3"
+dependencies = [
+ "elastic-array",
+ "parity-bytes",
+]
+
+[[package]]
+name = "kvdb"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03080afe6f42cd996da9f568d6add5d7fb5ee2ea7fb7802d2d2cbd836958fd87"
 dependencies = [
  "parity-bytes",
- "parity-util-mem",
+ "parity-util-mem 0.5.2",
  "smallvec 1.5.1",
 ]
 
@@ -1441,12 +1569,12 @@ source = "git+https://github.com/Conflux-Chain/conflux-rust.git?rev=2ee2765#2ee2
 dependencies = [
  "cfx-types",
  "fs-swap",
- "kvdb",
+ "kvdb 0.4.0",
  "log",
  "malloc_size_of",
  "malloc_size_of_derive",
  "num_cpus",
- "parity-util-mem",
+ "parity-util-mem 0.5.2",
  "parking_lot 0.11.1",
  "regex",
  "rocksdb",
@@ -1553,6 +1681,15 @@ dependencies = [
 
 [[package]]
 name = "lock_api"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4da24a77a3d8a6d4862d95f72e6fdb9c09a643ecdb402d754004a557f2bec75"
+dependencies = [
+ "scopeguard 1.1.0",
+]
+
+[[package]]
+name = "lock_api"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd96ffd135b2fd7b973ac026d28085defbe8983df057ced3eb4f2130b0831312"
@@ -1602,6 +1739,15 @@ dependencies = [
  "thread-id",
  "typemap",
  "winapi 0.3.9",
+]
+
+[[package]]
+name = "lru"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35c456c123957de3a220cd03786e0d86aa542a88b46029973b542f426da6ef34"
+dependencies = [
+ "hashbrown 0.6.3",
 ]
 
 [[package]]
@@ -1665,7 +1811,16 @@ version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "043175f069eda7b85febe4a74abbaeff828d9f8b448515d3151a14a3542811aa"
 dependencies = [
- "autocfg",
+ "autocfg 1.0.1",
+]
+
+[[package]]
+name = "memory-db"
+version = "0.11.0"
+source = "git+https://github.com/ChenxingLi/parity-journaldb.git#ba84396da4cc0d43f721374bac6b3b75bef1adf2"
+dependencies = [
+ "hash-db",
+ "parity-util-mem 0.7.0",
 ]
 
 [[package]]
@@ -1675,7 +1830,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f2d26ec3309788e423cfbf68ad1800f061638098d76a83681af979dc4eda19d"
 dependencies = [
  "adler",
- "autocfg",
+ "autocfg 1.0.1",
 ]
 
 [[package]]
@@ -1793,7 +1948,7 @@ version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "090c7f9998ee0ff65aa5b723e4009f7b217707f1fb5ea551329cc4d6231fb304"
 dependencies = [
- "autocfg",
+ "autocfg 1.0.1",
  "num-integer",
  "num-traits",
 ]
@@ -1804,7 +1959,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e0d047c1062aa51e256408c560894e5251f08925980e53cf1aa5bd00eec6512"
 dependencies = [
- "autocfg",
+ "autocfg 1.0.1",
  "num-integer",
  "num-traits",
 ]
@@ -1825,7 +1980,7 @@ version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
 dependencies = [
- "autocfg",
+ "autocfg 1.0.1",
  "num-traits",
 ]
 
@@ -1835,7 +1990,7 @@ version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
 dependencies = [
- "autocfg",
+ "autocfg 1.0.1",
 ]
 
 [[package]]
@@ -1923,6 +2078,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "parity-journaldb"
+version = "0.2.0"
+source = "git+https://github.com/ChenxingLi/parity-journaldb.git#ba84396da4cc0d43f721374bac6b3b75bef1adf2"
+dependencies = [
+ "ethereum-types",
+ "fastmap",
+ "hash-db",
+ "keccak-hasher",
+ "kvdb 0.1.1",
+ "log",
+ "memory-db",
+ "parity-bytes",
+ "parity-util-mem 0.7.0",
+ "parking_lot 0.11.1",
+ "rlp",
+ "stats",
+]
+
+[[package]]
 name = "parity-scale-codec"
 version = "1.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1959,6 +2133,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "parity-util-mem"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "297ff91fa36aec49ce183484b102f6b75b46776822bd81525bfc4cc9b0dd0f5c"
+dependencies = [
+ "cfg-if 0.1.10",
+ "ethereum-types",
+ "hashbrown 0.8.2",
+ "impl-trait-for-tuples",
+ "lru",
+ "parity-util-mem-derive",
+ "parking_lot 0.10.2",
+ "primitive-types",
+ "smallvec 1.5.1",
+ "winapi 0.3.9",
+]
+
+[[package]]
 name = "parity-util-mem-derive"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1991,6 +2183,16 @@ dependencies = [
 
 [[package]]
 name = "parking_lot"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3a704eb390aafdc107b0e392f56a82b668e3a71366993b5340f5833fd62505e"
+dependencies = [
+ "lock_api 0.3.4",
+ "parking_lot_core 0.7.2",
+]
+
+[[package]]
+name = "parking_lot"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d7744ac029df22dca6284efe4e898991d28e3085c706c972bcd7da4a27a15eb"
@@ -2010,6 +2212,20 @@ dependencies = [
  "rand 0.5.6",
  "rustc_version 0.2.3",
  "smallvec 0.6.14",
+ "winapi 0.3.9",
+]
+
+[[package]]
+name = "parking_lot_core"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d58c7c768d4ba344e3e8d72518ac13e259d7c7ade24167003b8488e10b6740a3"
+dependencies = [
+ "cfg-if 0.1.10",
+ "cloudabi",
+ "libc",
+ "redox_syscall 0.1.57",
+ "smallvec 1.5.1",
  "winapi 0.3.9",
 ]
 
@@ -2110,6 +2326,15 @@ name = "pkg-config"
 version = "0.3.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
+
+[[package]]
+name = "plain_hasher"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e19e6491bdde87c2c43d70f4c194bc8a758f2eb732df00f61e43f7362e3b4cc"
+dependencies = [
+ "crunchy",
+]
 
 [[package]]
 name = "powersoftau"
@@ -2241,6 +2466,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "prometheus"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd0ced56dee39a6e960c15c74dc48849d614586db2eaada6497477af7c7811cd"
+dependencies = [
+ "cfg-if 0.1.10",
+ "fnv",
+ "lazy_static",
+ "protobuf",
+ "spin",
+ "thiserror",
+]
+
+[[package]]
 name = "prost"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2290,6 +2529,12 @@ dependencies = [
  "bytes 1.0.1",
  "prost",
 ]
+
+[[package]]
+name = "protobuf"
+version = "2.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "020f86b07722c5c4291f7c723eac4676b3892d47d9a7708dc2779696407f039b"
 
 [[package]]
 name = "quick-error"
@@ -2508,9 +2753,9 @@ checksum = "41cc0f7e4d5d4544e8861606a285bb08d3e70712ccc7d2b84d7c0ccfaf4b05ce"
 
 [[package]]
 name = "redox_syscall"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ab49abadf3f9e1c4bc499e8845e152ad87d2ad2d30371841171169e9d75feee"
+checksum = "8383f39639269cde97d255a32bdb68c047337295414940c68bdd30c2e13203ff"
 dependencies = [
  "bitflags",
 ]
@@ -2845,6 +3090,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
 name = "sqlite"
 version = "0.25.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2891,6 +3142,15 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stats"
+version = "0.1.0"
+source = "git+https://github.com/ChenxingLi/parity-journaldb.git#ba84396da4cc0d43f721374bac6b3b75bef1adf2"
+dependencies = [
+ "log",
+ "prometheus",
+]
 
 [[package]]
 name = "str_stack"
@@ -3014,7 +3274,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "libc",
  "rand 0.8.4",
- "redox_syscall 0.2.9",
+ "redox_syscall 0.2.10",
  "remove_dir_all",
  "winapi 0.3.9",
 ]

@@ -1,5 +1,5 @@
-use super::{Commitment, Key, Node, Tree, TreeName, MAX_VERSION_NUMBER};
-use crate::crypto::export::{BigInteger, FrInt, G1};
+use super::{Commitment, Key, Tree, TreeName, MAX_VERSION_NUMBER};
+use crate::crypto::export::{BigInteger, FrInt, G1Aff, ProjectiveCurve, G1};
 use crate::ver_tree::node::EpochPosition;
 use crate::{
     crypto::{
@@ -9,12 +9,13 @@ use crate::{
     impl_storage_from_canonical,
     storage::{KvdbRocksdb, StorageDecodable, StorageEncodable},
 };
-use std::collections::BTreeSet;
+use hashbrown::{HashMap, HashSet};
+use std::collections::VecDeque;
 use std::io::{Read, Write};
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 type NodeIndex = u32;
-type TreesLayer = BTreeMap<Vec<NodeIndex>, TreeWithInfo>;
+type TreesLayer = HashMap<Vec<NodeIndex>, TreeWithInfo>;
 
 /// The `VersionTree`
 #[derive(Clone)]
@@ -29,7 +30,7 @@ pub struct VersionTree {
 impl VersionTree {
     pub fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
         let mut forest = Vec::with_capacity(8);
-        forest.push(BTreeMap::new());
+        forest.push(Default::default());
         Self {
             forest,
             producer: TreeProducer { db, pp, only_root },
@@ -38,18 +39,11 @@ impl VersionTree {
         }
     }
 
-    fn get_tree(&self, name: &TreeName) -> Option<&Tree> {
-        self.forest
-            .get(name.0.len())
-            .and_then(|tree| tree.get(&name.0))
-            .map(|tree_with_info| &tree_with_info.tree)
-    }
-
     pub(crate) fn get_tree_mut(&mut self, name: &TreeName) -> &mut Tree {
         let (ancestor_layers, tree_layer) = {
             let level = name.0.len();
             if self.forest.len() < level + 1 {
-                self.forest.resize(level + 1, BTreeMap::new())
+                self.forest.resize(level + 1, Default::default())
             }
             let (front, end) = self.forest.split_at_mut(level);
             (front, &mut end[0])
@@ -94,51 +88,6 @@ impl VersionTree {
         &mut tree_with_info.tree
     }
 
-    // pub fn get_key_info(&mut self, key: &Key) -> VerInfo {
-    //     let mut level = 0;
-    //     let mut visit_amt = self.get_tree_mut(&TreeName::root());
-    //     loop {
-    //         let node_index = key.index_at_level(level) as usize;
-    //         let node: &Node = visit_amt.get(node_index);
-    //         for (slot_index, (node_key, ver)) in node.key_versions.iter().enumerate() {
-    //             if *key == *node_key {
-    //                 return VerInfo {
-    //                     version: *ver as u64,
-    //                     level,
-    //                     slot_index: slot_index as u8,
-    //                 };
-    //             }
-    //         }
-    //
-    //         let num_alloc_slots = node.key_versions.len();
-    //
-    //         level += 1;
-    //         let tree_name = TreeName::from_key_level(key, level);
-    //
-    //         // In case the subtree does not exist
-    //         if node.tree_version == 0
-    //             && self.get_tree(&tree_name).map_or(true, |tree| !tree.dirty())
-    //         {
-    //             // returns the empty slot that allocate for this key.
-    //             return if num_alloc_slots < 5 {
-    //                 VerInfo {
-    //                     version: 0,
-    //                     level: level - 1,
-    //                     slot_index: num_alloc_slots as u8,
-    //                 }
-    //             } else {
-    //                 VerInfo {
-    //                     version: 0,
-    //                     level,
-    //                     slot_index: 0,
-    //                 }
-    //             };
-    //         }
-    //
-    //         visit_amt = self.get_tree_mut(&tree_name);
-    //     }
-    // }
-
     pub fn inc_key_ver(&mut self, key: &Key, version: Option<VerInfo>) -> VerInfo {
         let VerInfo {
             version,
@@ -149,7 +98,7 @@ impl VersionTree {
             Some(ver_info) => ver_info,
         };
 
-        let mut visit_amt = self.get_tree_mut(&key.tree_at_level(level));
+        let visit_amt = self.get_tree_mut(&key.tree_at_level(level));
         let node = key.index_at_level(level);
         if visit_amt.only_root() {
             visit_amt.update(node, fr_int_pow_2((slot_index as u32 + 1) * 5));
@@ -157,6 +106,7 @@ impl VersionTree {
             let mut node_guard = visit_amt.write_versions(node);
             node_guard.key_versions[slot_index as usize] += 1;
         }
+        assert!(version < MAX_VERSION_NUMBER);
         return VerInfo {
             version: version + 1,
             level,
@@ -166,12 +116,14 @@ impl VersionTree {
 
     pub fn allocate_vacant_slot(&mut self, key: &Key) -> VerInfo {
         for level in 0..32 {
-            let mut visit_amt = self.get_tree_mut(&key.tree_at_level(level));
-            let mut node_guard = visit_amt.write_versions(key.index_at_level(level));
+            let visit_amt = self.get_tree_mut(&key.tree_at_level(level));
+            let node_index = key.index_at_level(level);
 
-            if node_guard.key_versions.len() < 5 {
-                let slot_index = node_guard.key_versions.len();
-                node_guard.key_versions.push(0);
+            if visit_amt.get(node_index).key_versions.len() < 5 {
+                let mut data = visit_amt.write_versions(node_index);
+                let slot_index = data.key_versions.len();
+                data.key_versions.push(0);
+                std::mem::drop(data);
 
                 return VerInfo {
                     version: 0,
@@ -188,7 +140,7 @@ impl VersionTree {
         epoch: u64,
         start_pos: u64, //TODO: ugly.
         layers: &mut [TreesLayer],
-        updates: &mut Vec<(TreeName, Commitment, u64)>,
+        updates: &mut SubTreeRootRecorder,
     ) -> (bool, Commitment) {
         let (this_layer, rest_layers) = layers.split_first_mut().unwrap();
 
@@ -206,7 +158,7 @@ impl VersionTree {
                     epoch,
                     position: start_pos + updates.len() as u64,
                 };
-                updates.push((child_name, commitment, node.tree_version));
+                updates.push(child_name, node.tree_version, commitment);
             }
         }
         tree_with_info.children_marks.clear();
@@ -227,8 +179,11 @@ impl VersionTree {
         &mut self,
         epoch: u64,
         start_pos: u64,
-    ) -> (Commitment, Vec<(TreeName, Commitment, u64)>) {
-        let mut updates = Vec::with_capacity(1024);
+    ) -> (
+        Commitment,
+        impl IntoIterator<Item = (TreeName, u64, G1Aff<Pairing>)>,
+    ) {
+        let mut updates = SubTreeRootRecorder::with_capacity(1 << 20);
         let (_, commitment) = Self::commit_tree(
             &TreeName::root(),
             epoch,
@@ -236,9 +191,65 @@ impl VersionTree {
             &mut self.forest,
             &mut updates,
         );
-        // updates.sort_unstable_by_key(|(name, _, _)| name.clone());
+        // for layers in self.forest.iter_mut().skip(1) {
+        //     layers.clear();
+        // }
+        updates.into_affine_in_batch();
 
         return (commitment, updates);
+    }
+}
+
+pub struct SubTreeRootRecorderIter(SubTreeRootRecorder);
+
+impl Iterator for SubTreeRootRecorderIter {
+    type Item = (TreeName, u64, G1Aff<Pairing>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((tree_name, version)) = self.0.tree_version.pop_front() {
+            let commitment: G1Aff<Pairing> = self.0.commitments.pop_front().unwrap().into();
+            Some((tree_name, version, commitment))
+        } else {
+            None
+        }
+    }
+}
+
+pub struct SubTreeRootRecorder {
+    tree_version: VecDeque<(TreeName, u64)>,
+    commitments: VecDeque<G1<Pairing>>,
+}
+
+impl SubTreeRootRecorder {
+    fn with_capacity(n: usize) -> Self {
+        Self {
+            tree_version: VecDeque::with_capacity(n),
+            commitments: VecDeque::with_capacity(n),
+        }
+    }
+
+    fn push(&mut self, name: TreeName, version: u64, commitment: G1<Pairing>) {
+        self.commitments.push_back(commitment);
+        self.tree_version.push_back((name, version));
+    }
+
+    fn into_affine_in_batch(&mut self) {
+        let (slice1, slice2) = self.commitments.as_mut_slices();
+        assert_eq!(slice2.len(), 0);
+        ProjectiveCurve::batch_normalization(slice1);
+    }
+
+    fn len(&self) -> usize {
+        self.tree_version.len()
+    }
+}
+
+impl IntoIterator for SubTreeRootRecorder {
+    type Item = (TreeName, u64, G1Aff<Pairing>);
+    type IntoIter = SubTreeRootRecorderIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SubTreeRootRecorderIter(self)
     }
 }
 
@@ -282,7 +293,7 @@ impl_storage_from_canonical!(VerInfo);
 struct TreeWithInfo {
     tree: Tree,
     mark_in_parent: bool,
-    children_marks: BTreeSet<NodeIndex>,
+    children_marks: HashSet<NodeIndex>,
 }
 
 fn fr_int_pow_2(power: u32) -> FrInt<Pairing> {

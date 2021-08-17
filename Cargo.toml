@@ -1,7 +1,7 @@
 [workspace]
 
-members = ["amt-db","amt-bench","ppot2ark"]
-default-members = ["amt-db"]
+members = ["amt-db","amt-bench","ppot2ark","benchmarks"]
+default-members = ["benchmarks"]
 
 #[profile.release.package.amt-db]
 #opt-level = "z"

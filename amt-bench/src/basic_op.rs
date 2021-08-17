@@ -66,10 +66,8 @@ fn btreemap_100_read_fold(b: &mut Bencher) {
         map.insert(i * 736, rng.gen());
     }
     b.iter(|| {
-        for i in 0..1_000 {
-            let index = (i % 100 as u64) * 736;
-            black_box(map.get(&index).unwrap());
-        }
+        let index = (i % 100 as u64) * 736;
+        black_box(map.get(&index).unwrap());
     });
 }
 

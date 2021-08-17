@@ -19,7 +19,11 @@ pub mod ver_tree;
 #[allow(unused)]
 use enable_log::*;
 
-#[cfg(not(test))]
-const DEPTHS: usize = 16;
-#[cfg(test)]
+#[cfg(not(any(feature = "medium_amt", feature = "large_amt", feature = "huge_amt")))]
 const DEPTHS: usize = 8;
+#[cfg(feature = "media_amt")]
+const DEPTHS: usize = 12;
+#[cfg(feature = "large_amt")]
+const DEPTHS: usize = 16;
+#[cfg(feature = "huge_amt")]
+const DEPTHS: usize = 20;

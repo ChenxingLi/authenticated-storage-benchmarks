@@ -133,7 +133,6 @@ impl<C: AMTConfigTrait> AMTree<C> {
 
         self.dirty = true;
 
-        // let inc_comm = self.pp.get_idents(index).mul(update_fr_int);
         let inc_comm = self.pp.get_idents_pow(index, &update_fr_int);
 
         // Update commitment

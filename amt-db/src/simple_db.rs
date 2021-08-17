@@ -1,6 +1,4 @@
-#![allow(unused)]
-use crate::amt::tree::AMTProof;
-use crate::amt::{AMTData, AMTree};
+use crate::amt::{AMTData, AMTProof, AMTree};
 use crate::crypto::{
     export::{Fr, FrInt, G1Projective, G1},
     AMTParams, Pairing, TypeUInt,
@@ -13,18 +11,13 @@ use crate::storage::{
 };
 use crate::ver_tree::{AMTConfig, EpochPosition, Key, Node, TreeName, VerInfo, VersionTree};
 use cfx_types::H256;
+use global::Global;
 use keccak_hash::keccak;
-use std::collections::VecDeque;
-use std::sync::Arc;
+use std::{collections::VecDeque, sync::Arc};
 
 const COL_VER_TREE: u32 = 0;
-const COL_KEY_POS: u32 = COL_VER_TREE + 1;
-const COL_TREE_POS: u32 = COL_KEY_POS + 1;
-const COL_POS_VALUE: u32 = COL_TREE_POS + 1;
-const COL_POS_VALUE_MERKLE: u32 = COL_POS_VALUE + 1;
-const COL_KEY_NEW: u32 = COL_POS_VALUE_MERKLE + 1;
-const COL_TREE_NEW: u32 = COL_KEY_NEW + 1;
-const COL_MERKLE: u32 = COL_TREE_NEW + 1;
+const COL_KEY_NEW: u32 = COL_VER_TREE + 1;
+const COL_MERKLE: u32 = COL_KEY_NEW + 1;
 const NUM_COLS: u32 = COL_MERKLE + 1;
 
 pub static INC_KEY_LEVEL_SUM: Global<u64> = Global::INIT;
@@ -33,13 +26,8 @@ pub static INC_TREE_COUNT: Global<u64> = Global::INIT;
 
 pub struct SimpleDb {
     version_tree: VersionTree,
-    db_key_pos: KvdbRocksdb,
-    db_tree_pos: KvdbRocksdb,
-    db_pos_value: KvdbRocksdb,
-    db_pos_value_merkle: KvdbRocksdb,
 
-    db_key_new: KvdbRocksdb,
-    db_tree_new: KvdbRocksdb,
+    db_key: KvdbRocksdb,
     db_merkle: KvdbRocksdb,
 
     uncommitted_key_values: Vec<(Key, Box<[u8]>)>,
@@ -59,6 +47,7 @@ mod metadata {
         Pairing,
     };
     use crate::storage::{StorageDecodable, StorageEncodable};
+    use integer_encoding::VarInt;
     use std::io::{Read, Write};
 
     #[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
@@ -75,7 +64,26 @@ mod metadata {
         pub(crate) version: VerInfo,
         pub(crate) value: Vec<u8>,
     }
-    impl_storage_from_canonical!(KeyValue);
+
+    impl StorageEncodable for KeyValue {
+        fn storage_encode(&self) -> Vec<u8> {
+            let mut serialized = Vec::with_capacity(
+                self.key.len() + self.value.len() + self.version.serialized_size() + 16,
+            );
+            serialized
+                .write_all(&self.key.len().encode_var_vec())
+                .unwrap();
+            serialized.write_all(&self.key).unwrap();
+            serialized
+                .write_all(&self.value.len().encode_var_vec())
+                .unwrap();
+            serialized.write_all(&self.value).unwrap();
+
+            self.version.serialize_unchecked(&mut serialized).unwrap();
+            serialized
+        }
+    }
+    // impl_storage_from_canonical!(KeyValue);
 
     #[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
     pub struct Value {
@@ -83,11 +91,32 @@ mod metadata {
         pub(crate) version: VerInfo,
         pub(crate) position: EpochPosition,
     }
-    impl_storage_from_canonical!(Value);
-}
+    impl StorageEncodable for Value {
+        fn storage_encode(&self) -> Vec<u8> {
+            let mut serialized = Vec::with_capacity(
+                self.value.len() + self.version.serialized_size() + self.position.serialized_size(),
+            );
+            self.version.serialize_unchecked(&mut serialized).unwrap();
+            self.position.serialize_unchecked(&mut serialized).unwrap();
+            serialized.write_all(&self.value);
 
-use crate::crypto::export::{G1Aff, ProjectiveCurve};
-use global::Global;
+            serialized
+        }
+    }
+    impl StorageDecodable for Value {
+        fn storage_decode(mut data: &[u8]) -> crate::storage::serde::Result<Self> {
+            let version = VerInfo::deserialize_unchecked(&mut data)?;
+            let position = EpochPosition::deserialize_unchecked(&mut data)?;
+            let value = data.to_vec();
+            Ok(Self {
+                value,
+                version,
+                position,
+            })
+        }
+    }
+    // impl_storage_from_canonical!(Value);
+}
 use metadata::*;
 
 #[derive(Default)]
@@ -115,29 +144,9 @@ impl SimpleDb {
             col: COL_VER_TREE,
         };
         let version_tree = VersionTree::new(db_ver_tree, pp, only_root);
-        let db_key_pos = KvdbRocksdb {
-            kvdb: database.key_value().clone(),
-            col: COL_KEY_POS,
-        };
-        let db_tree_current = KvdbRocksdb {
-            kvdb: database.key_value().clone(),
-            col: COL_TREE_POS,
-        };
-        let db_pos_value = KvdbRocksdb {
-            kvdb: database.key_value().clone(),
-            col: COL_POS_VALUE,
-        };
-        let db_pos_value_merkle = KvdbRocksdb {
-            kvdb: database.key_value().clone(),
-            col: COL_POS_VALUE_MERKLE,
-        };
-        let db_key_new = KvdbRocksdb {
+        let db_key = KvdbRocksdb {
             kvdb: database.key_value().clone(),
             col: COL_KEY_NEW,
-        };
-        let db_tree_new = KvdbRocksdb {
-            kvdb: database.key_value().clone(),
-            col: COL_TREE_NEW,
         };
         let db_merkle = KvdbRocksdb {
             kvdb: database.key_value().clone(),
@@ -145,12 +154,7 @@ impl SimpleDb {
         };
         Self {
             version_tree,
-            db_key_pos,
-            db_pos_value,
-            db_pos_value_merkle,
-            db_tree_pos: db_tree_current,
-            db_key_new,
-            db_tree_new,
+            db_key,
             db_merkle,
             uncommitted_key_values: Vec::new(),
             dirty_guard: false,
@@ -159,12 +163,12 @@ impl SimpleDb {
     }
 
     pub fn get(&self, key: &Key) -> Result<Option<Box<[u8]>>> {
-        assert!(
-            !self.dirty_guard,
-            "Can not read db if set operations have not been committed."
-        );
+        // assert!(
+        //     !self.dirty_guard,
+        //     "Can not read db if set operations have not been committed."
+        // );
 
-        let version: Option<Value> = match self.db_key_new.get(key.as_ref())? {
+        let version: Option<Value> = match self.db_key.get(key.as_ref())? {
             None => None,
             Some(value) => Some(Value::storage_decode(&value)?),
         };
@@ -173,7 +177,7 @@ impl SimpleDb {
     }
 
     pub fn set(&mut self, key: &Key, value: Box<[u8]>) {
-        self.dirty_guard = true;
+        // self.dirty_guard = true;
         self.uncommitted_key_values.push((key.clone(), value))
     }
 
@@ -182,7 +186,7 @@ impl SimpleDb {
         let mut hashes = Vec::with_capacity(kv_num);
 
         for (position, (key, value)) in self.uncommitted_key_values.drain(..).enumerate() {
-            let version: Option<VerInfo> = match self.db_key_new.get(key.as_ref())? {
+            let version: Option<VerInfo> = match self.db_key.get(key.as_ref())? {
                 None => None,
                 Some(value) => Some(Value::storage_decode(&value)?.version),
             };
@@ -197,8 +201,10 @@ impl SimpleDb {
                     position: position as u64,
                 },
             };
+            *INC_KEY_COUNT.lock_mut().unwrap() += 1;
+            *INC_KEY_LEVEL_SUM.lock_mut().unwrap() += version.level as u64 + 1;
 
-            self.db_key_new.put(key.as_ref(), &value.storage_encode());
+            self.db_key.put(key.as_ref(), &value.storage_encode())?;
 
             let key_ver_value_hash = keccak(
                 &KeyValue {
@@ -213,31 +219,24 @@ impl SimpleDb {
         }
 
         // println!("commit position");
-        let (amt_root, mut updates) = self.version_tree.commit(epoch, hashes.len() as u64);
-        let commitments: Vec<G1<Pairing>> = updates.iter().map(|x| x.1.clone()).collect();
-        let affine_commitments = ProjectiveCurve::batch_normalization_into_affine(&commitments);
+        let (amt_root, updates) = self.version_tree.commit(epoch, hashes.len() as u64);
 
-        for (position, ((tree, _commitment, version), affine_commitment)) in
-            updates.drain(..).zip(affine_commitments.iter()).enumerate()
-        {
+        for (tree, version, commitment) in updates.into_iter() {
             let name_ver_value_hash = keccak(
                 &TreeValue {
                     key: tree.clone(),
                     version_number: version,
-                    commitment: *affine_commitment,
+                    commitment,
                 }
                 .storage_encode(),
             );
             hashes.push(name_ver_value_hash);
         }
+        // }
 
         // println!("commit merkle tree");
-        let merkle_root = StaticMerkleTree::dump(
-            self.db_pos_value_merkle.clone(),
-            epoch,
-            hashes,
-            self.only_root,
-        );
+        let merkle_root =
+            StaticMerkleTree::dump(self.db_merkle.clone(), epoch, hashes, self.only_root);
 
         self.dirty_guard = false;
 
@@ -248,7 +247,7 @@ impl SimpleDb {
     // TODO: for non-existence proof.
     pub fn prove(&mut self, key: &Key) -> Result<Proof> {
         let value = self
-            .db_key_new
+            .db_key
             .get(key.as_ref())?
             .expect("We only support existent proof");
         let value = Value::storage_decode(&value)?;
@@ -433,7 +432,7 @@ impl SimpleDb {
     }
 
     pub fn prove_merkle(&mut self, epoch_pos: EpochPosition) -> Result<(u64, MerkleProof)> {
-        let mut tree = StaticMerkleTree::new(self.db_pos_value_merkle.clone(), epoch_pos.epoch);
+        let mut tree = StaticMerkleTree::new(self.db_merkle.clone(), epoch_pos.epoch);
         let merkle_proof = tree.prove(epoch_pos.position);
         Ok((epoch_pos.epoch, merkle_proof))
     }

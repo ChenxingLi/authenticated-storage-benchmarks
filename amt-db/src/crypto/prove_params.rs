@@ -25,17 +25,18 @@ impl<PE: PairingEngine> AMTParams<PE> {
     pub fn get_idents_pow(&self, index: usize, power: &FrInt<PE>) -> G1<PE> {
         let caches = &mut self.indents_cache.borrow_mut()[index];
         let mut answer = G1::<PE>::zero();
-        for (idx, _) in power
-            .to_bits_le()
-            .iter()
-            .enumerate()
-            .filter(|(_, bit)| **bit)
-        {
-            answer += &*caches.entry(idx).or_insert_with(|| {
-                let mut fr_int = FrInt::<PE>::from(1);
-                fr_int.muln(idx as u32);
-                self.indents[index].mul(fr_int)
-            });
+        for (dword_idx, n) in power.as_ref().iter().enumerate() {
+            let mut limb: u64 = *n;
+            while limb.trailing_zeros() < 64 {
+                let bit_idx = limb.trailing_zeros() as usize;
+                let idx = dword_idx * 64 + bit_idx;
+                answer += &*caches.entry(idx).or_insert_with(|| {
+                    let mut fr_int = FrInt::<PE>::from(1);
+                    fr_int.muln(idx as u32);
+                    self.indents[index].mul(fr_int)
+                });
+                limb ^= 1 << bit_idx;
+            }
         }
         if cfg!(test) {
             assert_eq!(self.indents[index].mul(power), answer);

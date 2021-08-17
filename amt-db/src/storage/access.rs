@@ -4,7 +4,7 @@ use cfx_storage::{
     KvdbRocksdb,
 };
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::marker::PhantomData;
 
 use global::Global;

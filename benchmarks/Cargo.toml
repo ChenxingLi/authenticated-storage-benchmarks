@@ -1,0 +1,21 @@
+[package]
+name = "benchmarks"
+version = "0.1.0"
+authors = ["Chenxing Li <ChenxingLi@users.noreply.github.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+amt-db = { path = "../amt-db", features = ["large_amt"] }
+cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+pprof = { version = "0.3", features = ["flamegraph", "protobuf"] }
+keccak-hash = "0.5.1"
+rand = "0.7"
+rand_pcg = "0.2"
+global = "0.3.0"
+crc64fast = "1.0.0"
+slab = "0.4.4"
+parity-journaldb = { git = "https://github.com/ChenxingLi/parity-journaldb.git"}
