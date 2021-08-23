@@ -10,7 +10,10 @@ edition = "2018"
 amt-db = { path = "../amt-db", features = ["large_amt"] }
 cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
 db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+kvdb-rocksdb = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+
 cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+primitive-types = "0.7.3"
 pprof = { version = "0.3", features = ["flamegraph", "protobuf"] }
 keccak-hash = "0.5.1"
 rand = "0.7"
@@ -18,4 +21,14 @@ rand_pcg = "0.2"
 global = "0.3.0"
 crc64fast = "1.0.0"
 slab = "0.4.4"
-parity-journaldb = { git = "https://github.com/ChenxingLi/parity-journaldb.git"}
+
+parity-journaldb = { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "842631"}
+stats =  { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "842631"}
+kvdb01 = {package ="kvdb", version = "0.1"}
+kvdb = {package ="kvdb", version = "0.4"}
+smallvec = "1.5.1"
+elastic-array = "0.10.3"
+trie-db = "0.11.0"
+patricia-trie-ethereum = {git="https://github.com/openethereum/openethereum.git", rev="2ae2949"}
+keccak-hasher = {git="https://github.com/openethereum/openethereum.git", rev="2ae2949"}
+rental = "0.5.6"

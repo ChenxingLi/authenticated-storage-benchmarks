@@ -139,19 +139,22 @@ type Proof = (AssociateProof, VecDeque<LevelProof>);
 
 impl SimpleDb {
     pub fn new(database: Arc<SystemDB>, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
-        let db_ver_tree = KvdbRocksdb {
+        let db_ver_tree = cfx_storage::KvdbRocksdb {
             kvdb: database.key_value().clone(),
             col: COL_VER_TREE,
-        };
+        }
+        .into();
         let version_tree = VersionTree::new(db_ver_tree, pp, only_root);
-        let db_key = KvdbRocksdb {
+        let db_key = cfx_storage::KvdbRocksdb {
             kvdb: database.key_value().clone(),
             col: COL_KEY_NEW,
-        };
-        let db_merkle = KvdbRocksdb {
+        }
+        .into();
+        let db_merkle = cfx_storage::KvdbRocksdb {
             kvdb: database.key_value().clone(),
             col: COL_MERKLE,
-        };
+        }
+        .into();
         Self {
             version_tree,
             db_key,
@@ -239,6 +242,8 @@ impl SimpleDb {
             StaticMerkleTree::dump(self.db_merkle.clone(), epoch, hashes, self.only_root);
 
         self.dirty_guard = false;
+        self.db_key.flush();
+        self.db_merkle.flush();
 
         Ok((amt_root, merkle_root))
     }

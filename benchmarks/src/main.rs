@@ -1,4 +1,6 @@
 pub mod amt;
+mod db_with_mertics;
+mod mpt;
 pub mod raw;
 pub mod run;
 pub mod task_producer;
@@ -13,11 +15,13 @@ const SEED: u64 = 64;
 const SECONDS: u64 = 120;
 const TOTAL_KEYS: usize = 1_000_000;
 const BATCH_SIZE: usize = 1_000;
+const REPORT_EPOCH: usize = 50;
 const MODE: TestMode = TestMode::AMT;
 
 pub enum TestMode {
     RAW,
     AMT,
+    MPT,
 }
 
 fn main() {
@@ -31,6 +35,10 @@ fn main() {
         TestMode::AMT => (
             Box::new(amt::new("./__benchmarks")),
             Box::new(AMTCounter::new()),
+        ),
+        TestMode::MPT => (
+            Box::new(mpt::new("./__benchmarks")),
+            Box::new(Counter::new()),
         ),
     };
 

@@ -1,7 +1,6 @@
-pub use cfx_storage::KvdbRocksdb;
 pub use db::SystemDB;
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 const NUM_COLUMNS: u32 = 1;
 
@@ -21,14 +20,53 @@ pub fn open_database(db_dir: &str, num_cols: u32) -> Arc<SystemDB> {
 }
 
 pub fn open_col(db_dir: &str, col: u32) -> KvdbRocksdb {
-    KvdbRocksdb {
+    cfx_storage::KvdbRocksdb {
         kvdb: open_database(db_dir, NUM_COLUMNS).key_value().clone(),
         col,
     }
+    .into()
 }
 
-#[cfg(test)]
-use cfx_storage::storage_db::{KeyValueDbTrait, KeyValueDbTraitRead};
+// Inplement batch write
+// TODO: refactor code.
+type TransactionType = <cfx_storage::KvdbRocksdb as KeyValueDbTraitTransactional>::TransactionType;
+#[derive(Clone)]
+pub struct KvdbRocksdbWithCache {
+    db: cfx_storage::KvdbRocksdb,
+    transactions: Arc<RwLock<TransactionType>>,
+}
+
+impl From<cfx_storage::KvdbRocksdb> for KvdbRocksdbWithCache {
+    fn from(db: cfx_storage::KvdbRocksdb) -> Self {
+        let transaction = db.start_transaction(false).unwrap();
+        KvdbRocksdb {
+            db,
+            transactions: Arc::new(RwLock::new(transaction)),
+        }
+    }
+}
+
+impl KvdbRocksdbWithCache {
+    pub fn get(&self, key: &[u8]) -> cfx_storage::Result<Option<Box<[u8]>>> {
+        self.db.get(key)
+    }
+
+    pub fn put(&self, key: &[u8], value: &[u8]) -> cfx_storage::Result<Option<Option<Box<[u8]>>>> {
+        self.transactions.write().unwrap().put(key, value)
+    }
+
+    pub fn flush(&self) {
+        self.transactions.write().unwrap().commit(&self.db);
+    }
+}
+pub use KvdbRocksdbWithCache as KvdbRocksdb;
+
+use cfx_storage::storage_db::{
+    KeyValueDbTrait, KeyValueDbTraitMultiReader, KeyValueDbTraitRead, KeyValueDbTraitSingleWriter,
+    KeyValueDbTraitTransactional, KeyValueDbTraitTransactionalDyn, KeyValueDbTransactionTrait,
+    KeyValueDbTypes,
+};
+use hashbrown::HashMap;
 
 #[test]
 fn test() {

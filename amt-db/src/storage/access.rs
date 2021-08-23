@@ -1,8 +1,5 @@
-use super::{layout::LayoutTrait, StorageDecodable, StorageEncodable};
-use cfx_storage::{
-    storage_db::{KeyValueDbTrait, KeyValueDbTraitRead},
-    KvdbRocksdb,
-};
+use super::{layout::LayoutTrait, KvdbRocksdb, StorageDecodable, StorageEncodable};
+use cfx_storage::storage_db::{KeyValueDbTrait, KeyValueDbTraitRead};
 
 use hashbrown::HashMap;
 use std::marker::PhantomData;

@@ -1,4 +1,5 @@
 use crate::task_producer::{Event, Events};
+use crate::REPORT_EPOCH;
 use std::time::Instant;
 
 pub fn run_tasks(
@@ -24,7 +25,7 @@ pub fn run_tasks(
         }
         db.commit(epoch);
         total_count += length;
-        if (epoch + 1) % 50 == 0 {
+        if (epoch + 1) % REPORT_EPOCH == 0 {
             let last = time.elapsed();
             let avg_time = last.as_secs_f64() / total_count as f64;
             let prefix = format!(
