@@ -1,3 +1,4 @@
+#![allow(unused)]
 pub use db::SystemDB;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
@@ -56,7 +57,7 @@ impl KvdbRocksdbWithCache {
     }
 
     pub fn flush(&self) {
-        self.transactions.write().unwrap().commit(&self.db);
+        self.transactions.write().unwrap().commit(&self.db).unwrap();
     }
 }
 pub use KvdbRocksdbWithCache as KvdbRocksdb;

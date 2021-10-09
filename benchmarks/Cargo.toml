@@ -9,6 +9,8 @@ edition = "2018"
 [dependencies]
 amt-db = { path = "../amt-db", features = ["large_amt"] }
 cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+cfx-primitives = { package ="primitives", git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765", features = ["test_no_account_length_check"]}
+
 db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
 kvdb-rocksdb = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
 
@@ -32,3 +34,14 @@ trie-db = "0.11.0"
 patricia-trie-ethereum = {git="https://github.com/openethereum/openethereum.git", rev="2ae2949"}
 keccak-hasher = {git="https://github.com/openethereum/openethereum.git", rev="2ae2949"}
 rental = "0.5.6"
+
+num = "0.4"
+num-derive = "0.3"
+num-traits = "0.2"
+
+hashbrown = "0.11.2"
+kvdb-memorydb = "=0.1.0"
+
+ring = "0.16.20"
+hash-db = "0.11.0"
+rlp = { version = "0.4.6" }

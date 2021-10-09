@@ -3,6 +3,7 @@
 /dat
 /amt-db/pp
 /pp
-/profile
+/results
 flamegraph.svg
 *.pdf
+*.log

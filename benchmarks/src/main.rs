@@ -1,5 +1,9 @@
+#![allow(unused, dead_code)]
+
 pub mod amt;
 mod db_with_mertics;
+mod delta_mpt;
+mod in_mem_with_metrics;
 mod mpt;
 pub mod raw;
 pub mod run;
@@ -9,53 +13,84 @@ use crate::run::{BenchmarkDB, Counter, CounterTrait};
 use crate::{amt::AMTCounter, run::run_tasks, task_producer::ReadThenWrite};
 use pprof::protos::Message;
 use rand_pcg::Pcg64;
-use std::{fs::File, io::Write};
+use std::{env, fs, io::Write};
+
+extern crate num;
+#[macro_use]
+extern crate num_derive;
+
+use num::FromPrimitive;
+use std::fs::File;
 
 const SEED: u64 = 64;
-const SECONDS: u64 = 120;
-const TOTAL_KEYS: usize = 1_000_000;
+const SECONDS: u64 = 3600;
 const BATCH_SIZE: usize = 1_000;
-const REPORT_EPOCH: usize = 50;
-const MODE: TestMode = TestMode::AMT;
 
+const REPORT_EPOCH: usize = 50;
+const PROFILE_EPOCH: usize = 5_000;
+const MAX_EPOCH: usize = 100_000;
+
+#[derive(Debug, FromPrimitive)]
 pub enum TestMode {
-    RAW,
-    AMT,
-    MPT,
+    RAW = 1,
+    AMT = 2,
+    MPT = 3,
+    DMPT = 4,
 }
 
+fn parse_num(s: &String) -> u64 {
+    let base = match s.chars().rev().next().unwrap() {
+        'k' | 'K' => 1_000,
+        'm' | 'M' => 1_000_000,
+        'g' | 'G' => 1_000_000_000,
+        _ => 1,
+    };
+    let num = if base > 1 {
+        let mut chars = s.chars();
+        chars.next_back();
+        chars.as_str()
+    } else {
+        s.as_str()
+    };
+    base * num.parse::<u64>().unwrap()
+}
+
+// const DIR: &'static str = "/mnt/tmpfs/__benchmarks";
+const DIR: &'static str = "./__benchmarks";
+const REPORT_DIR: &'static str = "./__reports";
+
 fn main() {
-    let mut task_producer = ReadThenWrite::<Pcg64>::new(TOTAL_KEYS, BATCH_SIZE);
+    fs::create_dir_all(REPORT_DIR).unwrap();
+    let args: Vec<String> = env::args().collect();
 
-    let (mut db, mut counter): (Box<dyn BenchmarkDB>, Box<dyn CounterTrait>) = match MODE {
-        TestMode::RAW => (
-            Box::new(raw::new("./__benchmarks")),
-            Box::new(Counter::new()),
-        ),
-        TestMode::AMT => (
-            Box::new(amt::new("./__benchmarks")),
-            Box::new(AMTCounter::new()),
-        ),
-        TestMode::MPT => (
-            Box::new(mpt::new("./__benchmarks")),
-            Box::new(Counter::new()),
-        ),
+    let mode: TestMode = FromPrimitive::from_u8(args[1].parse().unwrap()).unwrap();
+    let total_keys: u64 = parse_num(&args[2]);
+
+    println!("Testing {:?} with {:e} addresses", mode, total_keys);
+
+    let mut task_producer = ReadThenWrite::<Pcg64>::new(total_keys as usize, BATCH_SIZE);
+
+    let (mut db, mut counter): (Box<dyn BenchmarkDB>, Box<dyn CounterTrait>) = match mode {
+        TestMode::RAW => (Box::new(raw::new(DIR)), Box::new(Counter::new())),
+        TestMode::AMT => (Box::new(amt::new(DIR)), Box::new(AMTCounter::new())),
+        TestMode::MPT => (Box::new(mpt::new(DIR)), Box::new(Counter::new())),
+        TestMode::DMPT => (Box::new(delta_mpt::new(DIR)), Box::new(Counter::new())),
     };
 
-    let guard = pprof::ProfilerGuard::new(250).unwrap();
+    let file = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(REPORT_DIR.to_string() + "/timing.log")
+        .unwrap();
+    let prefix = format!("{:?},{:e}", mode, total_keys);
 
-    run_tasks(db.as_mut(), &mut task_producer, counter.as_mut(), SECONDS);
+    run_tasks(
+        db.as_mut(),
+        &mut task_producer,
+        counter.as_mut(),
+        file,
+        prefix,
+    );
 
-    match guard.report().build() {
-        Ok(report) => {
-            let mut file = File::create("./profile/profile.pb").unwrap();
-            let profile = report.pprof().unwrap();
-
-            let mut content = Vec::new();
-            profile.encode(&mut content).unwrap();
-            file.write_all(&content).unwrap();
-        }
-        Err(_) => {}
-    };
-    std::fs::remove_dir_all("./__benchmarks").unwrap();
+    std::fs::remove_dir_all(DIR).unwrap();
 }

@@ -1,4 +1,5 @@
 use super::db_with_mertics::DatabaseWithMetrics;
+use super::in_mem_with_metrics::InMemoryWithMetrics;
 use crate::run::BenchmarkDB;
 use amt_db::storage::open_database;
 use keccak_hasher::KeccakHasher;
@@ -13,25 +14,18 @@ use trie_db::TrieMut;
 pub type TrieDBMut<'db> = trie_db::TrieDBMut<'db, KeccakHasher, RlpCodec>;
 pub type TrieDB<'db> = trie_db::TrieDB<'db, KeccakHasher, RlpCodec>;
 
-/// The KECCAK of the RLP encoding of empty data.
-pub const KECCAK_NULL_RLP: H256 = H256([
-    0x56, 0xe8, 0x1f, 0x17, 0x1b, 0xcc, 0x55, 0xa6, 0xff, 0x83, 0x45, 0xe6, 0x92, 0xc0, 0xf8, 0x6e,
-    0x5b, 0x48, 0xe0, 0x1b, 0x99, 0x6c, 0xad, 0xc0, 0x01, 0x62, 0x2f, 0xb5, 0xe3, 0x63, 0xb4, 0x21,
-]);
-
 pub struct MptDB {
-    backing: Arc<DatabaseWithMetrics>,
-    db: Box<dyn JournalDB>, // Library is boxed for StableDeref.
+    db: Box<dyn JournalDB>,
     root: H256,
 }
 
 pub(crate) fn new(dir: &str) -> MptDB {
     let backend_db = open_database(dir, 1).key_value().clone();
     let backing = Arc::new(DatabaseWithMetrics::new(backend_db));
+    // let backing = Arc::new(InMemoryWithMetrics::create(1));
     let db = parity_journaldb::new(backing.clone(), Algorithm::Archive, Some(0));
 
     MptDB {
-        backing,
         db,
         root: KECCAK_NULL_RLP,
     }
@@ -60,7 +54,13 @@ impl BenchmarkDB for MptDB {
         self.db
             .journal_under(&mut batch, index as u64, &H256::default())
             .unwrap();
-        self.backing.write(batch).unwrap();
+        self.db.backing().write(batch).unwrap();
         self.db.flush();
     }
 }
+
+/// The KECCAK of the RLP encoding of empty data.
+pub const KECCAK_NULL_RLP: H256 = H256([
+    0x56, 0xe8, 0x1f, 0x17, 0x1b, 0xcc, 0x55, 0xa6, 0xff, 0x83, 0x45, 0xe6, 0x92, 0xc0, 0xf8, 0x6e,
+    0x5b, 0x48, 0xe0, 0x1b, 0x99, 0x6c, 0xad, 0xc0, 0x01, 0x62, 0x2f, 0xb5, 0xe3, 0x63, 0xb4, 0x21,
+]);

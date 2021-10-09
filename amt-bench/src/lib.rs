@@ -1,4 +1,5 @@
 #![feature(test)]
+#![allow(unused, dead_code)]
 extern crate test;
 
 mod basic_op;

@@ -1,4 +1,4 @@
-// #![allow(dead_code)]
+#![allow(unused_imports)]
 // unused_imports
 // non_camel_case_types
 #[macro_use]

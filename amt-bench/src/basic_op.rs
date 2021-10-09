@@ -1,3 +1,4 @@
+use keccak_hash::keccak;
 use rand::Rng;
 use std::collections::{BTreeMap, HashMap};
 use test::{black_box, Bencher};
@@ -66,8 +67,10 @@ fn btreemap_100_read_fold(b: &mut Bencher) {
         map.insert(i * 736, rng.gen());
     }
     b.iter(|| {
-        let index = (i % 100 as u64) * 736;
-        black_box(map.get(&index).unwrap());
+        for i in 0..1000 {
+            let index = (i % 100 as u64) * 736;
+            black_box(map.get(&index).unwrap());
+        }
     });
 }
 
@@ -123,6 +126,18 @@ fn muln_fold(b: &mut Bencher) {
     b.iter(|| {
         for _ in 0..1_000 {
             black_box(x.muln(5));
+        }
+    });
+}
+
+#[bench]
+fn keccak_fold(b: &mut Bencher) {
+    b.iter(|| {
+        for i in 0u16..1_000 {
+            let value = [i; 16];
+            let value = unsafe { std::mem::transmute::<[u16; 16], [u8; 32]>(value) };
+            let ans = keccak(&value);
+            black_box(ans);
         }
     });
 }
