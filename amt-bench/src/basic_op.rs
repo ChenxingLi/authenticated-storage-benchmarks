@@ -117,7 +117,7 @@ fn mem_swap_read_fold(b: &mut Bencher) {
     });
 }
 
-use amt_db::crypto::export::{BigInteger, FrInt, Pairing};
+use amt_db::crypto::export::{BigInteger, FrInt, G1Aff, Pairing, ProjectiveCurve, UniformRand, G1};
 
 #[bench]
 fn muln_fold(b: &mut Bencher) {
@@ -127,6 +127,35 @@ fn muln_fold(b: &mut Bencher) {
         for _ in 0..1_000 {
             black_box(x.muln(5));
         }
+    });
+}
+
+#[bench]
+fn projective_transform(b: &mut Bencher) {
+    let mut rng = ::rand::thread_rng();
+    let x = G1::<Pairing>::rand(&mut rng);
+    let y = G1::<Pairing>::rand(&mut rng);
+    let z = x + y;
+    b.iter(|| {
+        let az: G1Aff<Pairing> = z.clone().into();
+        black_box(az);
+    });
+}
+
+#[bench]
+fn projective_transform_batch(b: &mut Bencher) {
+    let mut rng = ::rand::thread_rng();
+    let mut tasks = Vec::<G1<Pairing>>::with_capacity(1000);
+    for i in 0..100 {
+        let x = G1::<Pairing>::rand(&mut rng);
+        let y = G1::<Pairing>::rand(&mut rng);
+        let z = x + y;
+        tasks.push(z);
+    }
+    b.iter(|| {
+        let mut answer = tasks.clone();
+        ProjectiveCurve::batch_normalization(&mut answer);
+        black_box(answer);
     });
 }
 

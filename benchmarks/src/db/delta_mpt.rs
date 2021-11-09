@@ -1,9 +1,8 @@
-use crate::run::BenchmarkDB;
+use crate::db::AuthDB;
 use cfx_primitives::StorageKey;
-use cfx_storage::state::StateTrait;
-use cfx_storage::state_manager::StateManagerTrait;
 use cfx_storage::{
-    StateIndex, StorageConfiguration, StorageManager, StorageState, StorageStateTrait,
+    state::StateTrait, state_manager::StateManagerTrait, StateIndex, StorageConfiguration,
+    StorageManager, StorageState,
 };
 use primitive_types::H256;
 use std::sync::Arc;
@@ -20,7 +19,7 @@ pub fn new(dir: &str) -> DeltaMpt {
     DeltaMpt { manager, state }
 }
 
-impl BenchmarkDB for DeltaMpt {
+impl AuthDB for DeltaMpt {
     fn get(&self, key: Vec<u8>) -> Option<Box<[u8]>> {
         let key = StorageKey::AccountKey(key.as_slice());
         self.state.get(key).unwrap()

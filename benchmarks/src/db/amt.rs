@@ -1,18 +1,16 @@
-use super::run::{BenchmarkDB, CounterTrait};
-use amt_db::crypto::TypeDepths;
-use amt_db::simple_db::new_simple_db;
+use crate::{db::AuthDB, run::CounterTrait};
 use amt_db::{
-    simple_db::{SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT},
+    crypto::TypeDepths,
+    simple_db::{new_simple_db, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT},
     storage::access::PUT_COUNT,
     ver_tree::Key,
 };
-use std::time::Instant;
 
 pub fn new(dir: &str) -> SimpleDb {
     new_simple_db::<TypeDepths>(dir, true).0
 }
 
-impl BenchmarkDB for SimpleDb {
+impl AuthDB for SimpleDb {
     fn get(&self, key: Vec<u8>) -> Option<Box<[u8]>> {
         self.get(&Key(key)).unwrap()
     }
@@ -28,17 +26,15 @@ impl BenchmarkDB for SimpleDb {
 
 #[derive(Clone)]
 pub struct AMTCounter {
-    start: Instant,
     put_count: [u64; 4],
     inc_key_count: u64,
     inc_tree_count: u64,
     inc_key_level_count: u64,
 }
 
-impl AMTCounter {
-    pub fn new() -> Self {
+impl Default for AMTCounter {
+    fn default() -> Self {
         Self {
-            start: Instant::now(),
             put_count: [0; 4],
             inc_key_count: 0,
             inc_tree_count: 0,
@@ -48,14 +44,7 @@ impl AMTCounter {
 }
 
 impl CounterTrait for AMTCounter {
-    fn reset(&mut self) {
-        self.put_count = *PUT_COUNT.lock().unwrap();
-        self.inc_key_count = *INC_KEY_COUNT.lock().unwrap();
-        self.inc_tree_count = *INC_TREE_COUNT.lock().unwrap();
-        self.inc_key_level_count = *INC_KEY_LEVEL_SUM.lock().unwrap();
-    }
-
-    fn mark(&mut self) -> String {
+    fn report(&mut self) -> String {
         let put_count = *PUT_COUNT.lock().unwrap();
         let inc_key_count = *INC_KEY_COUNT.lock().unwrap();
         let inc_tree_count = *INC_TREE_COUNT.lock().unwrap();
@@ -78,7 +67,10 @@ impl CounterTrait for AMTCounter {
             tree_diff * 2,
         );
 
-        self.reset();
+        self.put_count = *PUT_COUNT.lock().unwrap();
+        self.inc_key_count = *INC_KEY_COUNT.lock().unwrap();
+        self.inc_tree_count = *INC_TREE_COUNT.lock().unwrap();
+        self.inc_key_level_count = *INC_KEY_LEVEL_SUM.lock().unwrap();
 
         answer
     }

@@ -1,15 +1,14 @@
-use super::db_with_mertics::DatabaseWithMetrics;
-use super::in_mem_with_metrics::InMemoryWithMetrics;
-use crate::run::BenchmarkDB;
-use amt_db::storage::open_database;
 use keccak_hasher::KeccakHasher;
-use kvdb01::{DBTransaction, KeyValueDB};
+use kvdb01::DBTransaction;
 use parity_journaldb::{Algorithm, JournalDB};
 use patricia_trie_ethereum::RlpCodec;
 use primitive_types::H256;
 use std::sync::Arc;
-use trie_db::Trie;
-use trie_db::TrieMut;
+use trie_db::{Trie, TrieMut};
+
+use crate::backend::db_with_mertics::DatabaseWithMetrics;
+use crate::db::AuthDB;
+use amt_db::storage::open_database;
 
 pub type TrieDBMut<'db> = trie_db::TrieDBMut<'db, KeccakHasher, RlpCodec>;
 pub type TrieDB<'db> = trie_db::TrieDB<'db, KeccakHasher, RlpCodec>;
@@ -31,7 +30,7 @@ pub(crate) fn new(dir: &str) -> MptDB {
     }
 }
 
-impl BenchmarkDB for MptDB {
+impl AuthDB for MptDB {
     // This logic is in function `require_or_from` of OpenEthereum
     fn get(&self, key: Vec<u8>) -> Option<Box<[u8]>> {
         let db = &self.db.as_hash_db();
@@ -41,13 +40,13 @@ impl BenchmarkDB for MptDB {
             .map(|x| x.into_vec().into_boxed_slice())
     }
 
-    // This logic is in function `commit` in `ethcore/src/state/mod.rs` of OpenEthereum
+    // This logic is in function `commit` in `ethcore/src/state/run` of OpenEthereum
     fn set(&mut self, key: Vec<u8>, value: Vec<u8>) {
         let mut trie = TrieDBMut::from_existing(self.db.as_hash_db_mut(), &mut self.root).unwrap();
         trie.insert(key.as_slice(), value.as_slice()).unwrap();
     }
 
-    // This logic is in function `commit` in `ethcore/src/state/mod.rs` of OpenEthereum
+    // This logic is in function `commit` in `ethcore/src/state/run` of OpenEthereum
     fn commit(&mut self, index: usize) {
         let mut batch = DBTransaction::new();
         // The third parameter is not used in archive journal db. We feed an arbitrary data.

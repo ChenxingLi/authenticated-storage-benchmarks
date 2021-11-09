@@ -1,4 +1,4 @@
-// The original journaldb relies on some metric tools in crate `ethcore-db`. But it doesn't rely on the other dependencies.
+// The original journaldb relies on some metric run in crate `ethcore-db`. But it doesn't rely on the other dependencies.
 
 pub use self::memory_db::InMemoryWithMetrics;
 
@@ -50,11 +50,11 @@ mod memory_db {
 
         fn iter_from_prefix<'a>(
             &'a self,
-            col: Option<u32>,
-            prefix: &'a [u8],
+            _col: Option<u32>,
+            _prefix: &'a [u8],
         ) -> Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + 'a> {
             unimplemented!();
-            self.db.iter_from_prefix(col, prefix)
+            // self.db.iter_from_prefix(col, prefix)
         }
 
         fn restore(&self, new_db: &str) -> std::io::Result<()> {

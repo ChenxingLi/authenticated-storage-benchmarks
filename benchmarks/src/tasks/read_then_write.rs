@@ -1,25 +1,6 @@
-#![allow(unused_imports, dead_code, unused_variables)]
+use super::*;
 use crate::SEED;
-use cfx_types::{H256, U256};
-use crc64fast::Digest as Hasher;
-use keccak_hash::keccak;
-use pprof::{self, protos::Message, ProfilerGuard};
-use rand::{prelude::*, RngCore};
-use rand_pcg::Pcg64;
-use std::fs::File;
-use std::io::Write;
-use std::ops::Sub;
-use std::time::{Duration, Instant};
-
-type Key = Vec<u8>;
-type Value = Vec<u8>;
-
-pub enum Event {
-    Read(Key),
-    Write(Key, Value),
-}
-
-pub struct Events(pub Vec<Event>);
+use rand::prelude::*;
 
 pub struct ReadThenWrite<R: Rng + SeedableRng> {
     pub total_keys: usize,
@@ -56,9 +37,6 @@ impl<R: Rng + SeedableRng> Iterator for ReadThenWrite<R> {
     }
 }
 
-fn hash(input: &[u8]) -> [u8; 32] {
-    let mut hasher = Hasher::new();
-    hasher.write(input);
-    let checksum = hasher.sum64();
-    unsafe { std::mem::transmute::<[u64; 4], [u8; 32]>([checksum; 4]) }
+impl<R: Rng + SeedableRng> TaskTrait for ReadThenWrite<R> {
+    fn warmup(&mut self) {}
 }
