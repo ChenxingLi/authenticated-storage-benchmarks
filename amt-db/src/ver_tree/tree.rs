@@ -1,5 +1,6 @@
 use super::{Commitment, Key, Tree, TreeName, MAX_VERSION_NUMBER};
 use crate::crypto::export::{BigInteger, FrInt, G1Aff, ProjectiveCurve, G1};
+use crate::storage::DBColumn;
 use crate::ver_tree::node::EpochPosition;
 use crate::{
     crypto::{
@@ -28,7 +29,7 @@ pub struct VersionTree {
 }
 
 impl VersionTree {
-    pub fn new(db: KvdbRocksdb, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
+    pub fn new(db: DBColumn, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
         let mut forest = Vec::with_capacity(8);
         forest.push(Default::default());
         Self {
@@ -103,8 +104,7 @@ impl VersionTree {
         if visit_amt.only_root() {
             visit_amt.update(node, fr_int_pow_2((slot_index as u32 + 1) * 5));
         } else {
-            let mut node_guard = visit_amt.write_versions(node);
-            node_guard.key_versions[slot_index as usize] += 1;
+            visit_amt.write_versions(node).key_versions[slot_index as usize] += 1;
         }
         assert!(version < MAX_VERSION_NUMBER);
         return VerInfo {
@@ -152,13 +152,14 @@ impl VersionTree {
                 Self::commit_tree(&child_name, epoch, start_pos, rest_layers, updates);
             if dirty {
                 *tree_with_info.tree.subtree_root_mut(index as usize) = commitment;
-                let node = &mut tree_with_info.tree.write_versions(index as usize);
+                let mut node = tree_with_info.tree.write_versions(index as usize);
                 node.tree_version += 1;
                 node.tree_position = EpochPosition {
                     epoch,
                     position: start_pos + updates.len() as u64,
                 };
                 updates.push(child_name, node.tree_version, commitment);
+                std::mem::drop(node);
             }
         }
         tree_with_info.children_marks.clear();
@@ -255,7 +256,7 @@ impl IntoIterator for SubTreeRootRecorder {
 
 #[derive(Clone)]
 struct TreeProducer {
-    pub db: KvdbRocksdb,
+    pub db: DBColumn,
     pub pp: Arc<AMTParams<Pairing>>,
     pub only_root: bool,
 }

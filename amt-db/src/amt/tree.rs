@@ -6,7 +6,10 @@ use crate::crypto::{
     AMTParams, TypeUInt,
 };
 use crate::storage::access::PUT_MODE;
-use crate::storage::{DBAccess, KvdbRocksdb, LayoutTrait, StorageDecodable, StorageEncodable};
+use crate::storage::{
+    DBAccess, DBColumn, KvdbRocksdb, LayoutTrait, StorageDecodable, StorageEncodable,
+};
+use kvdb::KeyValueDB;
 use std::sync::Arc;
 
 pub trait AMTConfigTrait {
@@ -42,24 +45,28 @@ pub struct AMTree<C: AMTConfigTrait> {
     only_root: bool,
     dirty: bool,
 
-    db: KvdbRocksdb,
+    db: DBColumn,
     pp: Arc<AMTParams<C::PE>>,
 }
 
 pub type AMTProof<G> = Vec<AMTNode<G>>;
 
 impl<C: AMTConfigTrait> AMTree<C> {
-    pub fn new(name: C::Name, db: KvdbRocksdb, pp: Arc<AMTParams<C::PE>>, only_root: bool) -> Self {
-        let name_with_prefix = |mut prefix: Vec<u8>| {
-            prefix.extend_from_slice(&name.storage_encode());
+    pub fn new(name: C::Name, db: DBColumn, pp: Arc<AMTParams<C::PE>>, only_root: bool) -> Self {
+        let ser_name = name.storage_encode();
+        let set_prefix = |prefix: u8| {
+            let mut prefix = vec![prefix];
+            prefix.extend_from_slice(&ser_name);
             prefix
         };
         Self {
-            data: DBAccess::new(name_with_prefix(vec![0u8]), db.clone()),
-            inner_nodes: DBAccess::new(name_with_prefix(vec![1u8]), db.clone()),
-            subtree_roots: DBAccess::new(name_with_prefix(vec![2u8]), db.clone()),
-            db,
             name,
+
+            data: DBAccess::new(set_prefix(0), db.clone()),
+            inner_nodes: DBAccess::new(set_prefix(1), db.clone()),
+            subtree_roots: DBAccess::new(set_prefix(2), db.clone()),
+            db,
+
             commitment: None,
             dirty: false,
             only_root,
@@ -112,13 +119,13 @@ impl<C: AMTConfigTrait> AMTree<C> {
 
     pub fn flush(&mut self) -> G1<C::PE> {
         *PUT_MODE.lock_mut().unwrap() = 0;
-        self.data.flush();
+        self.data.flush_cache();
 
         *PUT_MODE.lock_mut().unwrap() = 1;
-        self.inner_nodes.flush();
+        self.inner_nodes.flush_cache();
 
         *PUT_MODE.lock_mut().unwrap() = 2;
-        self.subtree_roots.flush();
+        self.subtree_roots.flush_cache();
 
         self.dirty = false;
         self.commitment.unwrap().clone()

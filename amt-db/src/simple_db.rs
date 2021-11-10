@@ -6,13 +6,14 @@ use crate::crypto::{
 use crate::impl_storage_from_canonical;
 use crate::merkle::{MerkleProof, StaticMerkleTree};
 use crate::storage::{
-    KeyValueDbTrait, KeyValueDbTraitRead, KvdbRocksdb, Result, StorageDecodable, StorageEncodable,
-    SystemDB,
+    DBColumn, KeyValueDbTrait, KeyValueDbTraitRead, KvdbRocksdb, Result, StorageDecodable,
+    StorageEncodable, SystemDB,
 };
 use crate::ver_tree::{AMTConfig, EpochPosition, Key, Node, TreeName, VerInfo, VersionTree};
 use cfx_types::H256;
 use global::Global;
 use keccak_hash::keccak;
+use kvdb::{DBOp, DBTransaction, KeyValueDB};
 use std::{collections::VecDeque, sync::Arc};
 
 const COL_VER_TREE: u32 = 0;
@@ -25,10 +26,11 @@ pub static INC_KEY_COUNT: Global<u64> = Global::INIT;
 pub static INC_TREE_COUNT: Global<u64> = Global::INIT;
 
 pub struct SimpleDb {
-    version_tree: VersionTree,
+    kvdb: Arc<dyn KeyValueDB>,
 
-    db_key: KvdbRocksdb,
-    db_merkle: KvdbRocksdb,
+    version_tree: VersionTree,
+    db_key: DBColumn,
+    db_merkle: DBColumn,
 
     uncommitted_key_values: Vec<(Key, Box<[u8]>)>,
     dirty_guard: bool,
@@ -155,7 +157,9 @@ impl SimpleDb {
             col: COL_MERKLE,
         }
         .into();
+        let kvdb = database.key_value().clone();
         Self {
+            kvdb,
             version_tree,
             db_key,
             db_merkle,
@@ -187,6 +191,7 @@ impl SimpleDb {
     pub fn commit(&mut self, epoch: u64) -> Result<(G1Projective, H256)> {
         let kv_num = self.uncommitted_key_values.len();
         let mut hashes = Vec::with_capacity(kv_num);
+        let mut write_ops = Vec::with_capacity(kv_num);
 
         for (position, (key, value)) in self.uncommitted_key_values.drain(..).enumerate() {
             let version: Option<VerInfo> = match self.db_key.get(key.as_ref())? {
@@ -207,7 +212,11 @@ impl SimpleDb {
             *INC_KEY_COUNT.lock_mut().unwrap() += 1;
             *INC_KEY_LEVEL_SUM.lock_mut().unwrap() += version.level as u64 + 1;
 
-            self.db_key.put(key.as_ref(), &value.storage_encode())?;
+            write_ops.push(DBOp::Insert {
+                col: 0,
+                key: key.as_ref().into(),
+                value: value.storage_encode(),
+            });
 
             let key_ver_value_hash = keccak(
                 &KeyValue {
@@ -220,6 +229,7 @@ impl SimpleDb {
 
             hashes.push(key_ver_value_hash);
         }
+        self.db_key.write_buffered(DBTransaction { ops: write_ops });
 
         // println!("commit position");
         let (amt_root, updates) = self.version_tree.commit(epoch, hashes.len() as u64);
@@ -242,8 +252,7 @@ impl SimpleDb {
             StaticMerkleTree::dump(self.db_merkle.clone(), epoch, hashes, self.only_root);
 
         self.dirty_guard = false;
-        self.db_key.flush();
-        self.db_merkle.flush();
+        self.kvdb.flush()?;
 
         Ok((amt_root, merkle_root))
     }

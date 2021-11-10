@@ -1,5 +1,7 @@
 use super::{layout::LayoutTrait, KvdbRocksdb, StorageDecodable, StorageEncodable};
 use cfx_storage::storage_db::{KeyValueDbTrait, KeyValueDbTraitRead};
+use std::borrow::Borrow;
+use std::cell::RefCell;
 
 use hashbrown::HashMap;
 use std::marker::PhantomData;
@@ -7,6 +9,10 @@ use std::marker::PhantomData;
 use global::Global;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::sync::{Arc, RwLock};
+
+use super::DBColumn;
+use kvdb::{DBOp, DBTransaction, KeyValueDB};
 
 pub static PUT_COUNT: Global<[u64; 4]> = Global::INIT;
 pub static PUT_MODE: Global<usize> = Global::INIT;
@@ -17,12 +23,10 @@ pub struct DBAccess<
     V: Default + Clone + StorageEncodable + StorageDecodable,
     L: LayoutTrait<K>,
 > {
-    // TODO: Maybe add a cache plan later, and use a generic type for db access.
-    name: Vec<u8>,
-    db: KvdbRocksdb,
+    prefix: Vec<u8>,
+    db: DBColumn,
     cache: HashMap<K, (V, bool)>,
-    dump_mode: bool,
-    _phantom: PhantomData<L>,
+    _phantom: PhantomData<(K, V, L)>,
 }
 
 impl<
@@ -31,45 +35,31 @@ impl<
         L: LayoutTrait<K>,
     > DBAccess<K, V, L>
 {
-    pub fn new(name: Vec<u8>, db: KvdbRocksdb) -> Self {
+    pub fn new(prefix: Vec<u8>, db: DBColumn) -> Self {
         Self {
-            name,
+            prefix,
             db,
-            cache: HashMap::new(),
-            dump_mode: false,
+            cache: Default::default(),
             _phantom: PhantomData,
         }
     }
 
     pub fn get(&mut self, node_index: &K) -> &V {
-        let (value, _dirty) = self.get_cached(node_index);
+        let (value, _dirty) = self.ensure_cached(node_index);
         value
     }
 
     pub fn get_mut(&mut self, node_index: &K) -> &mut V {
-        let (value, dirty) = self.get_cached(node_index);
+        let (value, dirty) = self.ensure_cached(node_index);
         *dirty = true;
         value
     }
 
-    pub fn set(&mut self, node_index: &K, value: V) {
-        self.cache.insert(*node_index, (value, true));
-    }
+    fn ensure_cached(&mut self, node_index: &K) -> &mut (V, bool) {
+        let (prefix, db) = (&self.prefix, &self.db);
 
-    pub fn flush(&mut self) {
-        for (key, (value, dirty)) in self.cache.iter_mut().filter(|(_k, (_v, dirty))| *dirty) {
-            (*PUT_COUNT.lock_mut().unwrap())[*PUT_MODE.lock().unwrap()] += 1;
-            let db_key = Self::compute_key(&self.name, key);
-            self.db.put(&db_key, &value.storage_encode()).unwrap();
-            *dirty = false;
-        }
-        self.cache.clear();
-    }
-
-    fn get_cached(&mut self, node_index: &K) -> &mut (V, bool) {
-        let (name, db) = (&self.name, &self.db);
         self.cache.entry(*node_index).or_insert_with(|| {
-            let db_key = Self::compute_key(&name, node_index);
+            let db_key = Self::compute_key(&prefix, node_index);
 
             let value = match db.get(&db_key).unwrap() {
                 Some(x) => V::storage_decode(&*x).unwrap(),
@@ -77,6 +67,32 @@ impl<
             };
             (value, false)
         })
+    }
+
+    pub fn set(&mut self, node_index: &K, value: V) {
+        self.cache.insert(*node_index, (value, true));
+    }
+
+    pub fn flush_cache(&mut self) {
+        let prefix = &self.prefix;
+        let ops: Vec<DBOp> = self
+            .cache
+            .iter_mut()
+            .filter(|(_k, (_v, dirty))| *dirty)
+            .map(|(key, (value, _))| {
+                let db_key = Self::compute_key(&prefix, key);
+                DBOp::Insert {
+                    col: 0,
+                    key: db_key.into(),
+                    value: value.storage_encode(),
+                }
+            })
+            .collect();
+
+        (*PUT_COUNT.lock_mut().unwrap())[*PUT_MODE.lock().unwrap()] += ops.len() as u64;
+
+        self.db.write_buffered(DBTransaction { ops });
+        self.cache.clear();
     }
 
     fn compute_key(name: &[u8], node_index: &K) -> Vec<u8> {
@@ -106,7 +122,7 @@ mod test {
         const DEPTHS: usize = TestDepths::USIZE;
         const TMP_RATIO: usize = 719323;
 
-        let db = super::super::open_col("./__backend_tree", 0u32);
+        let db = super::super::open_col("./__backend_tree", 0u32).into();
         let mut tree =
             DBAccess::<NodeIndex, u64, FlattenTree>::new("test".to_string().into_bytes(), db);
 
@@ -118,7 +134,7 @@ mod test {
             }
         }
 
-        tree.flush();
+        tree.flush_cache();
 
         for depth in 0..DEPTHS {
             for index in 0..(1 << depth) {

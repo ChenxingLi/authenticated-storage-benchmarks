@@ -3,10 +3,12 @@ pub mod layout;
 pub mod rocksdb;
 #[macro_use]
 pub mod serde;
+pub mod kvdb;
 
 pub use self::access::DBAccess;
+pub use self::kvdb::DBColumn;
 pub use self::layout::{FlattenArray, FlattenTree, LayoutTrait};
-pub use self::rocksdb::{open_col, open_database, KvdbRocksdb, SystemDB};
+pub use self::rocksdb::{open_col, open_database, open_kvdb, KvdbRocksdb, SystemDB};
 pub use self::serde::{StorageDecodable, StorageEncodable, StoreByBytes};
 
 use error_chain;
@@ -17,6 +19,7 @@ error_chain! {
     }
 
     foreign_links {
+        IoErr(std::io::Error);
     }
 }
 

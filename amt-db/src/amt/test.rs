@@ -56,7 +56,7 @@ impl AMTData<Fr<Pairing>> for u64 {
 
 #[test]
 fn test_amt() {
-    let db = crate::storage::open_col("./__test_amt", 0);
+    let db = crate::storage::open_col("./__test_amt", 0).into();
 
     const DEPTHS: usize = TestConfig::DEPTHS;
     const LENGTH: usize = 1 << DEPTHS;

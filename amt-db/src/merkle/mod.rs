@@ -1,7 +1,9 @@
 use crate::storage::access::PUT_MODE;
-use crate::storage::{DBAccess, FlattenArray, KvdbRocksdb};
+use crate::storage::{DBAccess, DBColumn, FlattenArray, KvdbRocksdb};
 use cfx_types::H256;
 use keccak_hash::{keccak, KECCAK_EMPTY};
+use kvdb::KeyValueDB;
+use std::sync::Arc;
 
 pub struct StaticMerkleTree {
     data: DBAccess<usize, H256, FlattenArray>,
@@ -19,7 +21,7 @@ fn combine_hash(a: &H256, b: &H256) -> H256 {
 }
 
 impl StaticMerkleTree {
-    pub fn new(db: KvdbRocksdb, epoch: u64) -> Self {
+    pub fn new(db: DBColumn, epoch: u64) -> Self {
         let mut backend: DBAccess<usize, H256, FlattenArray> =
             DBAccess::new(epoch.to_be_bytes().into(), db);
         let depth = backend.get(&0).to_low_u64_be() as u32;
@@ -63,12 +65,12 @@ impl StaticMerkleTree {
         current_hash == *root
     }
 
-    pub fn dump<'a>(db: KvdbRocksdb, epoch: u64, data: Vec<H256>, only_root: bool) -> H256 {
+    pub fn dump<'a>(db: DBColumn, epoch: u64, data: Vec<H256>, only_root: bool) -> H256 {
         let length = data.len();
         let depth = length.next_power_of_two().trailing_zeros();
 
         let mut backend: DBAccess<usize, H256, FlattenArray> =
-            DBAccess::new(epoch.to_be_bytes().into(), db.clone());
+            DBAccess::new(epoch.to_be_bytes().into(), db);
 
         let mut this_level = data;
         let mut root: H256 = Default::default();
@@ -94,7 +96,7 @@ impl StaticMerkleTree {
         backend.set(&0, H256::from_low_u64_be(depth as u64));
 
         *PUT_MODE.lock_mut().unwrap() = 3;
-        backend.flush();
+        backend.flush_cache();
 
         return root;
     }
@@ -102,7 +104,7 @@ impl StaticMerkleTree {
 
 #[test]
 fn test_static_merkle_tree() {
-    let db = crate::storage::open_col("./__test_static_merkle_tree", 0);
+    let db: DBColumn = crate::storage::open_col("./__test_static_merkle_tree", 0).into();
     for epoch in 1u64..=32 {
         let data: Vec<H256> = (0..epoch)
             .map(|x| H256::from_low_u64_be(x + 65536))
