@@ -1,6 +1,8 @@
 extern crate num;
 #[macro_use]
 extern crate num_derive;
+extern crate parity_util_mem;
+
 use num::FromPrimitive;
 
 mod backend;

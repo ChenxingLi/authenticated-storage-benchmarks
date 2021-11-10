@@ -24,13 +24,13 @@ global = "0.3.0"
 crc64fast = "1.0.0"
 slab = "0.4.4"
 
-parity-journaldb = { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "842631"}
-stats =  { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "842631"}
-kvdb01 = {package ="kvdb", version = "0.1"}
-kvdb = {package ="kvdb", version = "0.4"}
+parity-journaldb = { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "04c812c"}
+stats =  { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "04c812c"}
+parity-util-mem = "0.5.2"
+kvdb = "0.4"
 smallvec = "1.5.1"
 elastic-array = "0.10.3"
-trie-db = "0.11.0"
+
 patricia-trie-ethereum = {git="https://github.com/openethereum/openethereum.git", rev="2ae2949"}
 keccak-hasher = {git="https://github.com/openethereum/openethereum.git", rev="2ae2949"}
 rental = "0.5.6"
@@ -40,8 +40,9 @@ num-derive = "0.3"
 num-traits = "0.2"
 
 hashbrown = "0.11.2"
-kvdb-memorydb = "=0.1.0"
+kvdb-memorydb = "0.4.0"
 
 ring = "0.16.20"
+trie-db = "0.11.0"
 hash-db = "0.11.0"
 rlp = { version = "0.4.6" }

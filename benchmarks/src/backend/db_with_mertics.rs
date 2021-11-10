@@ -1,6 +1,8 @@
-use kvdb::KeyValueDB;
+use kvdb::{DBOp, DBTransaction, DBValue, KeyValueDB};
 use kvdb_rocksdb::Database;
+use parity_util_mem::{MallocSizeOf, MallocSizeOfOps};
 use std::io::Read;
+use std::sync::Arc;
 
 // Database with enabled statistics
 pub struct DatabaseWithMetrics {
@@ -24,39 +26,14 @@ impl DatabaseWithMetrics {
     }
 }
 
-use convert::convert_tx;
-use std::sync::Arc;
-
-mod convert {
-    use kvdb::{DBOp, DBTransaction};
-    use smallvec::SmallVec;
-
-    fn convert_op(op: kvdb01::DBOp) -> DBOp {
-        match op {
-            kvdb01::DBOp::Insert { col, key, value } => DBOp::Insert {
-                col: col.unwrap_or(0),
-                key: SmallVec::from_vec(key.into_vec()),
-                value: value.into_vec(),
-            },
-            kvdb01::DBOp::Delete { col, key } => DBOp::Delete {
-                col: col.unwrap_or(0),
-                key: SmallVec::from_vec(key.into_vec()),
-            },
-        }
-    }
-
-    pub fn convert_tx(mut tx: kvdb01::DBTransaction) -> DBTransaction {
-        let mut ops = Vec::with_capacity(tx.ops.len());
-        for op in tx.ops.drain(..) {
-            ops.push(convert_op(op));
-        }
-        DBTransaction { ops }
+impl MallocSizeOf for DatabaseWithMetrics {
+    fn size_of(&self, ops: &mut MallocSizeOfOps) -> usize {
+        MallocSizeOf::size_of(&*self.db, ops)
     }
 }
 
-impl kvdb01::KeyValueDB for DatabaseWithMetrics {
-    fn get(&self, col: Option<u32>, key: &[u8]) -> std::io::Result<Option<kvdb01::DBValue>> {
-        let col = col.unwrap_or(0);
+impl KeyValueDB for DatabaseWithMetrics {
+    fn get(&self, col: u32, key: &[u8]) -> std::io::Result<Option<DBValue>> {
         let res = self.db.get(col, key);
         let count = res
             .as_ref()
@@ -67,11 +44,10 @@ impl kvdb01::KeyValueDB for DatabaseWithMetrics {
         self.bytes_read
             .fetch_add(count as i64, std::sync::atomic::Ordering::Relaxed);
 
-        Ok(res?.map(|x| kvdb01::DBValue::from_vec(x)))
+        res
     }
-    fn get_by_prefix(&self, col: Option<u32>, prefix: &[u8]) -> Option<Box<[u8]>> {
-        let col = col.unwrap_or(0);
 
+    fn get_by_prefix(&self, col: u32, prefix: &[u8]) -> Option<Box<[u8]>> {
         let res = self.db.get_by_prefix(col, prefix);
         let count = res.as_ref().map_or(0, |x| x.bytes().count());
 
@@ -82,12 +58,11 @@ impl kvdb01::KeyValueDB for DatabaseWithMetrics {
 
         res
     }
-    fn write_buffered(&self, transaction: kvdb01::DBTransaction) {
+    fn write_buffered(&self, transaction: DBTransaction) {
         let mut count = 0;
-        let transaction = convert_tx(transaction);
         for op in &transaction.ops {
             count += match op {
-                kvdb::DBOp::Insert { value, .. } => value.bytes().count(),
+                DBOp::Insert { value, .. } => value.bytes().count(),
                 _ => 0,
             };
         }
@@ -101,12 +76,11 @@ impl kvdb01::KeyValueDB for DatabaseWithMetrics {
 
         self.db.write_buffered(transaction)
     }
-    fn write(&self, transaction: kvdb01::DBTransaction) -> std::io::Result<()> {
+    fn write(&self, transaction: DBTransaction) -> std::io::Result<()> {
         let mut count = 0;
-        let transaction = convert_tx(transaction);
         for op in &transaction.ops {
             count += match op {
-                kvdb::DBOp::Insert { value, .. } => value.bytes().count(),
+                DBOp::Insert { value, .. } => value.bytes().count(),
                 _ => 0,
             };
         }
@@ -123,20 +97,15 @@ impl kvdb01::KeyValueDB for DatabaseWithMetrics {
         self.db.flush()
     }
 
-    fn iter<'a>(
-        &'a self,
-        col: Option<u32>,
-    ) -> Box<(dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + 'a)> {
-        let col = col.unwrap_or(0);
-        kvdb::KeyValueDB::iter(&*self.db, col)
+    fn iter<'a>(&'a self, col: u32) -> Box<(dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + 'a)> {
+        KeyValueDB::iter(&*self.db, col)
     }
 
     fn iter_from_prefix<'a>(
         &'a self,
-        col: Option<u32>,
+        col: u32,
         prefix: &'a [u8],
     ) -> Box<dyn Iterator<Item = (Box<[u8]>, Box<[u8]>)> + 'a> {
-        let col = col.unwrap_or(0);
         self.db.iter_from_prefix(col, prefix)
     }
 

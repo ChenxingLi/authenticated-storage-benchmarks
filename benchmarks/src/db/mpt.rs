@@ -1,5 +1,5 @@
 use keccak_hasher::KeccakHasher;
-use kvdb01::DBTransaction;
+use kvdb::DBTransaction;
 use parity_journaldb::{Algorithm, JournalDB};
 use patricia_trie_ethereum::RlpCodec;
 use primitive_types::H256;
@@ -22,7 +22,7 @@ pub(crate) fn new(dir: &str) -> MptDB {
     let backend_db = open_database(dir, 1).key_value().clone();
     let backing = Arc::new(DatabaseWithMetrics::new(backend_db));
     // let backing = Arc::new(InMemoryWithMetrics::create(1));
-    let db = parity_journaldb::new(backing.clone(), Algorithm::Archive, Some(0));
+    let db = parity_journaldb::new(backing.clone(), Algorithm::Archive, 0);
 
     MptDB {
         db,
