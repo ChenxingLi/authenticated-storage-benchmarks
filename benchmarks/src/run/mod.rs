@@ -2,14 +2,19 @@ pub mod counter;
 pub mod profiler;
 
 use crate::db::AuthDB;
+use crate::opts::Options;
 use crate::tasks::{Event, TaskTrait};
-use crate::{MAX_EPOCH, PROFILE_EPOCH, SECONDS};
 use std::time::Instant;
 
 pub use counter::{CounterTrait, Reporter};
 pub use profiler::Profiler;
 
-pub fn run_tasks(mut db: Box<dyn AuthDB>, mut tasks: impl TaskTrait, mut reporter: Reporter) {
+pub fn run_tasks(
+    mut db: Box<dyn AuthDB>,
+    mut tasks: impl TaskTrait,
+    mut reporter: Reporter,
+    opts: &Options,
+) {
     println!("Start warming up");
     let time = Instant::now();
     tasks.warmup();
@@ -38,12 +43,14 @@ pub fn run_tasks(mut db: Box<dyn AuthDB>, mut tasks: impl TaskTrait, mut reporte
 
         reporter.notify_epoch(epoch, count);
 
-        if reporter.start_time.elapsed().as_secs() >= SECONDS || epoch + 1 >= MAX_EPOCH {
+        if reporter.start_time.elapsed().as_secs() >= opts.max_time
+            || epoch + 1 >= opts.max_epoch.unwrap_or(usize::MAX)
+        {
             profiler.tick();
             break;
         }
 
-        if (epoch + 1) % PROFILE_EPOCH == 0 {
+        if (epoch + 1) % opts.profile_epoch == 0 {
             profiler.tick();
         }
     }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::SEED;
+use crate::opts::Options;
 use rand::prelude::*;
 
 pub struct ReadThenWrite<R: Rng + SeedableRng> {
@@ -9,11 +9,11 @@ pub struct ReadThenWrite<R: Rng + SeedableRng> {
 }
 
 impl<R: Rng + SeedableRng> ReadThenWrite<R> {
-    pub(crate) fn new(total_keys: usize, batch_size: usize) -> Self {
+    pub(crate) fn new(opts: &Options) -> Self {
         Self {
-            total_keys,
-            batch_size,
-            random: SeedableRng::seed_from_u64(SEED),
+            total_keys: opts.total_keys,
+            batch_size: opts.epoch_size,
+            random: SeedableRng::seed_from_u64(opts.seed),
         }
     }
 }

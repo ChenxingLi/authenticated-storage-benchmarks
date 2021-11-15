@@ -39,6 +39,10 @@ num = "0.4"
 num-derive = "0.3"
 num-traits = "0.2"
 
+structopt = { version = "0.3", default-features = false }
+strum = "0.22.0"
+strum_macros = "0.22.0"
+
 hashbrown = "0.11.2"
 kvdb-memorydb = "0.4.0"
 

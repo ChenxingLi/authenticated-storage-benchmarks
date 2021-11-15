@@ -1,27 +1,37 @@
 use super::Profiler;
-use crate::{REPORT_DIR, REPORT_EPOCH};
+use crate::Options;
+use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::time::Instant;
 
-pub struct Reporter {
+pub struct Reporter<'a> {
     pub start_time: Instant,
     total_count: usize,
-    file: File,
-    settings: String,
+    log_file: Option<File>,
 
-    report_epoch: usize,
+    opts: &'a Options,
     counter: Box<dyn CounterTrait>,
 }
 
-impl Reporter {
-    pub fn new(file: File, settings: String) -> Self {
+impl<'a> Reporter<'a> {
+    pub fn new(opts: &'a Options) -> Self {
+        let log_file = if let Some(ref path) = opts.report_dir {
+            let file = fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path.to_string() + "/timing.log")
+                .unwrap();
+            Some(file)
+        } else {
+            None
+        };
+
         Reporter {
             start_time: Instant::now(),
             total_count: 0,
-            file,
-            settings,
-            report_epoch: REPORT_EPOCH,
+            log_file,
+            opts,
             counter: Box::new(Counter::default()),
         }
     }
@@ -38,7 +48,7 @@ impl Reporter {
     pub fn notify_epoch(&mut self, epoch: usize, count: usize) {
         self.total_count += count;
 
-        if (epoch + 1) % self.report_epoch != 0 {
+        if (epoch + 1) % self.opts.report_epoch != 0 {
             return;
         }
 
@@ -55,17 +65,25 @@ impl Reporter {
         let customized = self.counter.report();
         println!("{} {}", common, customized);
 
-        let _ = writeln!(
-            self.file,
-            "{},{},{:.3?}",
-            self.settings,
-            (epoch + 1) / self.report_epoch,
-            avg_time * 1e6
-        );
+        if let Some(file) = &mut self.log_file {
+            let _ = writeln!(
+                file,
+                "{},{},{:.3?}",
+                self.opts.settings(),
+                (epoch + 1) / self.opts.report_epoch,
+                avg_time * 1e6
+            );
+        }
     }
 
     pub fn collect_profiling(&self, profiler: Profiler) {
-        let profile_prefix = REPORT_DIR.to_string() + "/" + &str::replace(&self.settings, ",", "_");
+        if self.opts.report_dir.is_none() {
+            return;
+        }
+
+        let profile_prefix = self.opts.report_dir.as_ref().unwrap().clone()
+            + "/"
+            + &str::replace(&self.opts.settings(), ",", "_");
         profiler.report_to_file(&profile_prefix)
     }
 }
