@@ -10,6 +10,10 @@ pub struct DBColumn {
 }
 
 impl DBColumn {
+    pub fn from_kvdb(db: Arc<dyn KeyValueDB>, col: u32) -> Self {
+        Self { db, col }
+    }
+
     pub fn get(&self, key: &[u8]) -> Result<Option<DBValue>> {
         self.db.get(self.col, key)
     }

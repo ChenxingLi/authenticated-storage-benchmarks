@@ -10,6 +10,7 @@ mod db;
 mod run;
 mod tasks;
 
+use crate::backend::BackendType;
 use crate::run::run_tasks;
 use std::{env, fs};
 
@@ -35,7 +36,7 @@ fn main() {
     println!("Testing {:?} with {:e} addresses", mode, total_keys);
 
     let tasks = tasks::ReadThenWrite::<rand_pcg::Pcg64>::new(total_keys as usize, BATCH_SIZE);
-    let (db, reporter) = db::new(mode, DIR, REPORT_DIR, settings);
+    let (db, reporter) = db::new(mode, DIR, BackendType, REPORT_DIR, settings);
     run_tasks(db, tasks, reporter);
 
     let _ = std::fs::remove_dir_all(DIR);

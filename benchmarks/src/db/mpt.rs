@@ -3,12 +3,10 @@ use kvdb::DBTransaction;
 use parity_journaldb::{Algorithm, JournalDB};
 use patricia_trie_ethereum::RlpCodec;
 use primitive_types::H256;
-use std::sync::Arc;
 use trie_db::{Trie, TrieMut};
 
-use crate::backend::db_with_mertics::DatabaseWithMetrics;
+use crate::backend::{backend, BackendType};
 use crate::db::AuthDB;
-use amt_db::storage::open_database;
 
 pub type TrieDBMut<'db> = trie_db::TrieDBMut<'db, KeccakHasher, RlpCodec>;
 pub type TrieDB<'db> = trie_db::TrieDB<'db, KeccakHasher, RlpCodec>;
@@ -18,11 +16,9 @@ pub struct MptDB {
     root: H256,
 }
 
-pub(crate) fn new(dir: &str) -> MptDB {
-    let backend_db = open_database(dir, 1).key_value().clone();
-    let backing = Arc::new(DatabaseWithMetrics::new(backend_db));
-    // let backing = Arc::new(InMemoryWithMetrics::create(1));
-    let db = parity_journaldb::new(backing.clone(), Algorithm::Archive, 0);
+pub(crate) fn new(dir: &str, db_type: BackendType) -> MptDB {
+    let backing = backend(dir, 1, db_type);
+    let db = parity_journaldb::new(backing, Algorithm::Archive, 0);
 
     MptDB {
         db,

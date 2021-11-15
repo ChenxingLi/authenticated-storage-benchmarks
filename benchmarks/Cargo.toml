@@ -24,8 +24,8 @@ global = "0.3.0"
 crc64fast = "1.0.0"
 slab = "0.4.4"
 
-parity-journaldb = { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "04c812c"}
-stats =  { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "04c812c"}
+parity-journaldb = { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "b028258"}
+stats =  { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "b028258"}
 parity-util-mem = "0.5.2"
 kvdb = "0.4"
 smallvec = "1.5.1"

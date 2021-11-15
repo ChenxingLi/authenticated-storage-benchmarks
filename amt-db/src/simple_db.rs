@@ -1,7 +1,7 @@
 use crate::amt::{AMTData, AMTProof, AMTree};
 use crate::crypto::{
     export::{Fr, FrInt, G1Projective, G1},
-    AMTParams, Pairing, TypeUInt,
+    AMTParams, Pairing, TypeDepths, TypeUInt,
 };
 use crate::impl_storage_from_canonical;
 use crate::merkle::{MerkleProof, StaticMerkleTree};
@@ -19,7 +19,7 @@ use std::{collections::VecDeque, sync::Arc};
 const COL_VER_TREE: u32 = 0;
 const COL_KEY_NEW: u32 = COL_VER_TREE + 1;
 const COL_MERKLE: u32 = COL_KEY_NEW + 1;
-const NUM_COLS: u32 = COL_MERKLE + 1;
+pub const NUM_COLS: u32 = COL_MERKLE + 1;
 
 pub static INC_KEY_LEVEL_SUM: Global<u64> = Global::INIT;
 pub static INC_KEY_COUNT: Global<u64> = Global::INIT;
@@ -140,24 +140,13 @@ pub struct AssociateProof {
 type Proof = (AssociateProof, VecDeque<LevelProof>);
 
 impl SimpleDb {
-    pub fn new(database: Arc<SystemDB>, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
-        let db_ver_tree = cfx_storage::KvdbRocksdb {
-            kvdb: database.key_value().clone(),
-            col: COL_VER_TREE,
-        }
-        .into();
+    // The KeyValueDB requires 3 columns.
+    pub fn new(backend: Arc<dyn KeyValueDB>, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
+        let db_ver_tree = DBColumn::from_kvdb(backend.clone(), COL_VER_TREE);
         let version_tree = VersionTree::new(db_ver_tree, pp, only_root);
-        let db_key = cfx_storage::KvdbRocksdb {
-            kvdb: database.key_value().clone(),
-            col: COL_KEY_NEW,
-        }
-        .into();
-        let db_merkle = cfx_storage::KvdbRocksdb {
-            kvdb: database.key_value().clone(),
-            col: COL_MERKLE,
-        }
-        .into();
-        let kvdb = database.key_value().clone();
+        let db_key = DBColumn::from_kvdb(backend.clone(), COL_KEY_NEW);
+        let db_merkle = DBColumn::from_kvdb(backend.clone(), COL_MERKLE);
+        let kvdb = backend;
         Self {
             kvdb,
             version_tree,
@@ -245,7 +234,6 @@ impl SimpleDb {
             );
             hashes.push(name_ver_value_hash);
         }
-        // }
 
         // println!("commit merkle tree");
         let merkle_root =
@@ -452,23 +440,27 @@ impl SimpleDb {
     }
 }
 
-pub fn new_simple_db<T: TypeUInt>(
-    dir: &str,
-    only_root: bool,
-) -> (SimpleDb, Arc<AMTParams<Pairing>>) {
-    use crate::storage::open_database;
-    let db = open_database(dir, NUM_COLS);
-    let amt_param = Arc::new(AMTParams::<Pairing>::from_dir("./pp", T::USIZE, true));
-
-    (SimpleDb::new(db, amt_param.clone(), only_root), amt_param)
+pub fn cached_pp() -> Arc<AMTParams<Pairing>> {
+    Arc::new(AMTParams::<Pairing>::from_dir(
+        "./pp",
+        TypeDepths::USIZE,
+        true,
+    ))
 }
 
 #[test]
 fn test_simple_db() {
-    use crate::crypto::TypeDepths;
     use std::collections::HashMap;
 
-    let (mut db, pp) = new_simple_db::<TypeDepths>("./__test_simple_db", false);
+    let backend = crate::storage::open_database("./__test_simple_db", NUM_COLS)
+        .key_value()
+        .clone();
+    let pp = Arc::new(AMTParams::<Pairing>::from_dir(
+        "./pp",
+        TypeDepths::USIZE,
+        true,
+    ));
+    let mut db = SimpleDb::new(backend, pp.clone(), false);
 
     let mut epoch_root_dict = HashMap::new();
 

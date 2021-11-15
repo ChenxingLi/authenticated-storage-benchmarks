@@ -114,8 +114,6 @@ impl KeyValueDB for DatabaseWithMetrics {
     }
 }
 
-impl parity_journaldb::KeyValueDB for DatabaseWithMetrics {}
-
 impl stats::PrometheusMetrics for DatabaseWithMetrics {
     fn prometheus_metrics(&self, p: &mut stats::PrometheusRegistry) {
         p.register_counter(

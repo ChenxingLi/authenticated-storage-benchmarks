@@ -1,13 +1,18 @@
-use crate::{db::AuthDB, run::CounterTrait};
+use crate::{
+    backend::{backend, BackendType},
+    db::AuthDB,
+    run::CounterTrait,
+};
 use amt_db::{
-    crypto::TypeDepths,
-    simple_db::{new_simple_db, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT},
+    simple_db::{cached_pp, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT, NUM_COLS},
     storage::access::PUT_COUNT,
     ver_tree::Key,
 };
 
-pub fn new(dir: &str) -> SimpleDb {
-    new_simple_db::<TypeDepths>(dir, true).0
+pub fn new(dir: &str, db_type: BackendType) -> SimpleDb {
+    let pp = cached_pp();
+    let backend = backend(dir, NUM_COLS, db_type);
+    SimpleDb::new(backend, pp, true)
 }
 
 impl AuthDB for SimpleDb {
