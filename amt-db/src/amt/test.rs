@@ -4,7 +4,7 @@ use crate::crypto::{
     AMTParams, TypeUInt,
 };
 use crate::impl_storage_from_canonical;
-use crate::storage::{FlattenArray, FlattenTree, StorageDecodable, StorageEncodable};
+use crate::storage::{DBColumn, FlattenArray, FlattenTree, StorageDecodable, StorageEncodable};
 use crate::type_uint;
 use std::sync::Arc;
 
@@ -56,7 +56,7 @@ impl AMTData<Fr<Pairing>> for u64 {
 
 #[test]
 fn test_amt() {
-    let db = crate::storage::open_col("./__test_amt", 0).into();
+    let db = crate::storage::test_db_col();
 
     const DEPTHS: usize = TestConfig::DEPTHS;
     const LENGTH: usize = 1 << DEPTHS;
@@ -76,6 +76,4 @@ fn test_amt() {
     *amt.write_versions(0) += &1;
     *amt.write_versions(LENGTH / 2) += &1;
     test_all(&mut amt, &pp, "sibling pair");
-
-    ::std::fs::remove_dir_all("./__test_amt").unwrap();
 }

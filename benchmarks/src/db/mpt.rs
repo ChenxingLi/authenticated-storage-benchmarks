@@ -1,27 +1,29 @@
 use keccak_hasher::KeccakHasher;
-use kvdb::DBTransaction;
+use kvdb::{DBTransaction, KeyValueDB};
 use parity_journaldb::{Algorithm, JournalDB};
 use patricia_trie_ethereum::RlpCodec;
 use primitive_types::H256;
+
+use std::sync::Arc;
 use trie_db::{Trie, TrieMut};
 
-use crate::backend::{backend, BackendType};
 use crate::db::AuthDB;
 
 pub type TrieDBMut<'db> = trie_db::TrieDBMut<'db, KeccakHasher, RlpCodec>;
 pub type TrieDB<'db> = trie_db::TrieDB<'db, KeccakHasher, RlpCodec>;
 
 pub struct MptDB {
+    backing: Arc<dyn KeyValueDB>,
     db: Box<dyn JournalDB>,
     root: H256,
 }
 
-pub(crate) fn new(dir: &str, db_type: BackendType) -> MptDB {
-    let backing = backend(dir, 1, db_type);
-    let db = parity_journaldb::new(backing, Algorithm::Archive, 0);
+pub(crate) fn new(backend: Arc<dyn KeyValueDB>) -> MptDB {
+    let db = parity_journaldb::new(backend.clone(), Algorithm::Archive, 0);
 
     MptDB {
         db,
+        backing: backend,
         root: KECCAK_NULL_RLP,
     }
 }
@@ -51,6 +53,10 @@ impl AuthDB for MptDB {
             .unwrap();
         self.db.backing().write(batch).unwrap();
         self.db.flush();
+    }
+
+    fn backend(&self) -> &dyn KeyValueDB {
+        &*self.backing
     }
 }
 

@@ -1,8 +1,11 @@
-use kvdb::{DBOp, DBTransaction, DBValue, KeyValueDB};
-use kvdb_rocksdb::Database;
-use parity_util_mem::{MallocSizeOf, MallocSizeOfOps};
+#![allow(unused)]
+
 use std::io::Read;
 use std::sync::Arc;
+
+use cfx_kvdb_rocksdb::Database;
+use kvdb::{DBOp, DBTransaction, DBValue, KeyValueDB};
+use parity_util_mem::{MallocSizeOf, MallocSizeOfOps};
 
 // Database with enabled statistics
 pub struct DatabaseWithMetrics {

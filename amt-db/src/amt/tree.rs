@@ -6,9 +6,7 @@ use crate::crypto::{
     AMTParams, TypeUInt,
 };
 use crate::storage::access::PUT_MODE;
-use crate::storage::{
-    DBAccess, DBColumn, KvdbRocksdb, LayoutTrait, StorageDecodable, StorageEncodable,
-};
+use crate::storage::{DBAccess, DBColumn, LayoutTrait, StorageDecodable, StorageEncodable};
 use kvdb::KeyValueDB;
 use std::sync::Arc;
 

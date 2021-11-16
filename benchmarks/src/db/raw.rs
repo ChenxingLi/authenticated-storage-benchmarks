@@ -1,12 +1,10 @@
-use crate::{
-    backend::{backend, BackendType},
-    db::AuthDB,
-};
+use crate::db::AuthDB;
 use kvdb::{DBOp, DBTransaction, KeyValueDB};
+
 use std::sync::Arc;
 
-pub fn new(dir: &str, db_type: BackendType) -> Arc<dyn KeyValueDB> {
-    backend(dir, 1, db_type)
+pub fn new(backend: Arc<dyn KeyValueDB>) -> Arc<dyn KeyValueDB> {
+    backend
 }
 
 impl AuthDB for Arc<dyn KeyValueDB> {
@@ -28,5 +26,9 @@ impl AuthDB for Arc<dyn KeyValueDB> {
 
     fn commit(&mut self, _index: usize) {
         self.flush().unwrap()
+    }
+
+    fn backend(&self) -> &dyn KeyValueDB {
+        &**self
     }
 }

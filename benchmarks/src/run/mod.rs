@@ -4,6 +4,8 @@ pub mod profiler;
 use crate::db::AuthDB;
 use crate::opts::Options;
 use crate::tasks::{Event, TaskTrait};
+use std::any::Any;
+use std::sync::Arc;
 use std::time::Instant;
 
 pub use counter::{CounterTrait, Reporter};
@@ -11,6 +13,7 @@ pub use profiler::Profiler;
 
 pub fn run_tasks(
     mut db: Box<dyn AuthDB>,
+    _backend_any: Arc<dyn Any>,
     mut tasks: impl TaskTrait,
     mut reporter: Reporter,
     opts: &Options,
@@ -41,7 +44,7 @@ pub fn run_tasks(
         }
         db.commit(epoch);
 
-        reporter.notify_epoch(epoch, count);
+        reporter.notify_epoch(epoch, count, &*db);
 
         if reporter.start_time.elapsed().as_secs() >= opts.max_time
             || epoch + 1 >= opts.max_epoch.unwrap_or(usize::MAX)

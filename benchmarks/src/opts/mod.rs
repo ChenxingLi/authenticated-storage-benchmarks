@@ -32,6 +32,9 @@ pub struct Options {
 
     #[structopt(long = "report-to")]
     pub report_dir: Option<String>,
+
+    #[structopt(long = "db", default_value = "./__benchmarks")]
+    pub db_dir: String,
 }
 
 impl Options {

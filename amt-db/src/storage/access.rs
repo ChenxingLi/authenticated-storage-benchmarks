@@ -1,5 +1,4 @@
-use super::{layout::LayoutTrait, KvdbRocksdb, StorageDecodable, StorageEncodable};
-use cfx_storage::storage_db::{KeyValueDbTrait, KeyValueDbTraitRead};
+use super::{layout::LayoutTrait, StorageDecodable, StorageEncodable};
 use std::borrow::Borrow;
 use std::cell::RefCell;
 
@@ -122,7 +121,7 @@ mod test {
         const DEPTHS: usize = TestDepths::USIZE;
         const TMP_RATIO: usize = 719323;
 
-        let db = super::super::open_col("./__backend_tree", 0u32).into();
+        let db = crate::storage::test_db_col();
         let mut tree =
             DBAccess::<NodeIndex, u64, FlattenTree>::new("test".to_string().into_bytes(), db);
 
@@ -147,7 +146,5 @@ mod test {
         }
 
         drop(tree);
-
-        std::fs::remove_dir_all("./__backend_tree").unwrap();
     }
 }

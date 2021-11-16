@@ -8,7 +8,7 @@ use crate::{
         AMTParams,
     },
     impl_storage_from_canonical,
-    storage::{KvdbRocksdb, StorageDecodable, StorageEncodable},
+    storage::{StorageDecodable, StorageEncodable},
 };
 use hashbrown::{HashMap, HashSet};
 use std::collections::VecDeque;

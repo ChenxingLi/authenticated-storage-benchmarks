@@ -5,10 +5,7 @@ use crate::crypto::{
 };
 use crate::impl_storage_from_canonical;
 use crate::merkle::{MerkleProof, StaticMerkleTree};
-use crate::storage::{
-    DBColumn, KeyValueDbTrait, KeyValueDbTraitRead, KvdbRocksdb, Result, StorageDecodable,
-    StorageEncodable, SystemDB,
-};
+use crate::storage::{DBColumn, Result, StorageDecodable, StorageEncodable};
 use crate::ver_tree::{AMTConfig, EpochPosition, Key, Node, TreeName, VerInfo, VersionTree};
 use cfx_types::H256;
 use global::Global;
@@ -26,7 +23,7 @@ pub static INC_KEY_COUNT: Global<u64> = Global::INIT;
 pub static INC_TREE_COUNT: Global<u64> = Global::INIT;
 
 pub struct SimpleDb {
-    kvdb: Arc<dyn KeyValueDB>,
+    pub kvdb: Arc<dyn KeyValueDB>,
 
     version_tree: VersionTree,
     db_key: DBColumn,
@@ -452,9 +449,7 @@ pub fn cached_pp() -> Arc<AMTParams<Pairing>> {
 fn test_simple_db() {
     use std::collections::HashMap;
 
-    let backend = crate::storage::open_database("./__test_simple_db", NUM_COLS)
-        .key_value()
-        .clone();
+    let backend = crate::storage::test_kvdb(NUM_COLS);
     let pp = Arc::new(AMTParams::<Pairing>::from_dir(
         "./pp",
         TypeDepths::USIZE,
@@ -533,6 +528,4 @@ fn test_simple_db() {
             &epoch_root_dict,
         );
     }
-
-    std::fs::remove_dir_all("./__test_simple_db").unwrap();
 }

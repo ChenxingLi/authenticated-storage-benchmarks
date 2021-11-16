@@ -4,7 +4,9 @@ use cfx_storage::{
     state::StateTrait, state_manager::StateManagerTrait, StateIndex, StorageConfiguration,
     StorageManager, StorageState,
 };
+use kvdb::KeyValueDB;
 use primitive_types::H256;
+
 use std::sync::Arc;
 
 pub struct DeltaMpt {
@@ -49,5 +51,9 @@ impl AuthDB for DeltaMpt {
             .get_state_for_next_epoch(state_index)
             .expect("unwrap result")
             .expect("unwrap option")
+    }
+
+    fn backend(&self) -> &dyn KeyValueDB {
+        unimplemented!()
     }
 }

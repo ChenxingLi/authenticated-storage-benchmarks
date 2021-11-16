@@ -1,5 +1,5 @@
 use crate::storage::access::PUT_MODE;
-use crate::storage::{DBAccess, DBColumn, FlattenArray, KvdbRocksdb};
+use crate::storage::{DBAccess, DBColumn, FlattenArray};
 use cfx_types::H256;
 use keccak_hash::{keccak, KECCAK_EMPTY};
 use kvdb::KeyValueDB;
@@ -104,7 +104,7 @@ impl StaticMerkleTree {
 
 #[test]
 fn test_static_merkle_tree() {
-    let db: DBColumn = crate::storage::open_col("./__test_static_merkle_tree", 0).into();
+    let db = crate::storage::test_db_col();
     for epoch in 1u64..=32 {
         let data: Vec<H256> = (0..epoch)
             .map(|x| H256::from_low_u64_be(x + 65536))
@@ -123,5 +123,4 @@ fn test_static_merkle_tree() {
             );
         }
     }
-    ::std::fs::remove_dir_all("./__test_static_merkle_tree").unwrap();
 }

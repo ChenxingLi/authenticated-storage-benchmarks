@@ -1,17 +1,14 @@
-use crate::{
-    backend::{backend, BackendType},
-    db::AuthDB,
-    run::CounterTrait,
-};
+use crate::{db::AuthDB, run::CounterTrait};
 use amt_db::{
-    simple_db::{cached_pp, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT, NUM_COLS},
+    simple_db::{cached_pp, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT},
     storage::access::PUT_COUNT,
     ver_tree::Key,
 };
+use kvdb::KeyValueDB;
+use std::sync::Arc;
 
-pub fn new(dir: &str, db_type: BackendType) -> SimpleDb {
+pub fn new(backend: Arc<dyn KeyValueDB>) -> SimpleDb {
     let pp = cached_pp();
-    let backend = backend(dir, NUM_COLS, db_type);
     SimpleDb::new(backend, pp, true)
 }
 
@@ -26,6 +23,10 @@ impl AuthDB for SimpleDb {
 
     fn commit(&mut self, index: usize) {
         let _ = self.commit(index as u64).unwrap();
+    }
+
+    fn backend(&self) -> &dyn KeyValueDB {
+        &*self.kvdb
     }
 }
 

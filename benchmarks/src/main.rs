@@ -17,7 +17,6 @@ use opts::{Options, TestMode};
 use run::run_tasks;
 
 // const DIR: &'static str = "/mnt/tmpfs/__benchmarks";
-const DIR: &'static str = "./__benchmarks";
 
 fn main() {
     let options: Options = Options::from_args();
@@ -31,10 +30,9 @@ fn main() {
     }
 
     let tasks = tasks::ReadThenWrite::<rand_pcg::Pcg64>::new(&options);
-    let (db, reporter) = db::new(DIR, &options);
-    run_tasks(db, tasks, reporter, &options);
+    let (backend, backend_any) = backend::backend(&options);
+    let (db, reporter) = db::new(backend, &options);
+    run_tasks(db, backend_any, tasks, reporter, &options);
 
-    if let Some(ref dir) = options.report_dir {
-        let _ = fs::remove_dir_all(dir);
-    }
+    let _ = fs::remove_dir_all(options.db_dir);
 }

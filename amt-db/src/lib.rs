@@ -7,6 +7,8 @@ extern crate error_chain;
 extern crate static_assertions;
 
 extern crate base64;
+#[cfg(test)]
+extern crate kvdb_memorydb;
 
 pub mod amt;
 pub mod crypto;

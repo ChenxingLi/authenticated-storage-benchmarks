@@ -1,27 +1,37 @@
-#![allow(unused)]
-
+use crate::opts::{Options, TestMode};
 use kvdb::KeyValueDB;
-use std::path::Path;
+use std::any::Any;
 use std::sync::Arc;
 
-pub mod db_with_mertics;
+#[cfg(feature = "cfx-backend")]
+mod cfx_kvdb_rocksdb;
+
+#[cfg(feature = "cfx-backend")]
+mod db_with_mertics;
+
 mod in_mem_with_metrics;
 
-pub struct BackendType;
+#[cfg(feature = "parity-backend")]
+mod parity_kvdb_rocksdb;
 
-pub fn backend(db_dir: &str, num_cols: u32, db_type: BackendType) -> Arc<dyn KeyValueDB> {
-    db::open_database(
-        db_dir,
-        &db::db_config(
-            Path::new(db_dir),
-            Some(128),
-            db::DatabaseCompactionProfile::default(),
-            num_cols,
-            false,
-        ),
-    )
-    .map_err(|e| format!("Failed to open database {:?}", e))
-    .unwrap()
-    .key_value()
-    .clone()
+pub fn backend(opts: &Options) -> (Arc<dyn KeyValueDB>, Arc<dyn Any>) {
+    let db_dir = opts.db_dir.as_str();
+    let num_cols = match opts.algorithm {
+        TestMode::AMT => amt_db::simple_db::NUM_COLS,
+        _ => 1,
+    };
+    #[cfg(feature = "cfx-backend")]
+    {
+        let db = cfx_kvdb_rocksdb::open(db_dir, num_cols);
+        (db.clone(), db)
+    }
+    // #[cfg(feature = "in-memory-backend")]
+    // {
+    //     let _ = db_dir;
+    //     Arc::new(kvdb_memorydb::create(num_cols))
+    // }
+    #[cfg(feature = "parity-backend")]
+    {
+        parity_kvdb_rocksdb::open(db_dir, num_cols)
+    }
 }

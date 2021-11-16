@@ -1,4 +1,3 @@
-use super::KvdbRocksdb;
 use kvdb::{DBOp, DBTransaction, DBValue, KeyValueDB};
 use std::io::Result;
 use std::sync::Arc;
@@ -25,14 +24,5 @@ impl DBColumn {
             DBOp::Delete { col, .. } => *col = self.col,
         });
         self.db.write_buffered(transaction)
-    }
-}
-
-impl From<KvdbRocksdb> for DBColumn {
-    fn from(db: KvdbRocksdb) -> Self {
-        DBColumn {
-            db: db.kvdb,
-            col: db.col,
-        }
     }
 }

@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 // The original journaldb relies on some metric run in crate `ethcore-db`. But it doesn't rely on the other dependencies.
 
 // Copyright 2015-2020 Parity Technologies (UK) Ltd.
