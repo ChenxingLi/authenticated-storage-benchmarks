@@ -167,6 +167,7 @@ impl VersionTree {
         let tree = &mut tree_with_info.tree;
 
         let dirty = tree.dirty();
+        // let commitment = tree.flush();
         let commitment = if name.0.len() > 0 {
             tree.flush()
         } else {

@@ -35,6 +35,9 @@ pub struct Options {
 
     #[structopt(long = "db", default_value = "./__benchmarks")]
     pub db_dir: String,
+
+    #[structopt(long)]
+    pub no_stat: bool,
 }
 
 impl Options {

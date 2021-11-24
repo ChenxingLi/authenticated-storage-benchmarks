@@ -34,7 +34,7 @@ use fs_swap::{swap, swap_nonatomic};
 use kvdb::{DBKey, DBOp, DBTransaction, DBValue, IoStats, KeyValueDB};
 use log::{debug, warn};
 
-use crate::stats::RocksDbStatsValue;
+use crate::stats::{MyStat, RocksDbStatsValue};
 use malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 use malloc_size_of_derive::MallocSizeOf as MallocSizeOfDerive;
 use parity_util_mem::{
@@ -48,6 +48,7 @@ use std::fs::File;
 use std::path::PathBuf;
 #[cfg(target_os = "linux")]
 use std::process::Command;
+use std::time::Instant;
 
 type DBError = String;
 type KeyValuePair = (Box<[u8]>, Box<[u8]>);
@@ -180,6 +181,8 @@ pub struct DatabaseConfig {
     pub columns: u32,
     /// Disable WAL if set to `true`
     pub disable_wal: bool,
+    /// Enable statistics,
+    pub enable_statistics: bool,
 }
 
 impl DatabaseConfig {
@@ -212,6 +215,7 @@ impl Default for DatabaseConfig {
             compaction: CompactionProfile::default(),
             columns: 1,
             disable_wal: false,
+            enable_statistics: true,
         }
     }
 }
@@ -302,6 +306,7 @@ pub struct Database {
     // Prevents concurrent flushes.
     // Value indicates if a flush is in progress.
     flushing_lock: Mutex<bool>,
+    my_stat: RwLock<MyStat>,
     stats: stats::RunningDbStats,
 }
 
@@ -347,7 +352,7 @@ fn generate_options(config: &DatabaseConfig) -> DBOptions {
     opts.set_bytes_per_sync(1 * MB as u64);
     opts.set_keep_log_file_num(1);
     opts.increase_parallelism(cmp::max(1, num_cpus::get() as i32 / 2));
-    opts.enable_statistics(true);
+    opts.enable_statistics(config.enable_statistics);
     opts.create_missing_column_families(true);
 
     opts
@@ -455,6 +460,7 @@ impl Database {
             write_opts,
             block_opts,
             stats: stats::RunningDbStats::new(),
+            my_stat: RwLock::new(MyStat::new(config.enable_statistics)),
         })
     }
 
@@ -776,7 +782,12 @@ impl Database {
 // existing cases at time of addition.
 impl KeyValueDB for Database {
     fn get(&self, col: u32, key: &[u8]) -> io::Result<Option<DBValue>> {
-        Database::get(self, col, key)
+        let time = Instant::now();
+        let value = Database::get(self, col, key)?;
+        self.my_stat
+            .write()
+            .record_read(key.to_vec(), &value, time.elapsed());
+        Ok(value)
     }
 
     fn get_by_prefix(&self, _col: u32, _prefix: &[u8]) -> Option<Box<[u8]>> {
@@ -784,11 +795,20 @@ impl KeyValueDB for Database {
     }
 
     fn write_buffered(&self, transaction: DBTransaction) {
-        Database::write_buffered(self, transaction)
+        let time = Instant::now();
+        Database::write_buffered(self, transaction.clone());
+        self.my_stat
+            .write()
+            .record_write(&transaction, time.elapsed());
     }
 
     fn write(&self, transaction: DBTransaction) -> io::Result<()> {
-        Database::write(self, transaction)
+        let time = Instant::now();
+        Database::write(self, transaction.clone())?;
+        self.my_stat
+            .write()
+            .record_write(&transaction, time.elapsed());
+        Ok(())
     }
 
     fn flush(&self) -> io::Result<()> {
@@ -812,6 +832,7 @@ impl KeyValueDB for Database {
     }
 
     fn io_stats(&self, kind: kvdb::IoStatsKind) -> IoStats {
+        self.my_stat.write().report();
         Database::io_stats(self, kind)
     }
 }

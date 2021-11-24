@@ -6,12 +6,13 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use super::{DBOp, DBTransaction, DBValue, MallocSizeOfDerive};
 use malloc_size_of::MallocSizeOfOps;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 #[derive(Default, Clone, Copy)]
 pub struct RawDbStats {
@@ -220,5 +221,123 @@ impl RunningDbStats {
 impl super::MallocSizeOf for RunningDbStats {
     fn size_of(&self, _ops: &mut MallocSizeOfOps) -> usize {
         0
+    }
+}
+
+#[derive(Default, MallocSizeOfDerive)]
+pub struct MyStat {
+    ops: u64,
+    enabled: bool,
+    last_seen: HashMap<Vec<u8>, u64>,
+    read_size: Vec<u64>,
+    read_time: Vec<u64>,
+    unread_time: Vec<u64>,
+    write_time: Vec<u64>,
+    write_size: Vec<u64>,
+    seen_stat: Vec<u64>,
+}
+
+impl MyStat {
+    pub fn new(enabled: bool) -> Self {
+        Self {
+            enabled,
+            ..Default::default()
+        }
+    }
+
+    pub fn record_read(&mut self, key: Vec<u8>, value: &Option<DBValue>, time: Duration) {
+        if !self.enabled {
+            return;
+        }
+        self.ops += 1;
+        let since_last_seen = self
+            .last_seen
+            .insert(key.clone(), self.ops)
+            .map_or(u64::MAX, |x| self.ops - x);
+        // println!(
+        //     "Read {:?}, last seen {}",
+        //     &key,
+        //     self.epoch - since_last_seen
+        // );
+        self.seen_stat.push(since_last_seen);
+        if value.is_none() {
+            self.unread_time.push(time.as_nanos() as u64);
+        } else {
+            self.read_time.push(time.as_nanos() as u64);
+            self.read_size.push(value.as_ref().unwrap().len() as u64);
+        }
+    }
+
+    pub fn record_write(&mut self, tx: &DBTransaction, time: Duration) {
+        if !self.enabled {
+            return;
+        }
+        let DBTransaction { ops } = tx;
+        let avg_op = (time.as_nanos() as usize / ops.len()) as u64;
+        self.write_time.extend_from_slice(&vec![avg_op; ops.len()]);
+        for t in ops.iter() {
+            self.ops += 1;
+
+            let key = t.key().to_vec();
+            // println!("Write {:?}", &key);
+            self.last_seen.insert(key, self.ops);
+            match t {
+                DBOp::Insert { value, .. } => self.write_size.push(value.len() as u64),
+                DBOp::Delete { .. } => self.write_size.push(0),
+            }
+        }
+    }
+
+    fn report_vec(vec: &mut Vec<u64>, name: &str) {
+        if vec.len() == 0 {
+            return;
+        }
+        const TICKS: usize = 10;
+        let mut indexes: Vec<usize> = (1..TICKS).map(|x| x * 100 / TICKS).collect();
+        indexes.extend_from_slice(&[95, 98, 99]);
+        vec.sort_unstable();
+        let times: String = indexes
+            .iter()
+            .map(|idx| {
+                let index = (vec.len() - 1) * idx / 100;
+                format!("{:>5}: {:>5}", idx, prettier(vec[index]))
+            })
+            .collect();
+        let mut avg = (vec.iter().sum::<u64>() as f64 / vec.len() as f64) as u64;
+        if name == "Last seen" {
+            avg = u64::MAX;
+        }
+        println!(
+            "{} > Cnt {:>8}, Avg {:>8}. {}",
+            times,
+            vec.len(),
+            prettier(avg),
+            name
+        );
+        vec.clear();
+    }
+
+    pub fn report(&mut self) {
+        if !self.enabled {
+            return;
+        }
+        Self::report_vec(&mut self.read_size, "Non-empty read size");
+        Self::report_vec(&mut self.read_time, "Non-empty read");
+        Self::report_vec(&mut self.unread_time, "Empty read");
+        Self::report_vec(&mut self.write_time, "Write time");
+        Self::report_vec(&mut self.write_size, "Write size");
+        Self::report_vec(&mut self.seen_stat, "Last seen");
+    }
+}
+
+fn prettier(data: u64) -> String {
+    if data == u64::MAX {
+        "none".to_string()
+    } else if data < 100_000 {
+        format!("{}", data)
+    } else if data < 10_000_000 {
+        format!("{}k", data / 1000)
+    } else {
+        format!("{}m", data / 1000000)
     }
 }

@@ -14,14 +14,17 @@ pub fn new(backend: Arc<dyn KeyValueDB>) -> SimpleDb {
 
 impl AuthDB for SimpleDb {
     fn get(&self, key: Vec<u8>) -> Option<Box<[u8]>> {
+        // println!("read");
         self.get(&Key(key)).unwrap()
     }
 
     fn set(&mut self, key: Vec<u8>, value: Vec<u8>) {
+        // println!("write");
         self.set(&Key(key), value.into_boxed_slice())
     }
 
     fn commit(&mut self, index: usize) {
+        // println!("commit");
         let _ = self.commit(index as u64).unwrap();
     }
 

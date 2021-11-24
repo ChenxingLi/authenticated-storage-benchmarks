@@ -46,8 +46,8 @@ impl<'a> Reporter<'a> {
         }
     }
 
-    pub fn set_counter<T: 'static + CounterTrait + Default>(&mut self) {
-        self.counter = Box::new(T::default());
+    pub fn set_counter(&mut self, counter: Box<dyn CounterTrait>) {
+        self.counter = counter;
     }
 
     pub fn start(&mut self) {
@@ -75,9 +75,9 @@ impl<'a> Reporter<'a> {
         let avg_time = last.as_secs_f64() / count as f64;
 
         let common = format!(
-            "Time {:.3?} epoch {:?} > {} ops, {:.3?} us/op >",
-            self.start_time.elapsed(),
+            "{:>6?}: {:>7.3?} s > {:>7} ops, {:>7.3?} us/op >",
             epoch + 1,
+            self.start_time.elapsed().as_secs_f64(),
             c((1f64 / avg_time) as u64),
             avg_time * 1e6
         );
@@ -94,7 +94,8 @@ impl<'a> Reporter<'a> {
                 c(stats.writes),
                 bytes_per_read,
                 bytes_per_write,
-            )
+            );
+            "".to_string()
         };
         let customized = self.counter.report();
         println!("{} {} {}", common, db_stat, customized);

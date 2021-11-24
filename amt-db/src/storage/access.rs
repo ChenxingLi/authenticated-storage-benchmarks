@@ -78,7 +78,8 @@ impl<
             .cache
             .iter_mut()
             .filter(|(_k, (_v, dirty))| *dirty)
-            .map(|(key, (value, _))| {
+            .map(|(key, (value, dirty))| {
+                *dirty = false;
                 let db_key = Self::compute_key(&prefix, key);
                 DBOp::Insert {
                     col: 0,

@@ -22,7 +22,7 @@ pub fn backend(opts: &Options) -> (Arc<dyn KeyValueDB>, Arc<dyn Any>) {
     };
     #[cfg(feature = "cfx-backend")]
     {
-        let db = cfx_kvdb_rocksdb::open(db_dir, num_cols);
+        let db = cfx_kvdb_rocksdb::open(db_dir, num_cols, opts);
         (db.clone(), db)
     }
     // #[cfg(feature = "in-memory-backend")]

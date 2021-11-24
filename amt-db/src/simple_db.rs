@@ -9,8 +9,11 @@ use crate::storage::{DBColumn, Result, StorageDecodable, StorageEncodable};
 use crate::ver_tree::{AMTConfig, EpochPosition, Key, Node, TreeName, VerInfo, VersionTree};
 use cfx_types::H256;
 use global::Global;
+use hashbrown::hash_map::Entry;
+use hashbrown::HashMap;
 use keccak_hash::keccak;
 use kvdb::{DBOp, DBTransaction, KeyValueDB};
+use std::sync::RwLock;
 use std::{collections::VecDeque, sync::Arc};
 
 const COL_VER_TREE: u32 = 0;
@@ -29,6 +32,7 @@ pub struct SimpleDb {
     db_key: DBColumn,
     db_merkle: DBColumn,
 
+    cache: RwLock<HashMap<Key, (Option<Value>, bool)>>,
     uncommitted_key_values: Vec<(Key, Box<[u8]>)>,
     dirty_guard: bool,
     only_root: bool,
@@ -149,6 +153,7 @@ impl SimpleDb {
             version_tree,
             db_key,
             db_merkle,
+            cache: Default::default(),
             uncommitted_key_values: Vec::new(),
             dirty_guard: false,
             only_root,
@@ -161,16 +166,27 @@ impl SimpleDb {
         //     "Can not read db if set operations have not been committed."
         // );
 
-        let version: Option<Value> = match self.db_key.get(key.as_ref())? {
-            None => None,
-            Some(value) => Some(Value::storage_decode(&value)?),
+        let mut write_guard = self.cache.write().unwrap();
+        let entry = write_guard.entry(key.clone());
+
+        let maybe_value = match entry {
+            Entry::Occupied(entry) => entry.get().0.clone(),
+            Entry::Vacant(entry) => {
+                let value = self
+                    .db_key
+                    .get(key.as_ref())?
+                    .map(|x| Value::storage_decode(&x).unwrap());
+                entry.insert((value.clone(), false));
+                value
+            }
         };
 
-        Ok(version.map(|x| x.value.into_boxed_slice()))
+        Ok(maybe_value.map(|x| x.value.into_boxed_slice()))
     }
 
     pub fn set(&mut self, key: &Key, value: Box<[u8]>) {
         // self.dirty_guard = true;
+        // FIXME: write to cache.
         self.uncommitted_key_values.push((key.clone(), value))
     }
 
@@ -180,9 +196,12 @@ impl SimpleDb {
         let mut write_ops = Vec::with_capacity(kv_num);
 
         for (position, (key, value)) in self.uncommitted_key_values.drain(..).enumerate() {
-            let version: Option<VerInfo> = match self.db_key.get(key.as_ref())? {
-                None => None,
-                Some(value) => Some(Value::storage_decode(&value)?.version),
+            let version: Option<VerInfo> = match self.cache.read().unwrap().get(&key).as_ref() {
+                Some(&(value, _)) => value.clone().map(|x| x.version),
+                None => match self.db_key.get(key.as_ref())? {
+                    None => None,
+                    Some(value) => Some(Value::storage_decode(&value)?.version),
+                },
             };
 
             let version = self.version_tree.inc_key_ver(&key, version);
@@ -238,6 +257,8 @@ impl SimpleDb {
 
         self.dirty_guard = false;
         self.kvdb.flush()?;
+
+        self.cache.write().unwrap().clear();
 
         Ok((amt_root, merkle_root))
     }

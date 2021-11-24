@@ -25,6 +25,8 @@ fn main() {
         options.algorithm, options.total_keys
     );
 
+    fs::create_dir_all(&options.db_dir).unwrap();
+
     if let Some(ref dir) = options.report_dir {
         fs::create_dir_all(dir).unwrap()
     }

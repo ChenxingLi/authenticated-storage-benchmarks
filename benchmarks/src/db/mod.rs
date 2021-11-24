@@ -8,7 +8,9 @@ use amt::AMTCounter;
 use kvdb::KeyValueDB;
 use std::sync::Arc;
 
-use crate::run::counter::Reporter;
+use crate::db::mpt::MptCounter;
+use crate::run::counter::{Counter, Reporter};
+use crate::run::CounterTrait;
 use crate::{Options, TestMode};
 
 pub trait AuthDB {
@@ -32,16 +34,19 @@ fn open_dmpt(dir: &str) -> Box<dyn AuthDB> {
 }
 
 pub fn new<'a>(backend: Arc<dyn KeyValueDB>, opts: &'a Options) -> (Box<dyn AuthDB>, Reporter<'a>) {
-    let db: Box<dyn AuthDB> = match opts.algorithm {
-        TestMode::RAW => Box::new(raw::new(backend)),
-        TestMode::AMT => Box::new(amt::new(backend)),
-        TestMode::MPT => Box::new(mpt::new(backend)),
-        TestMode::DMPT => open_dmpt(&opts.db_dir),
+    let (db, counter): (Box<dyn AuthDB>, Box<dyn CounterTrait>) = match opts.algorithm {
+        TestMode::RAW => (Box::new(raw::new(backend)), Box::new(Counter::default())),
+        TestMode::AMT => (Box::new(amt::new(backend)), Box::new(AMTCounter::default())),
+        TestMode::MPT => {
+            let mpt_db = mpt::new(backend);
+            let counter = MptCounter::from_mpt_db(&mpt_db);
+            (Box::new(mpt_db), Box::new(counter))
+        }
+        TestMode::DMPT => (open_dmpt(&opts.db_dir), Box::new(Counter::default())),
     };
 
     let mut reporter = Reporter::new(opts);
-    if matches!(opts.algorithm, TestMode::AMT) {
-        reporter.set_counter::<AMTCounter>();
-    }
+    reporter.set_counter(counter);
+
     return (db, reporter);
 }
