@@ -12,22 +12,25 @@ amt-db = { path = "../amt-db", features = ["large_amt"] }
 cfx-primitives = { package ="primitives", git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765", features = ["test_no_account_length_check"]}
 cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
 
+kvdb = "0.4"
+kvdb07 = {package="kvdb",version="0.7"}
+
 # Uncomment the following lines in feature cfx-backend, requires rocksdb v0.3.0
 cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
 #cfx-kvdb-rocksdb = { package="kvdb-rocksdb", git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
-cfx-kvdb-rocksdb = { path="../cfx-kvdb-rocksdb"}
-
+cfx-kvdb-rocksdb = { path="./cfx-kvdb-rocksdb"}
 
 ## Uncomment the following lines in feature parity-backend, requires rocksdb v0.15.0
 #kvdb-rocksdb = "0.9.1"
 
 kvdb-memorydb = "0.4.0"
-kvdb = "0.4"
-kvdb07 = {package="kvdb",version="0.7"}
-trie-db = "0.11.0"
+
 hash-db = "0.11.0"
-parity-journaldb = { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "b028258"}
-stats =  { git = "https://github.com/ChenxingLi/parity-journaldb.git", rev= "b028258"}
+parity-journaldb = {path="./parity-journaldb"}
+stats =  {path="./parity-journaldb/stats"}
+trie-db = "0.11.0"
+
+parity-scale-codec="1.3.5"
 
 primitive-types = "0.7.3"
 parity-util-mem = "0.5.2"
@@ -58,6 +61,8 @@ strum_macros = "0.22.0"
 pprof = { version = "0.3", features = ["flamegraph", "protobuf"] }
 
 hashbrown = "0.11.2"
+
+fs_extra = "1.2.0"
 
 [features]
 default=["cfx-backend"]

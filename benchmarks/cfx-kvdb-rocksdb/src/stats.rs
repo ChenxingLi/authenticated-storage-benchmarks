@@ -254,11 +254,6 @@ impl MyStat {
             .last_seen
             .insert(key.clone(), self.ops)
             .map_or(u64::MAX, |x| self.ops - x);
-        // println!(
-        //     "Read {:?}, last seen {}",
-        //     &key,
-        //     self.epoch - since_last_seen
-        // );
         self.seen_stat.push(since_last_seen);
         if value.is_none() {
             self.unread_time.push(time.as_nanos() as u64);
@@ -273,6 +268,9 @@ impl MyStat {
             return;
         }
         let DBTransaction { ops } = tx;
+        if ops.len() == 0 {
+            return;
+        }
         let avg_op = (time.as_nanos() as usize / ops.len()) as u64;
         self.write_time.extend_from_slice(&vec![avg_op; ops.len()]);
         for t in ops.iter() {
@@ -303,10 +301,11 @@ impl MyStat {
                 format!("{:>5}: {:>5}", idx, prettier(vec[index]))
             })
             .collect();
-        let mut avg = (vec.iter().sum::<u64>() as f64 / vec.len() as f64) as u64;
-        if name == "Last seen" {
-            avg = u64::MAX;
-        }
+        let avg = if name == "Last seen" {
+            u64::MAX
+        } else {
+            (vec.iter().sum::<u64>() as f64 / vec.len() as f64) as u64
+        };
         println!(
             "{} > Cnt {:>8}, Avg {:>8}. {}",
             times,

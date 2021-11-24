@@ -5,8 +5,11 @@ pub use read_then_write::ReadThenWrite;
 type Key = Vec<u8>;
 type Value = Vec<u8>;
 
-pub trait TaskTrait: Iterator<Item = Events> {
-    fn warmup(&mut self);
+pub trait TaskTrait {
+    fn warmup<'a>(&'a self) -> Box<dyn Iterator<Item = Events> + 'a> {
+        Box::new(NoopIter)
+    }
+    fn tasks<'a>(&'a self) -> Box<dyn Iterator<Item = Events> + 'a>;
 }
 
 pub enum Event {
@@ -21,4 +24,14 @@ fn hash(input: &[u8]) -> [u8; 32] {
     hasher.write(input);
     let checksum = hasher.sum64();
     unsafe { std::mem::transmute::<[u64; 4], [u8; 32]>([checksum; 4]) }
+}
+
+pub struct NoopIter;
+
+impl Iterator for NoopIter {
+    type Item = Events;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        None
+    }
 }

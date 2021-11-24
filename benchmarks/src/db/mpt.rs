@@ -1,16 +1,19 @@
-use keccak_hasher::KeccakHasher;
-use kvdb::{DBTransaction, KeyValueDB};
-use parity_journaldb::{Algorithm, JournalDB};
-use patricia_trie_ethereum::RlpCodec;
-use primitive_types::H256;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use hash_db::Hasher;
-use std::sync::Arc;
+use keccak_hasher::KeccakHasher;
+use kvdb::{DBKey, DBOp, DBTransaction, KeyValueDB};
+use patricia_trie_ethereum::RlpCodec;
+use primitive_types::H256;
 use trie_db::{Trie, TrieMut};
 
+use parity_journaldb::{Algorithm, JournalDB};
+use parity_scale_codec::KeyedVec;
+
 use crate::db::AuthDB;
+use crate::opts::Options;
 use crate::run::CounterTrait;
 
 pub type TrieDBMut<'db> = trie_db::TrieDBMut<'db, KeccakHasher, RlpCodec>;
@@ -20,20 +23,34 @@ pub struct MptDB {
     backing: Arc<dyn KeyValueDB>,
     db: Arc<RefCell<Box<dyn JournalDB>>>,
     root: H256,
+    epoch: usize,
+    print_root_period: Option<usize>,
 }
 
 fn epoch_hash(epoch: usize) -> H256 {
     KeccakHasher::hash(&epoch.to_le_bytes())
 }
 
-pub(crate) fn new(backend: Arc<dyn KeyValueDB>) -> MptDB {
+pub(crate) fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> MptDB {
     let db = parity_journaldb::new(backend.clone(), Algorithm::OverlayRecent, 0);
     let db = Arc::new(RefCell::new(db));
+    let print_root_period = if opts.print_root {
+        Some(opts.report_epoch)
+    } else {
+        None
+    };
+    let root = if let Some(value) = backend.get([0u8; 256].to_vec()) {
+        H256::from_slice(&value)
+    } else {
+        KECCAK_NULL_RLP
+    };
 
     MptDB {
         db,
         backing: backend,
-        root: KECCAK_NULL_RLP,
+        root,
+        epoch: 0,
+        print_root_period,
     }
 }
 
@@ -60,6 +77,8 @@ impl AuthDB for MptDB {
 
     // This logic is in function `commit` in `ethcore/src/state/run` of OpenEthereum
     fn commit(&mut self, index: usize) {
+        self.epoch = index;
+
         let mut batch = DBTransaction::new();
         let mut db = self.db.borrow_mut();
 
@@ -70,6 +89,29 @@ impl AuthDB for MptDB {
             db.mark_canonical(&mut batch, old_index as u64, &epoch_hash(old_index))
                 .unwrap();
         }
+        db.backing().write(batch).unwrap();
+        db.flush();
+
+        if let Some(period) = self.print_root_period {
+            if index % period == 0 {
+                println!("Root {:?}", self.root);
+            }
+        }
+    }
+
+    fn flush_all(&mut self) {
+        let mut batch = DBTransaction::new();
+        let mut db = self.db.borrow_mut();
+        for i in (0..JOURNAL_EPOCH).into_iter().rev() {
+            let index = self.epoch - i;
+            db.mark_canonical(&mut batch, index as u64, &epoch_hash(index))
+                .unwrap();
+        }
+        batch.ops.push(DBOp::Insert {
+            col: 0,
+            key: DBKey::from_slice(&[0u8; 256]),
+            value: self.root.to_keyed_vec(&[]),
+        });
         db.backing().write(batch).unwrap();
         db.flush();
     }
@@ -108,4 +150,4 @@ pub const KECCAK_NULL_RLP: H256 = H256([
     0x5b, 0x48, 0xe0, 0x1b, 0x99, 0x6c, 0xad, 0xc0, 0x01, 0x62, 0x2f, 0xb5, 0xe3, 0x63, 0xb4, 0x21,
 ]);
 
-const JOURNAL_EPOCH: usize = 50;
+const JOURNAL_EPOCH: usize = 25;

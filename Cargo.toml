@@ -1,6 +1,6 @@
 [workspace]
 
-members = ["amt-db","amt-bench","ppot2ark","benchmarks", "cfx-kvdb-rocksdb"]
+members = ["amt-db","amt-bench","ppot2ark","benchmarks"]
 default-members = ["benchmarks"]
 
 #[profile.release.package.amt-db]

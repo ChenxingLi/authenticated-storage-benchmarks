@@ -61,7 +61,7 @@ mod metadata {
     }
     impl_storage_from_canonical!(TreeValue);
 
-    #[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
+    #[derive(Default, Clone)]
     pub struct KeyValue {
         pub(crate) key: Vec<u8>,
         pub(crate) version: VerInfo,
@@ -88,7 +88,7 @@ mod metadata {
     }
     // impl_storage_from_canonical!(KeyValue);
 
-    #[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
+    #[derive(Default, Clone)]
     pub struct Value {
         pub(crate) value: Vec<u8>,
         pub(crate) version: VerInfo,
@@ -118,7 +118,6 @@ mod metadata {
             })
         }
     }
-    // impl_storage_from_canonical!(Value);
 }
 use metadata::*;
 
@@ -455,6 +454,11 @@ impl SimpleDb {
         let mut tree = StaticMerkleTree::new(self.db_merkle.clone(), epoch_pos.epoch);
         let merkle_proof = tree.prove(epoch_pos.position);
         Ok((epoch_pos.epoch, merkle_proof))
+    }
+
+    pub fn flush_root(&mut self) {
+        self.version_tree.flush_all();
+        self.kvdb.flush().unwrap();
     }
 }
 

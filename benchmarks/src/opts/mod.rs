@@ -15,8 +15,11 @@ pub struct Options {
     #[structopt(long, default_value = "64")]
     pub seed: u64,
 
-    #[structopt(long, default_value = "150")]
-    pub max_time: u64,
+    #[structopt(long, default_value = "128")]
+    pub cache_size: u64,
+
+    #[structopt(long)]
+    pub max_time: Option<u64>,
 
     #[structopt(long)]
     pub max_epoch: Option<usize>,
@@ -36,13 +39,32 @@ pub struct Options {
     #[structopt(long = "db", default_value = "./__benchmarks")]
     pub db_dir: String,
 
-    #[structopt(long)]
+    #[structopt(long, help = "Disable backend stat")]
     pub no_stat: bool,
+
+    #[structopt(long, help = "Enable print root")]
+    pub print_root: bool,
+
+    #[structopt(long)]
+    pub warmup_to: Option<String>,
+
+    #[structopt(long)]
+    pub warmup_from: Option<String>,
 }
 
 impl Options {
     pub fn settings(&self) -> String {
         format!("{:?},{:e}", self.algorithm, self.total_keys)
+    }
+    pub fn warmup_to(&self) -> Option<String> {
+        self.warmup_to
+            .as_ref()
+            .map(|x| format!("{}/{:?}_{:e}/", x, self.algorithm, self.total_keys))
+    }
+    pub fn warmup_from(&self) -> Option<String> {
+        self.warmup_from
+            .as_ref()
+            .map(|x| format!("{}/{:?}_{:e}/", x, self.algorithm, self.total_keys))
     }
 }
 

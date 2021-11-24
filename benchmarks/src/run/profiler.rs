@@ -10,14 +10,25 @@ pub struct Profiler {
 
 impl Profiler {
     pub fn new(frequency: i32) -> Self {
-        Self {
-            inner: Some(pprof::ProfilerGuard::new(frequency).unwrap()),
-            frequency,
-            reports: Vec::new(),
+        if frequency > 0 {
+            Self {
+                inner: Some(pprof::ProfilerGuard::new(frequency).unwrap()),
+                frequency,
+                reports: Vec::new(),
+            }
+        } else {
+            Self {
+                inner: None,
+                frequency,
+                reports: Vec::new(),
+            }
         }
     }
 
     pub fn tick(&mut self) {
+        if self.frequency <= 0 {
+            return;
+        }
         let profiler = std::mem::take(&mut self.inner).unwrap();
         let report = profiler.report().build().unwrap();
         self.reports.push(report);
@@ -26,6 +37,9 @@ impl Profiler {
     }
 
     pub fn report_to_file(self, prefix: &str) {
+        if self.frequency <= 0 {
+            return;
+        }
         print!("Writing profiles... ");
 
         for (index, report) in self.reports.into_iter().enumerate() {

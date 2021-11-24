@@ -3,6 +3,7 @@
 /amt-db/pp
 /pp
 /results
+/warmup
 flamegraph.svg
 *.pdf
 *.log

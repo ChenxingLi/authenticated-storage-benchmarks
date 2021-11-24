@@ -1,4 +1,6 @@
+use crate::opts::Options;
 use crate::{db::AuthDB, run::CounterTrait};
+use amt_db::crypto::export::ProjectiveCurve;
 use amt_db::{
     simple_db::{cached_pp, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT},
     storage::access::PUT_COUNT,
@@ -7,29 +9,51 @@ use amt_db::{
 use kvdb::KeyValueDB;
 use std::sync::Arc;
 
-pub fn new(backend: Arc<dyn KeyValueDB>) -> SimpleDb {
-    let pp = cached_pp();
-    SimpleDb::new(backend, pp, true)
+pub struct AMTDB {
+    amt: SimpleDb,
+    print_root_period: Option<usize>,
 }
 
-impl AuthDB for SimpleDb {
+pub fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> AMTDB {
+    let pp = cached_pp();
+    AMTDB {
+        amt: SimpleDb::new(backend, pp, true),
+        print_root_period: if opts.print_root {
+            Some(opts.report_epoch)
+        } else {
+            None
+        },
+    }
+}
+
+impl AuthDB for AMTDB {
     fn get(&self, key: Vec<u8>) -> Option<Box<[u8]>> {
         // println!("read");
-        self.get(&Key(key)).unwrap()
+        self.amt.get(&Key(key)).unwrap()
     }
 
     fn set(&mut self, key: Vec<u8>, value: Vec<u8>) {
         // println!("write");
-        self.set(&Key(key), value.into_boxed_slice())
+        self.amt.set(&Key(key), value.into_boxed_slice())
     }
 
     fn commit(&mut self, index: usize) {
         // println!("commit");
-        let _ = self.commit(index as u64).unwrap();
+        let (commit, root) = self.amt.commit(index as u64).unwrap();
+        if let Some(period) = self.print_root_period {
+            if index % period == 0 {
+                let aff_comm = commit.into_affine();
+                println!("Commitment {:?}, Merkle {:?}", aff_comm, root);
+            }
+        }
     }
 
     fn backend(&self) -> &dyn KeyValueDB {
-        &*self.kvdb
+        &*self.amt.kvdb
+    }
+
+    fn flush_all(&mut self) {
+        self.amt.flush_root();
     }
 }
 

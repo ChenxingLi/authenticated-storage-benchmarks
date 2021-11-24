@@ -18,6 +18,7 @@ pub trait AuthDB {
     fn set(&mut self, key: Vec<u8>, value: Vec<u8>);
     fn commit(&mut self, index: usize);
 
+    fn flush_all(&mut self) {}
     fn backend(&self) -> &dyn KeyValueDB;
 }
 
@@ -36,9 +37,12 @@ fn open_dmpt(dir: &str) -> Box<dyn AuthDB> {
 pub fn new<'a>(backend: Arc<dyn KeyValueDB>, opts: &'a Options) -> (Box<dyn AuthDB>, Reporter<'a>) {
     let (db, counter): (Box<dyn AuthDB>, Box<dyn CounterTrait>) = match opts.algorithm {
         TestMode::RAW => (Box::new(raw::new(backend)), Box::new(Counter::default())),
-        TestMode::AMT => (Box::new(amt::new(backend)), Box::new(AMTCounter::default())),
+        TestMode::AMT => (
+            Box::new(amt::new(backend, opts)),
+            Box::new(AMTCounter::default()),
+        ),
         TestMode::MPT => {
-            let mpt_db = mpt::new(backend);
+            let mpt_db = mpt::new(backend, opts);
             let counter = MptCounter::from_mpt_db(&mpt_db);
             (Box::new(mpt_db), Box::new(counter))
         }

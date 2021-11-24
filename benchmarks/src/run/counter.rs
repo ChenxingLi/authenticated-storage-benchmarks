@@ -18,6 +18,8 @@ pub struct Reporter<'a> {
     round_start_time: Instant,
     round_start_count: usize,
 
+    empty_reads: usize,
+
     opts: &'a Options,
     counter: Box<dyn CounterTrait>,
 }
@@ -43,6 +45,7 @@ impl<'a> Reporter<'a> {
             log_file,
             opts,
             counter: Box::new(Counter::default()),
+            empty_reads: 0,
         }
     }
 
@@ -54,6 +57,10 @@ impl<'a> Reporter<'a> {
         self.start_time = Instant::now();
         self.round_start_time = Instant::now();
         self.counter.reset();
+    }
+
+    pub fn notify_empty_read(&mut self) {
+        self.empty_reads += 1;
     }
 
     pub fn notify_epoch(&mut self, epoch: usize, count: usize, db: &dyn AuthDB) {
@@ -75,40 +82,51 @@ impl<'a> Reporter<'a> {
         let avg_time = last.as_secs_f64() / count as f64;
 
         let common = format!(
-            "{:>6?}: {:>7.3?} s > {:>7} ops, {:>7.3?} us/op >",
+            "{:>6?}: {:>7.3?} s > {:>7} ops, {:>7.3?} us/op, {:>5} empty reads >",
             epoch + 1,
             self.start_time.elapsed().as_secs_f64(),
             c((1f64 / avg_time) as u64),
-            avg_time * 1e6
+            avg_time * 1e6,
+            self.empty_reads,
         );
-        let db_stat = {
+        // let db_stat = {
+        //     let stats = db.backend().io_stats(IoStatsKind::SincePrevious);
+        //     let bytes_per_read = (stats.bytes_read as f64) / (stats.reads as f64);
+        //     let bytes_per_write = (stats.bytes_written as f64) / (stats.writes as f64);
+        //     let cached_rate = (stats.cache_reads as f64) / (stats.reads as f64);
+        //     format!(
+        //         "{} / {} r ({:.0}% cached) {} w, avg bytes {:.2}, {:.2} >",
+        //         c(stats.reads),
+        //         c(stats.cache_reads),
+        //         cached_rate * 100.0,
+        //         c(stats.writes),
+        //         bytes_per_read,
+        //         bytes_per_write,
+        //     )
+        // };
+        let (stdout, fileout) = {
             let stats = db.backend().io_stats(IoStatsKind::SincePrevious);
-            let bytes_per_read = (stats.bytes_read as f64) / (stats.reads as f64);
-            let bytes_per_write = (stats.bytes_written as f64) / (stats.writes as f64);
-            let cached_rate = (stats.cache_reads as f64) / (stats.reads as f64);
-            format!(
-                "{} / {} r ({:.0}% cached) {} w, avg bytes {:.2}, {:.2} >",
-                c(stats.reads),
-                c(stats.cache_reads),
-                cached_rate * 100.0,
-                c(stats.writes),
-                bytes_per_read,
-                bytes_per_write,
-            );
-            "".to_string()
+            let ra = stats.reads as f64 / ((count / 2) as f64);
+            let wa = stats.writes as f64 / ((count / 2) as f64);
+            (
+                format!("Read amp {:>6.3}, Write amp {:>6.3} > ", ra, wa),
+                format!("{},{}", ra, wa),
+            )
         };
         let customized = self.counter.report();
-        println!("{} {} {}", common, db_stat, customized);
+        println!("{} {} {}", common, stdout, customized);
 
         if let Some(file) = &mut self.log_file {
             let _ = writeln!(
                 file,
-                "{},{},{:.3?}",
+                "{},{},{:.3?},{}",
                 self.opts.settings(),
                 (epoch + 1) / self.opts.report_epoch,
-                avg_time * 1e6
+                avg_time * 1e6,
+                fileout
             );
         }
+        self.empty_reads = 0;
         self.round_start_time = Instant::now();
         self.round_start_count = self.total_count;
     }

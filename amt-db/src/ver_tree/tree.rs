@@ -1,5 +1,5 @@
 use super::{Commitment, Key, Tree, TreeName, MAX_VERSION_NUMBER};
-use crate::crypto::export::{BigInteger, FrInt, G1Aff, ProjectiveCurve, G1};
+use crate::crypto::export::{BigInteger, FrInt, G1Aff, G1Projective, ProjectiveCurve, G1};
 use crate::storage::DBColumn;
 use crate::ver_tree::node::EpochPosition;
 use crate::{
@@ -11,6 +11,7 @@ use crate::{
     storage::{StorageDecodable, StorageEncodable},
 };
 use hashbrown::{HashMap, HashSet};
+use kvdb::{DBKey, DBOp, DBTransaction};
 use std::collections::VecDeque;
 use std::io::{Read, Write};
 use std::sync::Arc;
@@ -32,10 +33,16 @@ impl VersionTree {
     pub fn new(db: DBColumn, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
         let mut forest = Vec::with_capacity(8);
         forest.push(Default::default());
+        let root = db
+            .get(&DBKey::from_vec(vec![1u8, 0, 2, 6]))
+            .unwrap()
+            .map_or(Default::default(), |x| {
+                G1Projective::storage_decode(&x).unwrap()
+            });
         Self {
             forest,
             producer: TreeProducer { db, pp, only_root },
-            root: Default::default(),
+            root,
             fast_mode: only_root,
         }
     }
@@ -199,6 +206,17 @@ impl VersionTree {
         updates.into_affine_in_batch();
 
         return (commitment, updates);
+    }
+
+    pub fn flush_all(&mut self) {
+        let commitment: G1Projective = self.get_tree_mut(&TreeName::root()).flush();
+        self.producer.db.write_buffered(DBTransaction {
+            ops: vec![DBOp::Insert {
+                col: 0,
+                key: DBKey::from_vec(vec![1u8, 0, 2, 6]),
+                value: commitment.storage_encode(),
+            }],
+        })
     }
 }
 
