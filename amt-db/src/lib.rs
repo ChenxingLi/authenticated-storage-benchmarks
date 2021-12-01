@@ -1,6 +1,3 @@
-#![allow(unused_imports)]
-// unused_imports
-// non_camel_case_types
 #[macro_use]
 extern crate error_chain;
 #[macro_use]

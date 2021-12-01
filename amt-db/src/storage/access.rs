@@ -1,6 +1,4 @@
 use super::{layout::LayoutTrait, StorageDecodable, StorageEncodable};
-use std::borrow::Borrow;
-use std::cell::RefCell;
 
 use hashbrown::HashMap;
 use std::marker::PhantomData;
@@ -8,10 +6,9 @@ use std::marker::PhantomData;
 use global::Global;
 use std::fmt::Debug;
 use std::hash::Hash;
-use std::sync::{Arc, RwLock};
 
 use super::DBColumn;
-use kvdb::{DBOp, DBTransaction, KeyValueDB};
+use kvdb::{DBOp, DBTransaction};
 
 pub static PUT_COUNT: Global<[u64; 4]> = Global::INIT;
 pub static PUT_MODE: Global<usize> = Global::INIT;

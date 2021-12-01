@@ -51,7 +51,10 @@ pub fn run_tasks(
         if let Some(ref warmup_dir) = opts.warmup_to() {
             println!("Waiting for post ops");
 
-            sleep(Duration::from_secs_f64(opts.total_keys as f64 / 1e6));
+            sleep(Duration::from_secs_f64(f64::max(
+                1.0,
+                opts.total_keys as f64 / 1e6,
+            )));
 
             let _ = fs::remove_dir_all(warmup_dir);
             fs::create_dir_all(warmup_dir).unwrap();

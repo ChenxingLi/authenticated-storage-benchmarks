@@ -12,10 +12,8 @@ ark-ff = { version="^0.2.0", features = ["std"] }
 ark-poly = { version="^0.2.0", features = ["std"] }
 ark-serialize = { version="^0.2.0",  features = ["std"]  }
 ark-std = { version="^0.2.0" }
-
-ark-bls12-381 = {  version = "^0.2.0", features = ["curve"]}
-ark-bn254 = {  version = "^0.2.0", features = ["curve"]}
-
+ark-bls12-381 = { version = "^0.2.0", features = ["curve"]}
+ark-bn254 = { version = "^0.2.0", features = ["curve"] }
 ppot2ark = { path = "../ppot2ark" }
 
 cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
@@ -29,15 +27,12 @@ base64 = "0.13.0"
 static_assertions = "0.1"
 exitcode = "1.1.2"
 global = "0.3.0"
-slab = "0.4.4"
 integer-encoding = "3.0.2"
 hashbrown = "0.11.2"
 
 kvdb="0.4"
 
 [dev-dependencies]
-#cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
-#db = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
 kvdb-memorydb = "0.4.0"
 
 [features]

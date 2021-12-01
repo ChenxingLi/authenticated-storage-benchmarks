@@ -7,7 +7,6 @@ use crate::crypto::{
 };
 use crate::storage::access::PUT_MODE;
 use crate::storage::{DBAccess, DBColumn, LayoutTrait, StorageDecodable, StorageEncodable};
-use kvdb::KeyValueDB;
 use std::sync::Arc;
 
 pub trait AMTConfigTrait {

@@ -2,8 +2,6 @@ use crate::storage::access::PUT_MODE;
 use crate::storage::{DBAccess, DBColumn, FlattenArray};
 use cfx_types::H256;
 use keccak_hash::{keccak, KECCAK_EMPTY};
-use kvdb::KeyValueDB;
-use std::sync::Arc;
 
 pub struct StaticMerkleTree {
     data: DBAccess<usize, H256, FlattenArray>,

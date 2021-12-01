@@ -4,7 +4,7 @@ use crate::crypto::{
     AMTParams, TypeUInt,
 };
 use crate::impl_storage_from_canonical;
-use crate::storage::{DBColumn, FlattenArray, FlattenTree, StorageDecodable, StorageEncodable};
+use crate::storage::{FlattenArray, FlattenTree, StorageDecodable, StorageEncodable};
 use crate::type_uint;
 use std::sync::Arc;
 

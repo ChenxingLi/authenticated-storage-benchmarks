@@ -142,7 +142,6 @@ dependencies = [
  "log4rs",
  "ppot2ark",
  "rand 0.7.3",
- "slab",
  "static_assertions 0.1.1",
 ]
 
