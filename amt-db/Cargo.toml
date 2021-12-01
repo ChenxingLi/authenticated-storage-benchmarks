@@ -1,6 +1,6 @@
 [package]
 name = "amt-db"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["ChenxingLi <lylcx2007@gmail.com>"]
 edition = "2018"
 
@@ -18,7 +18,6 @@ ppot2ark = { path = "../ppot2ark" }
 
 cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
 keccak-hash = "0.5.1"
-lazy_static = "1.4"
 log = "0.4"
 log4rs = { version = "1.0.0", features = ["background_rotation", "gzip"] }
 rand = "0.7"
@@ -29,6 +28,8 @@ exitcode = "1.1.2"
 global = "0.3.0"
 integer-encoding = "3.0.2"
 hashbrown = "0.11.2"
+
+amt-serde-derive = { path="./amt-serde-derive" }
 
 kvdb="0.4"
 

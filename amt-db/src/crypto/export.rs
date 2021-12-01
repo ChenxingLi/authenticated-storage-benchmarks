@@ -25,13 +25,3 @@ pub type FrInt<PE> = <Fr<PE> as PrimeField>::BigInt;
 pub type Pairing = Bn254;
 pub type G1Projective = ark_bn254::G1Projective;
 pub type G1Affine = ark_bn254::G1Affine;
-// The following is Zexe's path
-
-// pub use algebra::bls12_381;
-// pub use algebra::bls12_381::{Bls12_381, G1Projective};
-// pub use algebra::{
-//     fields::utils::k_adicity, AffineCurve, BigInteger, CanonicalDeserialize, CanonicalSerialize,
-//     ConstantSerializedSize, FftField, Field, FpParameters, FromBytes, One, PairingEngine,
-//     PrimeField, ProjectiveCurve, Read, SerializationError, ToBytes, UniformRand, Write, Zero,
-// };
-// pub use ff_fft::{EvaluationDomain, Radix2EvaluationDomain};

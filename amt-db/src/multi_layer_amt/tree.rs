@@ -1,23 +1,24 @@
-use super::{Commitment, Key, Tree, TreeName, MAX_VERSION_NUMBER};
-use crate::crypto::export::{BigInteger, FrInt, G1Aff, G1Projective, ProjectiveCurve, G1};
-use crate::storage::DBColumn;
-use crate::ver_tree::node::EpochPosition;
-use crate::{
-    crypto::{
-        export::{CanonicalDeserialize, CanonicalSerialize, Pairing, SerializationError, ToBytes},
-        AMTParams,
-    },
-    impl_storage_from_canonical,
-    storage::{StorageDecodable, StorageEncodable},
-};
+use std::collections::VecDeque;
+use std::sync::Arc;
+
 use hashbrown::{HashMap, HashSet};
 use kvdb::{DBKey, DBOp, DBTransaction};
-use std::collections::VecDeque;
-use std::io::{Read, Write};
-use std::sync::Arc;
+
+use amt_serde_derive::{MyFromBytes, MyToBytes};
+
+use crate::crypto::{
+    export::{BigInteger, FrInt, G1Aff, G1Projective, Pairing, ProjectiveCurve, G1},
+    AMTParams,
+};
+use crate::serde::{MyFromBytes, MyToBytes};
+use crate::storage::DBColumn;
+
+use super::{Commitment, EpochPosition, Key, Tree, TreeName, MAX_VERSION_NUMBER};
 
 type NodeIndex = u32;
 type TreesLayer = HashMap<Vec<NodeIndex>, TreeWithInfo>;
+
+const ROOT_KEY: [u8; 2] = [0, 0];
 
 /// The `VersionTree`
 #[derive(Clone)]
@@ -34,10 +35,10 @@ impl VersionTree {
         let mut forest = Vec::with_capacity(8);
         forest.push(Default::default());
         let root = db
-            .get(&DBKey::from_vec(vec![1u8, 0, 2, 6]))
+            .get(&DBKey::from(ROOT_KEY.as_ref()))
             .unwrap()
             .map_or(Default::default(), |x| {
-                G1Projective::storage_decode(&x).unwrap()
+                G1Projective::from_bytes_local(&x).unwrap()
             });
         Self {
             forest,
@@ -213,8 +214,8 @@ impl VersionTree {
         self.producer.db.write_buffered(DBTransaction {
             ops: vec![DBOp::Insert {
                 col: 0,
-                key: DBKey::from_vec(vec![1u8, 0, 2, 6]),
-                value: commitment.storage_encode(),
+                key: DBKey::from(ROOT_KEY.as_ref()),
+                value: commitment.to_bytes_local(),
             }],
         })
     }
@@ -291,23 +292,12 @@ impl TreeProducer {
     }
 }
 
-#[derive(Default, Copy, Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Default, Copy, Clone, Debug, MyFromBytes, MyToBytes)]
 pub struct VerInfo {
     pub version: u64,
     pub level: u8,
     pub slot_index: u8,
 }
-
-impl ToBytes for VerInfo {
-    fn write<W: Write>(&self, mut writer: W) -> ::std::io::Result<()> {
-        self.version.write(&mut writer)?;
-        self.level.write(&mut writer)?;
-        self.slot_index.write(writer)?;
-        Ok(())
-    }
-}
-
-impl_storage_from_canonical!(VerInfo);
 
 #[derive(Clone)]
 struct TreeWithInfo {

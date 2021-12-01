@@ -1,8 +1,7 @@
-use crate::crypto::export::{FromBytes, ProjectiveCurve};
-use crate::{
-    crypto::TypeUInt,
-    storage::{serde::Result, StorageDecodable, StorageEncodable},
-};
+use crate::crypto::export::{AffineCurve, FromBytes, ProjectiveCurve, Read, ToBytes, Write};
+use crate::crypto::TypeUInt;
+use crate::serde::{MyFromBytes, MyToBytes, SerdeType};
+use std::io::Result as IoResult;
 use std::marker::PhantomData;
 
 #[derive(Clone, Copy, Default)]
@@ -11,30 +10,36 @@ pub struct AMTNode<G: ProjectiveCurve> {
     pub proof: G,
 }
 
-impl<G: ProjectiveCurve> StorageEncodable for AMTNode<G> {
-    fn storage_encode(&self) -> Vec<u8> {
-        let mut serialized = Vec::with_capacity(1024);
-        self.commitment
-            .write(&mut serialized)
-            .expect("Write to Vec<u8> should always success");
-        self.proof
-            .write(&mut serialized)
-            .expect("Write to Vec<u8> should always success");
-        serialized.shrink_to_fit();
-        serialized
+impl<G: ProjectiveCurve> MyFromBytes for AMTNode<G> {
+    fn read<R: Read>(mut reader: R, ty: SerdeType) -> IoResult<Self> {
+        if ty.consistent {
+            let g1_aff: <G as ProjectiveCurve>::Affine = FromBytes::read(&mut reader)?;
+            let g2_aff: <G as ProjectiveCurve>::Affine = FromBytes::read(&mut reader)?;
+            Ok(Self {
+                commitment: g1_aff.into_projective(),
+                proof: g2_aff.into_projective(),
+            })
+        } else {
+            Ok(Self {
+                commitment: FromBytes::read(&mut reader)?,
+                proof: FromBytes::read(&mut reader)?,
+            })
+        }
     }
 }
 
-impl<G: ProjectiveCurve> StorageDecodable for AMTNode<G> {
-    fn storage_decode(mut data: &[u8]) -> Result<Self> {
-        Ok(Self {
-            commitment: FromBytes::read(&mut data)?,
-            proof: FromBytes::read(&mut data)?,
-        })
+impl<G: ProjectiveCurve> MyToBytes for AMTNode<G> {
+    fn write<W: Write>(&self, mut writer: W, ty: SerdeType) -> IoResult<()> {
+        if ty.consistent {
+            ToBytes::write(&self.commitment.into_affine(), &mut writer)?;
+            ToBytes::write(&self.proof.into_affine(), &mut writer)?;
+        } else {
+            ToBytes::write(&self.commitment, &mut writer)?;
+            ToBytes::write(&self.proof, &mut writer)?;
+        }
+        Ok(())
     }
 }
-
-// impl_storage_from_canonical!(AMTNode<T> where T: ProjectiveCurve);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct NodeIndex<N: TypeUInt> {

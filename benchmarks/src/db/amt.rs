@@ -2,9 +2,9 @@ use crate::opts::Options;
 use crate::{db::AuthDB, run::CounterTrait};
 use amt_db::crypto::export::ProjectiveCurve;
 use amt_db::{
+    multi_layer_amt::Key,
     simple_db::{cached_pp, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT},
     storage::access::PUT_COUNT,
-    ver_tree::Key,
 };
 use kvdb::KeyValueDB;
 use std::sync::Arc;

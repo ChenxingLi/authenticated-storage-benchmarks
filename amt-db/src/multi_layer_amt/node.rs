@@ -1,10 +1,8 @@
 use crate::amt::AMTData;
 use crate::crypto::export::{
-    CanonicalDeserialize, CanonicalSerialize, FpParameters, Fr as FrGeneric, FrInt as FrIntGeneric,
-    Pairing, PrimeField, Read, SerializationError, Write,
+    FpParameters, Fr as FrGeneric, FrInt as FrIntGeneric, Pairing, PrimeField,
 };
-use crate::impl_storage_from_canonical;
-use crate::storage::{StorageDecodable, StorageEncodable};
+use amt_serde_derive::{MyFromBytes, MyToBytes};
 use std::ops::{Deref, DerefMut};
 
 pub(super) type Fr = FrGeneric<Pairing>;
@@ -19,7 +17,7 @@ fn const_assert() {
     const_assert!(CAPACITY > 40 * 6);
 }
 
-#[derive(Default, Clone, Debug, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(Default, Clone, Debug, MyFromBytes, MyToBytes)]
 pub struct KeyVersions(pub Vec<u64>);
 impl Deref for KeyVersions {
     type Target = Vec<u64>;
@@ -35,47 +33,18 @@ impl DerefMut for KeyVersions {
     }
 }
 
-#[derive(Default, Clone, Copy, Debug, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(Default, Clone, Copy, Debug, MyFromBytes, MyToBytes)]
 pub struct EpochPosition {
     pub(crate) epoch: u64,
     pub(crate) position: u64,
 }
-impl_storage_from_canonical!(EpochPosition);
 
-#[derive(Default, Clone, Debug, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(Default, Clone, Debug, MyFromBytes, MyToBytes)]
 pub struct Node {
     pub(crate) key_versions: KeyVersions,
     pub(crate) tree_version: u64,
     pub(crate) tree_position: EpochPosition,
 }
-
-/*
-impl StorageEncodable for Node {
-    fn storage_encode(&self) -> Vec<u8> {
-        let mut serialized = Vec::with_capacity(self.key_versions.serialized_size() + 200);
-        self.key_versions
-            .serialize_unchecked(&mut serialized)
-            .unwrap();
-        self.tree_version
-            .serialize_unchecked(&mut serialized)
-            .unwrap();
-        self.commitment.write(&mut serialized).unwrap();
-        serialized
-    }
-}
-
-impl StorageDecodable for Node {
-    fn storage_decode(mut data: &[u8]) -> crate::storage::serde::Result<Self> {
-        Ok(Self {
-            key_versions: CanonicalDeserialize::deserialize_unchecked(&mut data)?,
-            tree_version: CanonicalDeserialize::deserialize_unchecked(&mut data)?,
-            commitment: FromBytes::read(&mut data)?,
-        })
-    }
-}
-*/
-
-impl_storage_from_canonical!(Node);
 
 impl AMTData<Fr> for Node {
     #[cfg(target_endian = "little")]

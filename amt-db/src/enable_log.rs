@@ -1,10 +1,11 @@
+#![allow(dead_code)]
+
 use log::LevelFilter;
 use log4rs::{
     append::console::ConsoleAppender,
     config::{Appender, Config as LogConfig, Logger, Root},
 };
 
-#[allow(dead_code)]
 pub fn enable_log(level: LevelFilter) -> Result<(), String> {
     let mut conf_builder = LogConfig::builder().appender(
         Appender::builder().build("stdout", Box::new(ConsoleAppender::builder().build())),
@@ -22,12 +23,10 @@ pub fn enable_log(level: LevelFilter) -> Result<(), String> {
     Ok(())
 }
 
-#[allow(dead_code)]
 pub fn enable_debug_log() {
     enable_log(LevelFilter::Debug).unwrap();
 }
 
-#[allow(dead_code)]
 pub fn enable_info_log() {
     enable_log(LevelFilter::Info).unwrap();
 }

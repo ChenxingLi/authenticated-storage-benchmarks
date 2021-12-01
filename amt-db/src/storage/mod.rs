@@ -1,27 +1,12 @@
 pub mod access;
-pub mod layout;
-#[macro_use]
-pub mod serde;
 pub mod kvdb;
+pub mod layout;
 
 pub use self::access::DBAccess;
 pub use self::kvdb::DBColumn;
 pub use self::layout::{FlattenArray, FlattenTree, LayoutTrait};
-pub use self::serde::{StorageDecodable, StorageEncodable, StoreByBytes};
 #[cfg(test)]
 pub use self::test_tools::{test_db_col, test_kvdb};
-
-use error_chain;
-
-error_chain! {
-    links {
-        SerdeErr(self::serde::Error,self::serde::ErrorKind);
-    }
-
-    foreign_links {
-        IoErr(std::io::Error);
-    }
-}
 
 #[cfg(test)]
 mod test_tools {

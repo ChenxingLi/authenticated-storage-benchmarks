@@ -1,20 +1,25 @@
-use crate::amt::{AMTData, AMTProof, AMTree};
-use crate::crypto::{
-    export::{Fr, FrInt, G1Projective, G1},
-    AMTParams, Pairing, TypeDepths, TypeUInt,
-};
-use crate::impl_storage_from_canonical;
-use crate::merkle::{MerkleProof, StaticMerkleTree};
-use crate::storage::{DBColumn, Result, StorageDecodable, StorageEncodable};
-use crate::ver_tree::{AMTConfig, EpochPosition, Key, Node, TreeName, VerInfo, VersionTree};
+use std::collections::VecDeque;
+use std::io::Result;
+use std::sync::{Arc, RwLock};
+
 use cfx_types::H256;
 use global::Global;
 use hashbrown::hash_map::Entry;
 use hashbrown::HashMap;
 use keccak_hash::keccak;
 use kvdb::{DBOp, DBTransaction, KeyValueDB};
-use std::sync::RwLock;
-use std::{collections::VecDeque, sync::Arc};
+
+use amt_serde_derive::{MyFromBytes, MyToBytes};
+
+use crate::amt::{AMTData, AMTProof, AMTree};
+use crate::crypto::{
+    export::{Fr, FrInt, G1Aff, G1Projective, G1},
+    AMTParams, Pairing, TypeDepths, TypeUInt,
+};
+use crate::merkle::{MerkleProof, StaticMerkleTree};
+use crate::multi_layer_amt::{AMTConfig, EpochPosition, Key, Node, TreeName, VerInfo, VersionTree};
+use crate::serde::{MyFromBytes, MyToBytes};
+use crate::storage::DBColumn;
 
 const COL_VER_TREE: u32 = 0;
 const COL_KEY_NEW: u32 = COL_VER_TREE + 1;
@@ -38,88 +43,26 @@ pub struct SimpleDb {
     only_root: bool,
 }
 
-#[allow(unused)]
-mod metadata {
-    use super::EpochPosition;
-    use super::{impl_storage_from_canonical, TreeName, VerInfo};
-    use crate::crypto::export::G1Aff;
-    use crate::crypto::{
-        export::{
-            CanonicalDeserialize, CanonicalSerialize, FromBytes, SerializationError, ToBytes, G1,
-        },
-        Pairing,
-    };
-    use crate::storage::{StorageDecodable, StorageEncodable};
-    use integer_encoding::VarInt;
-    use std::io::{Read, Write};
-
-    #[derive(Default, Clone, CanonicalDeserialize, CanonicalSerialize)]
-    pub struct TreeValue {
-        pub(crate) key: TreeName,
-        pub(crate) version_number: u64,
-        pub(crate) commitment: G1Aff<Pairing>,
-    }
-    impl_storage_from_canonical!(TreeValue);
-
-    #[derive(Default, Clone)]
-    pub struct KeyValue {
-        pub(crate) key: Vec<u8>,
-        pub(crate) version: VerInfo,
-        pub(crate) value: Vec<u8>,
-    }
-
-    impl StorageEncodable for KeyValue {
-        fn storage_encode(&self) -> Vec<u8> {
-            let mut serialized = Vec::with_capacity(
-                self.key.len() + self.value.len() + self.version.serialized_size() + 16,
-            );
-            serialized
-                .write_all(&self.key.len().encode_var_vec())
-                .unwrap();
-            serialized.write_all(&self.key).unwrap();
-            serialized
-                .write_all(&self.value.len().encode_var_vec())
-                .unwrap();
-            serialized.write_all(&self.value).unwrap();
-
-            self.version.serialize_unchecked(&mut serialized).unwrap();
-            serialized
-        }
-    }
-    // impl_storage_from_canonical!(KeyValue);
-
-    #[derive(Default, Clone)]
-    pub struct Value {
-        pub(crate) value: Vec<u8>,
-        pub(crate) version: VerInfo,
-        pub(crate) position: EpochPosition,
-    }
-    impl StorageEncodable for Value {
-        fn storage_encode(&self) -> Vec<u8> {
-            let mut serialized = Vec::with_capacity(
-                self.value.len() + self.version.serialized_size() + self.position.serialized_size(),
-            );
-            self.version.serialize_unchecked(&mut serialized).unwrap();
-            self.position.serialize_unchecked(&mut serialized).unwrap();
-            serialized.write_all(&self.value);
-
-            serialized
-        }
-    }
-    impl StorageDecodable for Value {
-        fn storage_decode(mut data: &[u8]) -> crate::storage::serde::Result<Self> {
-            let version = VerInfo::deserialize_unchecked(&mut data)?;
-            let position = EpochPosition::deserialize_unchecked(&mut data)?;
-            let value = data.to_vec();
-            Ok(Self {
-                value,
-                version,
-                position,
-            })
-        }
-    }
+#[derive(Default, Clone, MyFromBytes, MyToBytes)]
+pub struct TreeValue {
+    pub(crate) key: TreeName,
+    pub(crate) version_number: u64,
+    pub(crate) commitment: G1Aff<Pairing>,
 }
-use metadata::*;
+
+#[derive(Default, Clone, MyFromBytes, MyToBytes)]
+pub struct KeyValue {
+    pub(crate) key: Vec<u8>,
+    pub(crate) version: VerInfo,
+    pub(crate) value: Vec<u8>,
+}
+
+#[derive(Default, Clone, MyFromBytes, MyToBytes)]
+pub struct Value {
+    pub(crate) value: Vec<u8>,
+    pub(crate) version: VerInfo,
+    pub(crate) position: EpochPosition,
+}
 
 #[derive(Default)]
 pub struct LevelProof {
@@ -174,7 +117,7 @@ impl SimpleDb {
                 let value = self
                     .db_key
                     .get(key.as_ref())?
-                    .map(|x| Value::storage_decode(&x).unwrap());
+                    .map(|x| Value::from_bytes_local(&x).unwrap());
                 entry.insert((value.clone(), false));
                 value
             }
@@ -199,7 +142,7 @@ impl SimpleDb {
                 Some(&(value, _)) => value.clone().map(|x| x.version),
                 None => match self.db_key.get(key.as_ref())? {
                     None => None,
-                    Some(value) => Some(Value::storage_decode(&value)?.version),
+                    Some(value) => Some(Value::from_bytes_local(&value)?.version),
                 },
             };
 
@@ -219,7 +162,7 @@ impl SimpleDb {
             write_ops.push(DBOp::Insert {
                 col: 0,
                 key: key.as_ref().into(),
-                value: value.storage_encode(),
+                value: value.to_bytes_local(),
             });
 
             let key_ver_value_hash = keccak(
@@ -228,7 +171,7 @@ impl SimpleDb {
                     version,
                     value: value.value,
                 }
-                .storage_encode(),
+                .to_bytes_consensus(),
             );
 
             hashes.push(key_ver_value_hash);
@@ -245,7 +188,7 @@ impl SimpleDb {
                     version_number: version,
                     commitment,
                 }
-                .storage_encode(),
+                .to_bytes_consensus(),
             );
             hashes.push(name_ver_value_hash);
         }
@@ -262,14 +205,13 @@ impl SimpleDb {
         Ok((amt_root, merkle_root))
     }
 
-    #[allow(unused_variables, unused_mut)]
     // TODO: for non-existence proof.
     pub fn prove(&mut self, key: &Key) -> Result<Proof> {
         let value = self
             .db_key
             .get(key.as_ref())?
             .expect("We only support existent proof");
-        let value = Value::storage_decode(&value)?;
+        let value = Value::from_bytes_local(&value)?;
         let ver_info = value.version;
 
         let maybe_value = Some(value.value);
@@ -359,7 +301,7 @@ impl SimpleDb {
                     version: ver_info,
                     value: value.to_vec(),
                 }
-                .storage_encode(),
+                .to_bytes_consensus(),
             );
 
             let epoch = bottom_level_proof.merkle_epoch;
@@ -387,7 +329,7 @@ impl SimpleDb {
                     version_number: version,
                     commitment: commitment.into(),
                 }
-                .storage_encode(),
+                .to_bytes_consensus(),
             );
 
             let epoch = level_proof.merkle_epoch;

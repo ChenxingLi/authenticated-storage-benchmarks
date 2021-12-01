@@ -1,14 +1,15 @@
-use super::{layout::LayoutTrait, StorageDecodable, StorageEncodable};
-
-use hashbrown::HashMap;
+use std::fmt::Debug;
+use std::hash::Hash;
 use std::marker::PhantomData;
 
 use global::Global;
-use std::fmt::Debug;
-use std::hash::Hash;
-
-use super::DBColumn;
+use hashbrown::HashMap;
 use kvdb::{DBOp, DBTransaction};
+
+use crate::serde::{MyFromBytes, MyToBytes};
+
+use super::layout::LayoutTrait;
+use super::DBColumn;
 
 pub static PUT_COUNT: Global<[u64; 4]> = Global::INIT;
 pub static PUT_MODE: Global<usize> = Global::INIT;
@@ -16,7 +17,7 @@ pub static PUT_MODE: Global<usize> = Global::INIT;
 #[derive(Clone)]
 pub struct DBAccess<
     K: Copy + Clone + Debug + Eq + Hash,
-    V: Default + Clone + StorageEncodable + StorageDecodable,
+    V: Default + Clone + MyFromBytes + MyToBytes,
     L: LayoutTrait<K>,
 > {
     prefix: Vec<u8>,
@@ -27,7 +28,7 @@ pub struct DBAccess<
 
 impl<
         K: Copy + Clone + Debug + Eq + Hash,
-        V: Default + Clone + StorageEncodable + StorageDecodable,
+        V: Default + Clone + MyFromBytes + MyToBytes,
         L: LayoutTrait<K>,
     > DBAccess<K, V, L>
 {
@@ -58,7 +59,7 @@ impl<
             let db_key = Self::compute_key(&prefix, node_index);
 
             let value = match db.get(&db_key).unwrap() {
-                Some(x) => V::storage_decode(&*x).unwrap(),
+                Some(x) => V::from_bytes_local(&*x).unwrap(),
                 None => V::default(),
             };
             (value, false)
@@ -81,7 +82,7 @@ impl<
                 DBOp::Insert {
                     col: 0,
                     key: db_key.into(),
-                    value: value.storage_encode(),
+                    value: value.to_bytes_local(),
                 }
             })
             .collect();
@@ -103,9 +104,10 @@ impl<
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use crate::crypto::TypeUInt;
     use crate::type_uint;
+
+    use super::*;
 
     type_uint! {
         struct TestDepths(6);

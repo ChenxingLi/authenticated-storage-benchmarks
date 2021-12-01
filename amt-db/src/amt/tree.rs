@@ -5,15 +5,16 @@ use crate::crypto::{
     export::{Fr, FrInt, G1},
     AMTParams, TypeUInt,
 };
+use crate::serde::{MyFromBytes, MyToBytes};
 use crate::storage::access::PUT_MODE;
-use crate::storage::{DBAccess, DBColumn, LayoutTrait, StorageDecodable, StorageEncodable};
+use crate::storage::{DBAccess, DBColumn, LayoutTrait};
 use std::sync::Arc;
 
 pub trait AMTConfigTrait {
     type PE: PairingEngine<G1Projective = Self::Commitment>;
-    type Name: StorageEncodable;
-    type Data: AMTData<Fr<Self::PE>> + Default + Clone + StorageEncodable + StorageDecodable;
-    type Commitment: ProjectiveCurve + StorageEncodable + StorageDecodable;
+    type Name: MyToBytes;
+    type Data: AMTData<Fr<Self::PE>> + Default + Clone + MyToBytes + MyFromBytes;
+    type Commitment: ProjectiveCurve + MyToBytes + MyFromBytes;
 
     type DataLayout: LayoutTrait<usize>;
     type TreeLayout: LayoutTrait<NodeIndex<Self::Height>>;
@@ -50,7 +51,7 @@ pub type AMTProof<G> = Vec<AMTNode<G>>;
 
 impl<C: AMTConfigTrait> AMTree<C> {
     pub fn new(name: C::Name, db: DBColumn, pp: Arc<AMTParams<C::PE>>, only_root: bool) -> Self {
-        let ser_name = name.storage_encode();
+        let ser_name = name.to_bytes_consensus();
         let set_prefix = |prefix: u8| {
             let mut prefix = vec![prefix];
             prefix.extend_from_slice(&ser_name);
@@ -59,9 +60,9 @@ impl<C: AMTConfigTrait> AMTree<C> {
         Self {
             name,
 
-            data: DBAccess::new(set_prefix(0), db.clone()),
-            inner_nodes: DBAccess::new(set_prefix(1), db.clone()),
-            subtree_roots: DBAccess::new(set_prefix(2), db.clone()),
+            data: DBAccess::new(set_prefix(1), db.clone()),
+            inner_nodes: DBAccess::new(set_prefix(2), db.clone()),
+            subtree_roots: DBAccess::new(set_prefix(3), db.clone()),
             db,
 
             commitment: None,

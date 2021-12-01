@@ -1,24 +1,11 @@
-use super::DEPTHS;
-
-use crate::crypto::export::{
-    CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Write,
-};
-use crate::ver_tree::TreeName;
 use std::cmp::min;
 use std::convert::TryFrom;
 
-#[derive(
-    Default,
-    Debug,
-    Hash,
-    PartialEq,
-    Eq,
-    Clone,
-    PartialOrd,
-    Ord,
-    CanonicalDeserialize,
-    CanonicalSerialize,
-)]
+use amt_serde_derive::{MyFromBytes, MyToBytes};
+
+use super::{TreeName, DEPTHS};
+
+#[derive(Default, Debug, Hash, PartialEq, Eq, Clone, PartialOrd, Ord, MyToBytes, MyFromBytes)]
 pub struct Key(pub Vec<u8>);
 
 impl AsRef<[u8]> for Key {

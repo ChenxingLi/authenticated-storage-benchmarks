@@ -1,10 +1,9 @@
 use super::tree::{AMTConfigTrait, AMTData, AMTree};
 use crate::crypto::{
-    export::{CanonicalDeserialize, CanonicalSerialize, Fr, FrInt, Pairing, G1},
+    export::{Fr, FrInt, Pairing, G1},
     AMTParams, TypeUInt,
 };
-use crate::impl_storage_from_canonical;
-use crate::storage::{FlattenArray, FlattenTree, StorageDecodable, StorageEncodable};
+use crate::storage::{FlattenArray, FlattenTree};
 use crate::type_uint;
 use std::sync::Arc;
 
@@ -13,8 +12,6 @@ struct TestConfig {}
 type_uint! {
     struct TestDepths(6);
 }
-
-impl_storage_from_canonical!(u64);
 
 impl AMTConfigTrait for TestConfig {
     type PE = Pairing;

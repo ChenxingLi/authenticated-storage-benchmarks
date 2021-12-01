@@ -11,9 +11,10 @@ pub mod amt;
 pub mod crypto;
 mod enable_log;
 pub mod merkle;
+pub mod multi_layer_amt;
+pub mod serde;
 pub mod simple_db;
 pub mod storage;
-pub mod ver_tree;
 
 #[allow(unused)]
 use enable_log::*;
