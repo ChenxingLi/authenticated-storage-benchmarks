@@ -14,15 +14,15 @@ log = "0.4.8"
 num_cpus = "1.10.1"
 parking_lot = "0.11"
 regex = "1.3.1"
-malloc_size_of = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
-malloc_size_of_derive = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+malloc_size_of = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9"}
+malloc_size_of_derive = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9"}
 
 [dependencies.parity-util-mem]
 version = "0.5"
 default-features = false
 
 [dev-dependencies]
-cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9"}
 tempdir = "0.3.7"
 
 [dependencies.rocksdb]

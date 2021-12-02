@@ -16,7 +16,7 @@ ark-bls12-381 = { version = "^0.2.0", features = ["curve"]}
 ark-bn254 = { version = "^0.2.0", features = ["curve"] }
 ppot2ark = { path = "../ppot2ark" }
 
-cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9"}
 keccak-hash = "0.5.1"
 log = "0.4"
 log4rs = { version = "1.0.0", features = ["background_rotation", "gzip"] }

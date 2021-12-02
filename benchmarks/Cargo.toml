@@ -9,14 +9,14 @@ edition = "2018"
 [dependencies]
 amt-db = { path = "../amt-db", features = ["large_amt"] }
 
-cfx-primitives = { package ="primitives", git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765", features = ["test_no_account_length_check"]}
-cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+cfx-primitives = { package ="primitives", git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9", features = ["test_no_account_length_check"]}
+cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9"}
 
 kvdb = "0.4"
 kvdb07 = {package="kvdb",version="0.7"}
 
 # Uncomment the following lines in feature cfx-backend, requires rocksdb v0.3.0
-cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9"}
 #cfx-kvdb-rocksdb = { package="kvdb-rocksdb", git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
 cfx-kvdb-rocksdb = { path="./cfx-kvdb-rocksdb"}
 
@@ -63,6 +63,8 @@ pprof = { version = "0.3", features = ["flamegraph", "protobuf"] }
 hashbrown = "0.11.2"
 
 fs_extra = "1.2.0"
+
+base64ct = "=1.1"
 
 [features]
 default=["cfx-backend"]
