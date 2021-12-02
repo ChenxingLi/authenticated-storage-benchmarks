@@ -1,6 +1,6 @@
 use crate::storage::access::PUT_MODE;
 use crate::storage::{DBAccess, DBColumn, FlattenArray};
-use cfx_types::H256;
+use ethereum_types::H256;
 use keccak_hash::{keccak, KECCAK_EMPTY};
 
 pub struct StaticMerkleTree {

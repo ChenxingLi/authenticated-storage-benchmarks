@@ -16,14 +16,14 @@ ark-bls12-381 = { version = "^0.2.0", features = ["curve"]}
 ark-bn254 = { version = "^0.2.0", features = ["curve"] }
 ppot2ark = { path = "../ppot2ark" }
 
-cfx-types = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9"}
+ethereum-types = "0.9"
 keccak-hash = "0.5.1"
 log = "0.4"
 log4rs = { version = "1.0.0", features = ["background_rotation", "gzip"] }
 rand = "0.7"
 error-chain = { version = "0.12", default-features = false }
 base64 = "0.13.0"
-static_assertions = "0.1"
+static_assertions = "^1.0"
 exitcode = "1.1.2"
 global = "0.3.0"
 integer-encoding = "3.0.2"

@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::io::Result;
 use std::sync::{Arc, RwLock};
 
-use cfx_types::H256;
+use ethereum_types::H256;
 use global::Global;
 use hashbrown::hash_map::Entry;
 use hashbrown::HashMap;
