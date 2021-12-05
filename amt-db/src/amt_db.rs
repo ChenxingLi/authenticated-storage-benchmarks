@@ -80,7 +80,8 @@ pub struct AssociateProof {
     ver_info: VerInfo,
 }
 
-type Proof = (AssociateProof, VecDeque<LevelProof>);
+pub type Proof = (AssociateProof, VecDeque<LevelProof>);
+pub type AmtRoot = G1Projective;
 
 impl AmtDb {
     // The KeyValueDB requires 3 columns.
