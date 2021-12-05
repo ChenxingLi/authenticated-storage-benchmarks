@@ -10,7 +10,7 @@ use super::utils::amtp_file_name;
 
 pub struct AMTParams<PE: PairingEngine> {
     indents: Vec<G1<PE>>,
-    indents_cache: RefCell<Vec<BTreeMap<usize, G1<PE>>>>,
+    indents_cache: RwLock<Vec<BTreeMap<usize, G1<PE>>>>,
     quotients: Vec<Vec<G1<PE>>>,
     g2pp: Vec<G2<PE>>,
     g2: G2<PE>,
@@ -23,7 +23,8 @@ impl<PE: PairingEngine> AMTParams<PE> {
     }
 
     pub fn get_idents_pow(&self, index: usize, power: &FrInt<PE>) -> G1<PE> {
-        let caches = &mut self.indents_cache.borrow_mut()[index];
+        let indents_cache = &mut *self.indents_cache.write().unwrap();
+        let caches = &mut indents_cache[index];
         let mut answer = G1::<PE>::zero();
         for (dword_idx, n) in power.as_ref().iter().enumerate() {
             let mut limb: u64 = *n;
@@ -70,7 +71,7 @@ impl<PE: PairingEngine> AMTParams<PE> {
             g2pp: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
             g2: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
             w_inv: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
-            indents_cache: RefCell::new(vec![Default::default(); length]),
+            indents_cache: RwLock::new(vec![Default::default(); length]),
         })
     }
 
@@ -129,7 +130,7 @@ impl<PE: PairingEngine> AMTParams<PE> {
             g2pp,
             g2,
             w_inv,
-            indents_cache: RefCell::new(vec![Default::default(); g1pp.len()]),
+            indents_cache: RwLock::new(vec![Default::default(); g1pp.len()]),
         }
     }
 
@@ -201,6 +202,6 @@ fn test_ident_prove() {
 use super::export::Pairing;
 #[cfg(test)]
 use crate::crypto::export::One;
-use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fs::File;
+use std::sync::RwLock;
