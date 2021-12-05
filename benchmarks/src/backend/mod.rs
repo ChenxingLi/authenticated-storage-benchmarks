@@ -17,7 +17,7 @@ mod parity_kvdb_rocksdb;
 pub fn backend(opts: &Options) -> (Arc<dyn KeyValueDB>, Arc<dyn Any>) {
     let db_dir = opts.db_dir.as_str();
     let num_cols = match opts.algorithm {
-        TestMode::AMT => amt_db::simple_db::NUM_COLS,
+        TestMode::AMT => amt_db::amt_db::NUM_COLS,
         _ => 1,
     };
     #[cfg(feature = "cfx-backend")]

@@ -30,7 +30,7 @@ pub static INC_KEY_LEVEL_SUM: Global<u64> = Global::INIT;
 pub static INC_KEY_COUNT: Global<u64> = Global::INIT;
 pub static INC_TREE_COUNT: Global<u64> = Global::INIT;
 
-pub struct SimpleDb {
+pub struct AmtDb {
     pub kvdb: Arc<dyn KeyValueDB>,
 
     version_tree: VersionTree,
@@ -82,7 +82,7 @@ pub struct AssociateProof {
 
 type Proof = (AssociateProof, VecDeque<LevelProof>);
 
-impl SimpleDb {
+impl AmtDb {
     // The KeyValueDB requires 3 columns.
     pub fn new(backend: Arc<dyn KeyValueDB>, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
         let db_ver_tree = DBColumn::from_kvdb(backend.clone(), COL_VER_TREE);
@@ -422,7 +422,7 @@ fn test_simple_db() {
         TypeDepths::USIZE,
         true,
     ));
-    let mut db = SimpleDb::new(backend, pp.clone(), false);
+    let mut db = AmtDb::new(backend, pp.clone(), false);
 
     let mut epoch_root_dict = HashMap::new();
 
@@ -430,12 +430,12 @@ fn test_simple_db() {
     let mut _latest_amt_root = G1Projective::default();
 
     let verify_key =
-        |key: Vec<u8>, value: Vec<u8>, db: &mut SimpleDb, epoch_root_dict: &HashMap<u64, H256>| {
+        |key: Vec<u8>, value: Vec<u8>, db: &mut AmtDb, epoch_root_dict: &HashMap<u64, H256>| {
             // println!("Verify key {:?}", key);
             let key = Key(key.to_vec());
             assert_eq!(value, db.get(&key).unwrap().unwrap().into_vec());
             let proof = db.prove(&key).unwrap();
-            SimpleDb::verify(&key, &proof, |epoch| epoch_root_dict[&epoch], &pp).unwrap();
+            AmtDb::verify(&key, &proof, |epoch| epoch_root_dict[&epoch], &pp).unwrap();
         };
 
     for i in 0..=255 {

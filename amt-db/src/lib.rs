@@ -8,12 +8,12 @@ extern crate base64;
 extern crate kvdb_memorydb;
 
 pub mod amt;
+pub mod amt_db;
 pub mod crypto;
 mod enable_log;
 pub mod merkle;
 pub mod multi_layer_amt;
 pub mod serde;
-pub mod simple_db;
 pub mod storage;
 
 #[allow(unused)]

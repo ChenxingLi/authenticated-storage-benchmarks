@@ -2,22 +2,22 @@ use crate::opts::Options;
 use crate::{db::AuthDB, run::CounterTrait};
 use amt_db::crypto::export::ProjectiveCurve;
 use amt_db::{
+    amt_db::{cached_pp, AmtDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT},
     multi_layer_amt::Key,
-    simple_db::{cached_pp, SimpleDb, INC_KEY_COUNT, INC_KEY_LEVEL_SUM, INC_TREE_COUNT},
     storage::access::PUT_COUNT,
 };
 use kvdb::KeyValueDB;
 use std::sync::Arc;
 
 pub struct AMTDB {
-    amt: SimpleDb,
+    amt: AmtDb,
     print_root_period: Option<usize>,
 }
 
 pub fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> AMTDB {
     let pp = cached_pp();
     AMTDB {
-        amt: SimpleDb::new(backend, pp, true),
+        amt: AmtDb::new(backend, pp, true),
         print_root_period: if opts.print_root {
             Some(opts.report_epoch)
         } else {
