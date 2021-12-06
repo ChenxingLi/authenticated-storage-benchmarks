@@ -43,14 +43,14 @@ pub struct AmtDb {
     only_root: bool,
 }
 
-#[derive(Default, Clone, MyFromBytes, MyToBytes)]
+#[derive(Default, Clone, Debug, MyFromBytes, MyToBytes)]
 pub struct TreeValue {
     pub(crate) key: TreeName,
     pub(crate) version_number: u64,
     pub(crate) commitment: G1Aff<Pairing>,
 }
 
-#[derive(Default, Clone, MyFromBytes, MyToBytes)]
+#[derive(Default, Clone, Debug, MyFromBytes, MyToBytes)]
 pub struct KeyValue {
     pub(crate) key: Vec<u8>,
     pub(crate) version: VerInfo,

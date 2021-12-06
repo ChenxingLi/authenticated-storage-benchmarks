@@ -154,7 +154,9 @@ impl VersionTree {
 
         let tree_with_info = this_layer.get_mut(&name.0).unwrap();
 
-        for &index in tree_with_info.children_marks.iter() {
+        let mut indices: Vec<&NodeIndex> = tree_with_info.children_marks.iter().collect();
+        indices.sort_unstable();
+        for &&index in indices.iter() {
             let child_name = name.child(index);
             let (dirty, commitment) =
                 Self::commit_tree(&child_name, epoch, start_pos, rest_layers, updates);
