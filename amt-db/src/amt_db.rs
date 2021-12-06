@@ -7,7 +7,7 @@ use global::Global;
 use hashbrown::hash_map::Entry;
 use hashbrown::HashMap;
 use keccak_hash::keccak;
-use kvdb::{DBOp, DBTransaction, KeyValueDB};
+use kvdb::{DBKey, DBOp, DBTransaction, KeyValueDB};
 
 use amt_serde_derive::{MyFromBytes, MyToBytes};
 
@@ -83,6 +83,8 @@ pub struct AssociateProof {
 pub type Proof = (AssociateProof, VecDeque<LevelProof>);
 pub type AmtRoot = G1Projective;
 
+const EPOCH_NUMBER_KEY: [u8; 2] = [0, 0];
+
 impl AmtDb {
     // The KeyValueDB requires 3 columns.
     pub fn new(backend: Arc<dyn KeyValueDB>, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
@@ -133,7 +135,17 @@ impl AmtDb {
         self.uncommitted_key_values.push((key.clone(), value))
     }
 
-    pub fn commit(&mut self, epoch: u64) -> Result<(G1Projective, H256)> {
+    pub fn current_epoch(&self) -> Result<u64> {
+        let epoch = self
+            .db_merkle
+            .get(&EPOCH_NUMBER_KEY)?
+            .map_or(0, |x| u64::from_bytes_local(&x).unwrap());
+        Ok(epoch)
+    }
+
+    pub fn commit(&mut self, _epoch: u64) -> Result<(G1Projective, H256)> {
+        let epoch = self.current_epoch()?;
+
         let kv_num = self.uncommitted_key_values.len();
         let mut hashes = Vec::with_capacity(kv_num);
         let mut write_ops = Vec::with_capacity(kv_num);
@@ -197,6 +209,13 @@ impl AmtDb {
         // println!("commit merkle tree");
         let merkle_root =
             StaticMerkleTree::dump(self.db_merkle.clone(), epoch, hashes, self.only_root);
+        self.db_merkle.write_buffered(DBTransaction {
+            ops: vec![DBOp::Insert {
+                col: 0,
+                key: DBKey::from_vec(EPOCH_NUMBER_KEY.to_vec()),
+                value: (epoch + 1).to_bytes_local(),
+            }],
+        });
 
         self.dirty_guard = false;
         self.kvdb.flush()?;
