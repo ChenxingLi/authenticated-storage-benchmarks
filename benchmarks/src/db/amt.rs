@@ -15,7 +15,7 @@ pub struct AMTDB {
 }
 
 pub fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> AMTDB {
-    let pp = cached_pp();
+    let pp = cached_pp("./pp");
     AMTDB {
         amt: AmtDb::new(backend, pp, true),
         print_root_period: if opts.print_root {

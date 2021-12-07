@@ -424,12 +424,8 @@ impl AmtDb {
     }
 }
 
-pub fn cached_pp() -> Arc<AMTParams<Pairing>> {
-    Arc::new(AMTParams::<Pairing>::from_dir(
-        "./pp",
-        TypeDepths::USIZE,
-        true,
-    ))
+pub fn cached_pp(dir: &str) -> Arc<AMTParams<Pairing>> {
+    Arc::new(AMTParams::<Pairing>::from_dir(dir, TypeDepths::USIZE, true))
 }
 
 #[test]

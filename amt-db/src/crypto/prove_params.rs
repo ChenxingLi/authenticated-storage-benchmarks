@@ -76,7 +76,8 @@ impl<PE: PairingEngine> AMTParams<PE> {
     }
 
     pub fn from_dir(dir: &str, expected_depth: usize, create_mode: bool) -> Self {
-        let file = &format!("{}/{}", dir, amtp_file_name::<PE>(expected_depth));
+        let path = Path::new(dir).join(amtp_file_name::<PE>(expected_depth));
+        let file = path.to_str().unwrap();
         match Self::load_cached(file) {
             Ok(params) => params,
             Err(_) => {
@@ -204,4 +205,5 @@ use super::export::Pairing;
 use crate::crypto::export::One;
 use std::collections::BTreeMap;
 use std::fs::File;
+use std::path::Path;
 use std::sync::RwLock;
