@@ -4,7 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use ethereum_types::H256;
 use global::Global;
-use hashbrown::hash_map::Entry;
+// use hashbrown::hash_map::Entry;
 use hashbrown::HashMap;
 use keccak_hash::keccak;
 use kvdb::{DBKey, DBOp, DBTransaction, KeyValueDB};
@@ -111,22 +111,28 @@ impl AmtDb {
         //     "Can not read db if set operations have not been committed."
         // );
 
-        let mut write_guard = self.cache.write().unwrap();
-        let entry = write_guard.entry(key.clone());
+        // let mut write_guard = self.cache.write().unwrap();
+        // let entry = write_guard.entry(key.clone());
 
-        let maybe_value = match entry {
-            Entry::Occupied(entry) => entry.get().0.clone(),
-            Entry::Vacant(entry) => {
-                let value = self
-                    .db_key
-                    .get(key.as_ref())?
-                    .map(|x| Value::from_bytes_local(&x).unwrap());
-                entry.insert((value.clone(), false));
-                value
-            }
-        };
+        // let maybe_value = match entry {
+        //     Entry::Occupied(entry) => entry.get().0.clone(),
+        //     Entry::Vacant(entry) => {
+        //         let value = self
+        //             .db_key
+        //             .get(key.as_ref())?
+        //             .map(|x| Value::from_bytes_local(&x).unwrap());
+        //         entry.insert((value.clone(), false));
+        //         value
+        //     }
+        // };
 
-        Ok(maybe_value.map(|x| x.value.into_boxed_slice()))
+        let ans = self
+            .db_key
+            .get(key.as_ref())?
+            .map(|x| Value::from_bytes_local(&x).unwrap())
+            .map(|x| x.value.into_boxed_slice());
+
+        Ok(ans)
     }
 
     pub fn set(&mut self, key: &Key, value: Box<[u8]>) {
