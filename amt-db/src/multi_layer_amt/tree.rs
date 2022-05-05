@@ -4,12 +4,18 @@ use std::sync::Arc;
 use hashbrown::{HashMap, HashSet};
 use kvdb::{DBKey, DBOp, DBTransaction};
 
+use crate::amt::AMTConfigTrait;
 use amt_serde_derive::{MyFromBytes, MyToBytes};
 
+use crate::crypto::export::Zero;
 use crate::crypto::{
-    export::{BigInteger, FrInt, G1Aff, G1Projective, Pairing, ProjectiveCurve, G1},
+    export::{
+        instances::{FrInt, G1Aff, G1},
+        BigInteger, Pairing, ProjectiveCurve,
+    },
     AMTParams,
 };
+use crate::multi_layer_amt::AMTConfig;
 use crate::serde::{MyFromBytes, MyToBytes};
 use crate::storage::DBColumn;
 
@@ -17,34 +23,51 @@ use super::{Commitment, EpochPosition, Key, Tree, TreeName, MAX_VERSION_NUMBER};
 
 type NodeIndex = u32;
 type TreesLayer = HashMap<Vec<NodeIndex>, TreeWithInfo>;
+pub type AMTNodeIndex = crate::amt::NodeIndex<<AMTConfig as AMTConfigTrait>::Height>;
 
 const ROOT_KEY: [u8; 2] = [0, 0];
 
 /// The `VersionTree`
 #[derive(Clone)]
 pub struct VersionTree {
-    root: G1<Pairing>,
+    root: G1,
     producer: TreeProducer,
     forest: Vec<TreesLayer>,
 
-    fast_mode: bool,
+    shard_node: Option<AMTNodeIndex>,
 }
 
 impl VersionTree {
-    pub fn new(db: DBColumn, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
-        let mut forest = Vec::with_capacity(8);
+    pub fn new(
+        db: DBColumn,
+        pp: Arc<AMTParams<Pairing>>,
+        shard_node: Option<AMTNodeIndex>,
+    ) -> Self {
+        let mut forest = Vec::<TreesLayer>::with_capacity(8);
         forest.push(Default::default());
         let root = db
-            .get(&DBKey::from(ROOT_KEY.as_ref()))
+            .get(ROOT_KEY.as_ref())
             .unwrap()
-            .map_or(Default::default(), |x| {
-                G1Projective::from_bytes_local(&x).unwrap()
-            });
+            .map_or(G1::zero(), |x| G1::from_bytes_local(&x).unwrap());
+        let producer = TreeProducer {
+            db,
+            pp,
+            shard_node: shard_node.clone(),
+        };
+        let mut root_tree = TreeWithInfo {
+            tree: producer.new_tree(&TreeName::root()),
+            mark_in_parent: true,
+            children_marks: Default::default(),
+        };
+
+        root_tree.tree.set_commitment(&root);
+        forest[0].insert(vec![], root_tree);
+
         Self {
             forest,
-            producer: TreeProducer { db, pp, only_root },
+            producer,
             root,
-            fast_mode: only_root,
+            shard_node,
         }
     }
 
@@ -73,9 +96,6 @@ impl VersionTree {
 
         if !tree_with_info.mark_in_parent {
             tree_with_info.mark_in_parent = true;
-            if name.0.len() == 0 {
-                last_tree.set_commitment(&self.root);
-            }
 
             for (level, layer) in ancestor_layers.iter_mut().enumerate().rev() {
                 let anc_tree_name = TreeName(name.0[..level].to_vec());
@@ -107,11 +127,20 @@ impl VersionTree {
             Some(ver_info) => ver_info,
         };
 
+        let shard_node = self.shard_node.clone();
         let visit_amt = self.get_tree_mut(&key.tree_at_level(level));
         let node = key.index_at_level(level);
-        if visit_amt.only_root() {
+
+        let in_proof_shard = if let Some(shard_node) = shard_node {
+            AMTNodeIndex::leaf(key.index_at_level(0)).needs_maintain(&shard_node)
+        } else {
+            false
+        };
+
+        if !in_proof_shard {
             visit_amt.update(node, fr_int_pow_2((slot_index as u32 + 1) * 5));
         } else {
+            // Maintain necessary data for proof.
             visit_amt.write_versions(node).key_versions[slot_index as usize] += 1;
         }
         assert!(version < MAX_VERSION_NUMBER);
@@ -191,10 +220,7 @@ impl VersionTree {
         &mut self,
         epoch: u64,
         start_pos: u64,
-    ) -> (
-        Commitment,
-        impl IntoIterator<Item = (TreeName, u64, G1Aff<Pairing>)>,
-    ) {
+    ) -> (Commitment, impl IntoIterator<Item = (TreeName, u64, G1Aff)>) {
         let mut updates = SubTreeRootRecorder::with_capacity(1 << 20);
         let (_, commitment) = Self::commit_tree(
             &TreeName::root(),
@@ -206,13 +232,13 @@ impl VersionTree {
         // for layers in self.forest.iter_mut().skip(1) {
         //     layers.clear();
         // }
-        updates.into_affine_in_batch();
+        updates.to_affine_in_batch();
 
         return (commitment, updates);
     }
 
     pub fn flush_all(&mut self) {
-        let commitment: G1Projective = self.get_tree_mut(&TreeName::root()).flush();
+        let commitment: G1 = self.get_tree_mut(&TreeName::root()).flush();
         self.producer.db.write_buffered(DBTransaction {
             ops: vec![DBOp::Insert {
                 col: 0,
@@ -226,11 +252,11 @@ impl VersionTree {
 pub struct SubTreeRootRecorderIter(SubTreeRootRecorder);
 
 impl Iterator for SubTreeRootRecorderIter {
-    type Item = (TreeName, u64, G1Aff<Pairing>);
+    type Item = (TreeName, u64, G1Aff);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((tree_name, version)) = self.0.tree_version.pop_front() {
-            let commitment: G1Aff<Pairing> = self.0.commitments.pop_front().unwrap().into();
+            let commitment: G1Aff = self.0.commitments.pop_front().unwrap().into();
             Some((tree_name, version, commitment))
         } else {
             None
@@ -240,7 +266,7 @@ impl Iterator for SubTreeRootRecorderIter {
 
 pub struct SubTreeRootRecorder {
     tree_version: VecDeque<(TreeName, u64)>,
-    commitments: VecDeque<G1<Pairing>>,
+    commitments: VecDeque<G1>,
 }
 
 impl SubTreeRootRecorder {
@@ -251,12 +277,12 @@ impl SubTreeRootRecorder {
         }
     }
 
-    fn push(&mut self, name: TreeName, version: u64, commitment: G1<Pairing>) {
+    fn push(&mut self, name: TreeName, version: u64, commitment: G1) {
         self.commitments.push_back(commitment);
         self.tree_version.push_back((name, version));
     }
 
-    fn into_affine_in_batch(&mut self) {
+    fn to_affine_in_batch(&mut self) {
         let (slice1, slice2) = self.commitments.as_mut_slices();
         assert_eq!(slice2.len(), 0);
         ProjectiveCurve::batch_normalization(slice1);
@@ -268,7 +294,7 @@ impl SubTreeRootRecorder {
 }
 
 impl IntoIterator for SubTreeRootRecorder {
-    type Item = (TreeName, u64, G1Aff<Pairing>);
+    type Item = (TreeName, u64, G1Aff);
     type IntoIter = SubTreeRootRecorderIter;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -280,17 +306,26 @@ impl IntoIterator for SubTreeRootRecorder {
 struct TreeProducer {
     pub db: DBColumn,
     pub pp: Arc<AMTParams<Pairing>>,
-    pub only_root: bool,
+    pub shard_node: Option<AMTNodeIndex>,
 }
 
 impl TreeProducer {
     fn new_tree(&self, name: &TreeName) -> Tree {
-        Tree::new(
-            name.clone(),
-            self.db.clone(),
-            self.pp.clone(),
-            self.only_root,
-        )
+        let shard_root = if let Some(ref shard_node) = self.shard_node {
+            if name.0.len() == 0 {
+                Some(shard_node.clone())
+            } else {
+                let root_tree_leaf = AMTNodeIndex::leaf(name.0[0] as usize);
+                if root_tree_leaf.needs_maintain(shard_node) {
+                    Some(AMTNodeIndex::root())
+                } else {
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        Tree::new(name.clone(), self.db.clone(), self.pp.clone(), shard_root)
     }
 }
 
@@ -308,8 +343,8 @@ struct TreeWithInfo {
     children_marks: HashSet<NodeIndex>,
 }
 
-fn fr_int_pow_2(power: u32) -> FrInt<Pairing> {
-    let mut fr_int = FrInt::<Pairing>::from(1);
+fn fr_int_pow_2(power: u32) -> FrInt {
+    let mut fr_int = FrInt::from(1);
     fr_int.muln(power);
     fr_int
 }

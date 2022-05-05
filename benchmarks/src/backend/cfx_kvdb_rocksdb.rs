@@ -1,10 +1,16 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::opts::Options;
 use cfx_kvdb_rocksdb::{CompactionProfile, Database, DatabaseConfig};
 
-pub fn open(db_dir: &str, num_cols: u32, opts: &Options) -> Arc<Database> {
+use crate::opts::Options;
+use crate::TestMode;
+
+pub fn open(db_dir: &str, opts: &Options) -> Arc<Database> {
+    let num_cols = match opts.algorithm {
+        TestMode::AMT => amt_db::amt_db::NUM_COLS,
+        _ => 1,
+    };
     let mut db_config = DatabaseConfig::with_columns(num_cols);
 
     db_config.memory_budget = Some(opts.cache_size as usize);

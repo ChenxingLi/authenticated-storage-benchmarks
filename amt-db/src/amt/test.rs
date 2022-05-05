@@ -1,4 +1,5 @@
 use super::tree::{AMTConfigTrait, AMTData, AMTree};
+use crate::amt::NodeIndex;
 use crate::crypto::{
     export::{Fr, FrInt, Pairing, G1},
     AMTParams, TypeUInt,
@@ -60,7 +61,7 @@ fn test_amt() {
 
     let pp = Arc::new(AMTParams::<Pairing>::from_dir("./pp", DEPTHS, true));
 
-    let mut amt = TestTree::new(64, db, pp.clone(), false);
+    let mut amt = TestTree::new(64, db, pp.clone(), Some(NodeIndex::<TestDepths>::root()));
     amt.set_commitment(&Default::default());
 
     test_all(&mut amt, &pp, "Empty");

@@ -42,6 +42,12 @@ pub struct Options {
     #[structopt(long, help = "Disable backend stat")]
     pub no_stat: bool,
 
+    #[structopt(long, help = "Output the usage of memory")]
+    pub stat_mem: bool,
+
+    #[structopt(long, help = "No warmup")]
+    pub no_warmup: bool,
+
     #[structopt(long, help = "Enable print root")]
     pub print_root: bool,
 
@@ -50,21 +56,32 @@ pub struct Options {
 
     #[structopt(long)]
     pub warmup_from: Option<String>,
+
+    #[structopt(long)]
+    pub shard_size: Option<usize>,
 }
 
 impl Options {
+    fn warmup_dir(&self, input: &str) -> String {
+        if self.algorithm != TestMode::AMT || self.shard_size.is_none() {
+            format!("{}/{:?}_{:e}/", input, self.algorithm, self.total_keys)
+        } else {
+            format!(
+                "{}/amt{}_{:e}/",
+                input,
+                self.shard_size.unwrap(),
+                self.total_keys
+            )
+        }
+    }
     pub fn settings(&self) -> String {
         format!("{:?},{:e}", self.algorithm, self.total_keys)
     }
     pub fn warmup_to(&self) -> Option<String> {
-        self.warmup_to
-            .as_ref()
-            .map(|x| format!("{}/{:?}_{:e}/", x, self.algorithm, self.total_keys))
+        self.warmup_to.as_ref().map(|x| self.warmup_dir(x))
     }
     pub fn warmup_from(&self) -> Option<String> {
-        self.warmup_from
-            .as_ref()
-            .map(|x| format!("{}/{:?}_{:e}/", x, self.algorithm, self.total_keys))
+        self.warmup_from.as_ref().map(|x| self.warmup_dir(x))
     }
 }
 

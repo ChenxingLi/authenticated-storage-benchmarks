@@ -17,7 +17,9 @@ use crate::crypto::{
     AMTParams, Pairing, TypeDepths, TypeUInt,
 };
 use crate::merkle::{MerkleProof, StaticMerkleTree};
-use crate::multi_layer_amt::{AMTConfig, EpochPosition, Key, Node, TreeName, VerInfo, VersionTree};
+use crate::multi_layer_amt::{
+    AMTConfig, AMTNodeIndex, EpochPosition, Key, Node, TreeName, VerInfo, VersionTree,
+};
 use crate::serde::{MyFromBytes, MyToBytes};
 use crate::storage::DBColumn;
 
@@ -40,7 +42,7 @@ pub struct AmtDb {
     cache: RwLock<HashMap<Key, (Option<Value>, bool)>>,
     uncommitted_key_values: Vec<(Key, Box<[u8]>)>,
     dirty_guard: bool,
-    only_root: bool,
+    only_merkle_root: bool,
 }
 
 #[derive(Default, Clone, Debug, MyFromBytes, MyToBytes)]
@@ -87,9 +89,15 @@ const EPOCH_NUMBER_KEY: [u8; 2] = [0, 0];
 
 impl AmtDb {
     // The KeyValueDB requires 3 columns.
-    pub fn new(backend: Arc<dyn KeyValueDB>, pp: Arc<AMTParams<Pairing>>, only_root: bool) -> Self {
+    pub fn new(
+        backend: Arc<dyn KeyValueDB>,
+        pp: Arc<AMTParams<Pairing>>,
+        only_merkle_root: bool,
+        shard_info: Option<(usize, usize)>,
+    ) -> Self {
         let db_ver_tree = DBColumn::from_kvdb(backend.clone(), COL_VER_TREE);
-        let version_tree = VersionTree::new(db_ver_tree, pp, only_root);
+        let shard_node = shard_info.map(|(depth, index)| AMTNodeIndex::new(depth, index));
+        let version_tree = VersionTree::new(db_ver_tree, pp, shard_node);
         let db_key = DBColumn::from_kvdb(backend.clone(), COL_KEY_NEW);
         let db_merkle = DBColumn::from_kvdb(backend.clone(), COL_MERKLE);
         let kvdb = backend;
@@ -101,7 +109,7 @@ impl AmtDb {
             cache: Default::default(),
             uncommitted_key_values: Vec::new(),
             dirty_guard: false,
-            only_root,
+            only_merkle_root,
         }
     }
 
@@ -212,9 +220,8 @@ impl AmtDb {
             hashes.push(name_ver_value_hash);
         }
 
-        // println!("commit merkle tree");
         let merkle_root =
-            StaticMerkleTree::dump(self.db_merkle.clone(), epoch, hashes, self.only_root);
+            StaticMerkleTree::dump(self.db_merkle.clone(), epoch, hashes, self.only_merkle_root);
         self.db_merkle.write_buffered(DBTransaction {
             ops: vec![DBOp::Insert {
                 col: 0,
@@ -225,7 +232,6 @@ impl AmtDb {
 
         self.dirty_guard = false;
         self.kvdb.flush()?;
-
         self.cache.write().unwrap().clear();
 
         Ok((amt_root, merkle_root))
@@ -444,7 +450,7 @@ fn test_simple_db() {
         TypeDepths::USIZE,
         true,
     ));
-    let mut db = AmtDb::new(backend, pp.clone(), false);
+    let mut db = AmtDb::new(backend, pp.clone(), false, None);
 
     let mut epoch_root_dict = HashMap::new();
 

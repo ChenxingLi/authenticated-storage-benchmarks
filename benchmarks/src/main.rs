@@ -21,6 +21,9 @@ use run::run_tasks;
 
 fn main() {
     let options: Options = Options::from_args();
+    if options.stat_mem && !options.no_stat {
+        panic!("Stat will introduce memory cost")
+    }
     println!(
         "Testing {:?} with {:e} addresses",
         options.algorithm, options.total_keys
@@ -31,7 +34,7 @@ fn main() {
     fs::create_dir_all(db_dir).unwrap();
 
     if let Some(ref warmup_dir) = options.warmup_from() {
-        // println!("warmup from {}", warmup_dir);
+        println!("warmup from {}", warmup_dir);
         // let a = get_dir_content2(warmup_dir, &DirOptions::new()).unwrap();
         // dbg!(a.files);
         // dbg!(a.directories);

@@ -16,7 +16,7 @@ pub mod multi_layer_amt;
 pub mod serde;
 pub mod storage;
 
-pub use amt_db::{AmtDb, AmtRoot, Proof};
+pub use crate::amt_db::{AmtDb, AmtRoot, Proof};
 pub use multi_layer_amt::Key;
 
 #[allow(unused)]

@@ -25,3 +25,13 @@ pub type FrInt<PE> = <Fr<PE> as PrimeField>::BigInt;
 pub type Pairing = Bn254;
 pub type G1Projective = ark_bn254::G1Projective;
 pub type G1Affine = ark_bn254::G1Affine;
+
+pub mod instances {
+    use super::Pairing;
+    pub type G1 = super::G1<Pairing>;
+    pub type G1Aff = super::G1Aff<Pairing>;
+    pub type G2 = super::G2<Pairing>;
+    pub type G2Aff = super::G2Aff<Pairing>;
+    pub type Fr = super::Fr<Pairing>;
+    pub type FrInt = super::FrInt<Pairing>;
+}

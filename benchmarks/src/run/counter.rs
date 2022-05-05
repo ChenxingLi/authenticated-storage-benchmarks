@@ -3,12 +3,19 @@ use crate::db::AuthDB;
 use crate::Options;
 
 use kvdb::IoStatsKind;
+use lazy_static::lazy_static;
+use num_format::{Locale, WriteFormatted};
+use simple_process_stats::ProcessStats;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::sync::Mutex;
 use std::time::Instant;
+use tokio::runtime::Runtime;
 
-use num_format::{Locale, WriteFormatted};
+lazy_static! {
+    pub static ref RUNTIME: Mutex<Runtime> = Mutex::new(Runtime::new().unwrap());
+}
 
 pub struct Reporter<'a> {
     pub start_time: Instant,
@@ -63,7 +70,15 @@ impl<'a> Reporter<'a> {
         self.empty_reads += 1;
     }
 
-    pub fn notify_epoch(&mut self, epoch: usize, count: usize, db: &dyn AuthDB) {
+    pub async fn report_mem() {
+        let process_stats = ProcessStats::get().await.unwrap();
+        println!(
+            "Memory {:>3.3} bytes",
+            (process_stats.memory_usage_bytes as f64) / ((1 << 30) as f64)
+        );
+    }
+
+    pub fn notify_epoch(&mut self, epoch: usize, count: usize, db: &dyn AuthDB, opts: &Options) {
         fn c(n: u64) -> String {
             let mut ans = String::new();
             ans.write_formatted(&n, &Locale::en).unwrap();
@@ -89,6 +104,11 @@ impl<'a> Reporter<'a> {
             avg_time * 1e6,
             self.empty_reads,
         );
+
+        if opts.stat_mem {
+            RUNTIME.lock().unwrap().block_on(Self::report_mem());
+        }
+
         // let db_stat = {
         //     let stats = db.backend().io_stats(IoStatsKind::SincePrevious);
         //     let bytes_per_read = (stats.bytes_read as f64) / (stats.reads as f64);

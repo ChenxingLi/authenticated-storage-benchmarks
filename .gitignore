@@ -2,6 +2,7 @@
 /.idea
 /amt-db/pp
 /pp
+/thesis
 /results
 /warmup
 flamegraph.svg

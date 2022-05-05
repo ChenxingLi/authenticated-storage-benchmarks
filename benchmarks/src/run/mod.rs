@@ -46,7 +46,7 @@ pub fn run_tasks(
     opts: &Options,
 ) {
     println!("Start warming up");
-    if opts.warmup_from.is_none() {
+    if opts.warmup_from.is_none() && !opts.no_warmup {
         warmup(&mut *db, tasks.warmup(), opts);
         if let Some(ref warmup_dir) = opts.warmup_to() {
             println!("Waiting for post ops");
@@ -104,7 +104,7 @@ pub fn run_tasks(
         }
         db.commit(epoch);
 
-        reporter.notify_epoch(epoch, count, &*db);
+        reporter.notify_epoch(epoch, count, &*db, opts);
     }
 
     reporter.collect_profiling(profiler);

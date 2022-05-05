@@ -11,6 +11,7 @@ use super::utils::amtp_file_name;
 pub struct AMTParams<PE: PairingEngine> {
     indents: Vec<G1<PE>>,
     indents_cache: RwLock<Vec<BTreeMap<usize, G1<PE>>>>,
+    quotients_cache: RwLock<Vec<Vec<BTreeMap<usize, G1<PE>>>>>,
     quotients: Vec<Vec<G1<PE>>>,
     g2pp: Vec<G2<PE>>,
     g2: G2<PE>,
@@ -45,6 +46,55 @@ impl<PE: PairingEngine> AMTParams<PE> {
         answer
     }
 
+    pub fn get_quotient_pow(&self, depth: usize, index: usize, power: &FrInt<PE>) -> G1<PE> {
+        let quotient_cache = &mut *self.quotients_cache.write().unwrap();
+        let caches = &mut quotient_cache[depth - 1][index];
+        let mut answer = G1::<PE>::zero();
+        for (dword_idx, n) in power.as_ref().iter().enumerate() {
+            let mut limb: u64 = *n;
+            while limb.trailing_zeros() < 64 {
+                let bit_idx = limb.trailing_zeros() as usize;
+                let idx = dword_idx * 64 + bit_idx;
+                answer += &*caches.entry(idx).or_insert_with(|| {
+                    // println!("cache depth {}, index {}", depth, index);
+                    let mut fr_int = FrInt::<PE>::from(1);
+                    fr_int.muln(idx as u32);
+                    self.quotients[depth - 1][index].mul(fr_int)
+                });
+                limb ^= 1 << bit_idx;
+            }
+        }
+        if cfg!(test) {
+            assert_eq!(self.quotients[depth - 1][index].mul(power), answer);
+        }
+        answer
+    }
+
+    pub fn warm_quotient(&self, _shard_ratio: usize) {
+        let depth;
+        let length;
+        {
+            let quotient_cache = &*self.quotients_cache.read().unwrap();
+            depth = quotient_cache.len();
+            length = quotient_cache[0].len();
+        }
+
+        let mut vec_fr_int = vec![];
+        let mut fr_int = FrInt::<PE>::from(1);
+        for _ in 0..6 {
+            vec_fr_int.push(fr_int);
+            fr_int.muln(40);
+        }
+        for i in 1..=depth {
+            println!("warmup depth {}", i);
+            for j in 0..length {
+                for fr_int in &vec_fr_int {
+                    let _ = self.get_quotient_pow(i, bitreverse(j, depth), fr_int);
+                }
+            }
+        }
+    }
+
     pub fn get_quotient(&self, depth: usize, index: usize) -> &G1<PE> {
         &self.quotients[depth - 1][index]
     }
@@ -64,14 +114,17 @@ impl<PE: PairingEngine> AMTParams<PE> {
     fn load_cached(file: &str) -> Result<Self, error::Error> {
         let mut buffer = File::open(file)?;
         let indents: Vec<G1<PE>> = CanonicalDeserialize::deserialize_unchecked(&mut buffer)?;
+        let quotients: Vec<Vec<G1<PE>>> = CanonicalDeserialize::deserialize_unchecked(&mut buffer)?;
         let length = indents.len();
+        let depth = quotients.len();
         Ok(Self {
             indents,
-            quotients: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
+            quotients,
             g2pp: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
             g2: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
             w_inv: CanonicalDeserialize::deserialize_unchecked(&mut buffer)?,
             indents_cache: RwLock::new(vec![Default::default(); length]),
+            quotients_cache: RwLock::new(vec![vec![Default::default(); length]; depth]),
         })
     }
 
@@ -132,6 +185,7 @@ impl<PE: PairingEngine> AMTParams<PE> {
             g2,
             w_inv,
             indents_cache: RwLock::new(vec![Default::default(); g1pp.len()]),
+            quotients_cache: RwLock::new(vec![vec![Default::default(); length]; depth]),
         }
     }
 
@@ -198,6 +252,16 @@ fn test_ident_prove() {
             );
         }
     }
+}
+
+#[inline]
+fn bitreverse(mut n: usize, l: usize) -> usize {
+    let mut r = 0;
+    for _ in 0..l {
+        r = (r << 1) | (n & 1);
+        n >>= 1;
+    }
+    r
 }
 #[cfg(test)]
 use super::export::Pairing;

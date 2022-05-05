@@ -244,6 +244,30 @@ impl DBAndColumns {
             }
         }
     }
+
+    #[allow(dead_code)]
+    fn print_size(&self) {
+        let p1 = self
+            .static_property_or_warn(0, "rocksdb.block-cache-usage")
+            .unwrap_or(0);
+        let mut p2 = 0;
+        let mut p3 = 0;
+
+        for v in 0..self.column_names.len() {
+            p2 += self
+                .static_property_or_warn(v, "rocksdb.estimate-table-readers-mem")
+                .unwrap_or(0);
+            p3 += self
+                .static_property_or_warn(v, "rocksdb.cur-size-all-mem-tables")
+                .unwrap_or(0);
+        }
+        println!(
+            "Memory usage {}, {}, {}",
+            p1 / (1 << 20),
+            p2 / (1 << 20),
+            p3 / (1 << 20)
+        );
+    }
 }
 
 impl MallocSizeOf for DBAndColumns {
@@ -833,6 +857,7 @@ impl KeyValueDB for Database {
 
     fn io_stats(&self, kind: kvdb::IoStatsKind) -> IoStats {
         self.my_stat.write().report();
+        // self.db.read().as_ref().unwrap().print_size();
         Database::io_stats(self, kind)
     }
 }

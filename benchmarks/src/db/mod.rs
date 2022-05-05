@@ -1,5 +1,5 @@
 mod amt;
-#[cfg(feature = "cfx-backend")]
+#[cfg(feature = "dmpt")]
 mod delta_mpt;
 mod mpt;
 mod raw;
@@ -23,11 +23,11 @@ pub trait AuthDB {
 }
 
 fn open_dmpt(dir: &str) -> Box<dyn AuthDB> {
-    #[cfg(feature = "cfx-backend")]
+    #[cfg(feature = "dmpt")]
     {
         Box::new(delta_mpt::new(dir))
     }
-    #[cfg(not(feature = "cfx-backend"))]
+    #[cfg(not(feature = "dmpt"))]
     {
         let _ = dir;
         panic!("Delta MPT can only work with feature cfx-backend!")

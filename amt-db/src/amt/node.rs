@@ -60,8 +60,12 @@ impl<N: TypeUInt> NodeIndex<N> {
         }
     }
 
+    pub fn leaf(index: usize) -> Self {
+        Self::new(N::USIZE, index)
+    }
+
     pub fn root() -> Self {
-        NodeIndex::new(0, 0)
+        Self::new(0, 0)
     }
 
     #[inline]
@@ -73,6 +77,23 @@ impl<N: TypeUInt> NodeIndex<N> {
     pub fn to_ancestor(&self, height: usize) -> Self {
         assert!(height <= self.depth);
         NodeIndex::new(self.depth - height, self.index >> height)
+    }
+
+    pub fn needs_maintain(&self, shard_root: &Self) -> bool {
+        if self == &Self::root() {
+            return true;
+        }
+
+        if self.depth > shard_root.depth {
+            let height_diff = self.depth - shard_root.depth;
+            let index = self.index >> height_diff;
+            return index == shard_root.index;
+        } else {
+            let sib = self.to_sibling();
+            let height_diff = shard_root.depth - sib.depth;
+            let index = shard_root.index >> height_diff;
+            return sib.index == index;
+        }
     }
 
     #[inline]
@@ -88,5 +109,40 @@ impl<N: TypeUInt> NodeIndex<N> {
     #[inline]
     pub fn total_depth(&self) -> usize {
         N::USIZE
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::type_uint;
+    type_uint! {
+        struct TestUInt(6);
+    }
+    type Index = NodeIndex<TestUInt>;
+
+    #[test]
+    fn test_needs_maintain() {
+        let shard_root = Index::new(3, 4);
+        assert!(Index::new(0, 0).needs_maintain(&shard_root));
+        assert!(Index::new(1, 0).needs_maintain(&shard_root));
+        assert!(Index::new(2, 3).needs_maintain(&shard_root));
+        assert!(Index::new(3, 5).needs_maintain(&shard_root));
+        assert!(Index::new(4, 8).needs_maintain(&shard_root));
+        assert!(Index::new(4, 9).needs_maintain(&shard_root));
+        assert!(Index::new(6, 32).needs_maintain(&shard_root));
+        assert!(Index::new(6, 39).needs_maintain(&shard_root));
+
+        assert!(!Index::new(1, 1).needs_maintain(&shard_root));
+        assert!(!Index::new(2, 0).needs_maintain(&shard_root));
+        assert!(!Index::new(2, 2).needs_maintain(&shard_root));
+        assert!(!Index::new(3, 2).needs_maintain(&shard_root));
+        assert!(!Index::new(3, 4).needs_maintain(&shard_root));
+        assert!(!Index::new(4, 2).needs_maintain(&shard_root));
+        assert!(!Index::new(4, 7).needs_maintain(&shard_root));
+        assert!(!Index::new(4, 10).needs_maintain(&shard_root));
+        assert!(!Index::new(6, 7).needs_maintain(&shard_root));
+        assert!(!Index::new(6, 31).needs_maintain(&shard_root));
+        assert!(!Index::new(6, 40).needs_maintain(&shard_root));
     }
 }

@@ -40,8 +40,8 @@ pub struct AMTree<C: AMTConfigTrait> {
     inner_nodes: DBAccess<NodeIndex<C::Height>, AMTNode<C::Commitment>, C::TreeLayout>,
     commitment: Option<G1<C::PE>>,
 
-    only_root: bool,
     dirty: bool,
+    shard_root: Option<NodeIndex<C::Height>>,
 
     db: DBColumn,
     pp: Arc<AMTParams<C::PE>>,
@@ -50,7 +50,12 @@ pub struct AMTree<C: AMTConfigTrait> {
 pub type AMTProof<G> = Vec<AMTNode<G>>;
 
 impl<C: AMTConfigTrait> AMTree<C> {
-    pub fn new(name: C::Name, db: DBColumn, pp: Arc<AMTParams<C::PE>>, only_root: bool) -> Self {
+    pub fn new(
+        name: C::Name,
+        db: DBColumn,
+        pp: Arc<AMTParams<C::PE>>,
+        shard_root: Option<NodeIndex<C::Height>>,
+    ) -> Self {
         let ser_name = name.to_bytes_consensus();
         let set_prefix = |prefix: u8| {
             let mut prefix = vec![prefix];
@@ -67,7 +72,7 @@ impl<C: AMTConfigTrait> AMTree<C> {
 
             commitment: None,
             dirty: false,
-            only_root,
+            shard_root,
             pp,
         }
     }
@@ -94,7 +99,11 @@ impl<C: AMTConfigTrait> AMTree<C> {
     }
 
     pub fn only_root(&self) -> bool {
-        self.only_root
+        self.shard_root.is_none()
+    }
+
+    pub fn can_prove(&self) -> bool {
+        self.shard_root == Some(NodeIndex::root())
     }
 
     pub fn write_versions(&mut self, index: usize) -> AMTNodeWriteGuard<C> {
@@ -143,24 +152,32 @@ impl<C: AMTConfigTrait> AMTree<C> {
         // Update commitment
         *self.commitment.as_mut().unwrap() += &inc_comm;
 
-        if self.only_root {
+        let shard_root = if let Some(v) = self.shard_root {
+            v
+        } else {
             return;
-        }
+        };
 
         let leaf_index = bitreverse(index, C::DEPTHS);
         let node_index = NodeIndex::new(C::DEPTHS, leaf_index);
 
         for (height, depth) in (0..C::DEPTHS).map(|height| (height, C::DEPTHS - height)) {
             let visit_node_index = node_index.to_ancestor(height);
-            let proof = self.pp.get_quotient(depth, index).mul(update_fr_int);
+
+            if !visit_node_index.needs_maintain(&shard_root) {
+                continue;
+            }
+
+            // let proof = self.pp.get_quotient(depth, index).mul(update_fr_int);
+            let proof = self.pp.get_quotient_pow(depth, index, &update_fr_int);
             let node = self.inner_nodes.get_mut(&visit_node_index);
             node.commitment += &inc_comm;
-            node.proof += &proof;
+            node.proof += proof;
         }
     }
 
     pub fn prove(&mut self, index: usize) -> Option<AMTProof<G1<C::PE>>> {
-        if self.only_root {
+        if !self.can_prove() {
             return None;
         }
         let leaf_index = bitreverse(index, C::DEPTHS);

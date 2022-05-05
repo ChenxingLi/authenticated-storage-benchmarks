@@ -16,8 +16,12 @@ pub struct AMTDB {
 
 pub fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> AMTDB {
     let pp = cached_pp("./pp");
+    // pp.warm_quotient(opts.shard_size);
+    let shard_info = opts
+        .shard_size
+        .map(|size| (size.trailing_zeros() as usize, 0));
     AMTDB {
-        amt: AmtDb::new(backend, pp, true),
+        amt: AmtDb::new(backend, pp, true, shard_info),
         print_root_period: if opts.print_root {
             Some(opts.report_epoch)
         } else {
