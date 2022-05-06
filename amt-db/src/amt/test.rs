@@ -75,3 +75,32 @@ fn test_amt() {
     *amt.write_versions(LENGTH / 2) += &1;
     test_all(&mut amt, &pp, "sibling pair");
 }
+
+#[test]
+fn test_one() {
+    let db = crate::storage::test_db_col();
+
+    const DEPTHS: usize = TestConfig::DEPTHS;
+    const LENGTH: usize = 1 << DEPTHS;
+
+    let pp = Arc::new(AMTParams::<Pairing>::from_dir("./pp", DEPTHS, true));
+
+    let mut amt = TestTree::new(64, db, pp.clone(), Some(NodeIndex::<TestDepths>::root()));
+    amt.set_commitment(&Default::default());
+
+    *amt.write_versions(0) += 1;
+    assert_eq!(amt.get(0), &1);
+    assert_eq!(amt.get(1), &0);
+
+    let task = "one-hot";
+    let i = 1;
+    let proof = amt.prove(i);
+    let value = amt.get(i);
+
+    assert!(
+        TestTree::verify(i, value.as_fr(), amt.commitment(), proof.unwrap(), &pp),
+        "fail at task {} pos {}",
+        task,
+        i
+    );
+}

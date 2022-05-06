@@ -38,13 +38,13 @@ pub fn from_challenge<'a>(
     Box::new(accumulator)
 }
 
-#[test]
-fn test_load_and_pair() {
-    use ark_bn254::Bn254;
-    use ark_ec::PairingEngine;
-
-    println!("adc");
-    let (g1, g2) = from_challenge("/data/chenxing/challenge0072", 6);
-    println!("{} {}", g1.len(), g2.len());
-    assert_eq!(Bn254::pairing(g1[0], g2[3]), Bn254::pairing(g1[4], g2[0]));
-}
+// #[test]
+// fn test_load_and_pair() {
+//     use ark_bn254::Bn254;
+//     use ark_ec::PairingEngine;
+//
+//     println!("adc");
+//     let (g1, g2) = from_challenge("/data/chenxing/challenge0072", 6, &CeremonyParams::<Bn254>::new(28, 20));
+//     println!("{} {}", g1.len(), g2.len());
+//     assert_eq!(Bn254::pairing(g1[0], g2[3]), Bn254::pairing(g1[4], g2[0]));
+// }

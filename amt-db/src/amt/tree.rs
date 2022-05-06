@@ -1,6 +1,6 @@
 use super::node::{AMTNode, NodeIndex};
 use super::write_guard::AMTNodeWriteGuard;
-use crate::crypto::export::{Field, PairingEngine, PrimeField, ProjectiveCurve, Zero};
+use crate::crypto::export::{PairingEngine, PrimeField, ProjectiveCurve, Zero};
 use crate::crypto::{
     export::{Fr, FrInt, G1},
     AMTParams, TypeUInt,
@@ -202,11 +202,8 @@ impl<C: AMTConfigTrait> AMTree<C> {
         pp: &AMTParams<C::PE>,
     ) -> bool {
         assert!(index < C::LENGTH);
-        let self_indent = pp.get_idents(index).mul(value.into());
+        let self_indent = pp.get_commitments(index).mul(value.into());
         let others: G1<C::PE> = proof.iter().map(|node| node.commitment).sum();
-
-        let w_inv = pp.w_inv();
-        let g2 = pp.g2();
 
         if *commitment != self_indent + &others {
             println!(
@@ -218,14 +215,11 @@ impl<C: AMTConfigTrait> AMTree<C> {
             return false;
         }
 
-        let tau_pow = |height: usize| *pp.get_g2_pow_tau(height);
-        let w_pow =
-            |height: usize| g2.mul(w_inv.pow([(index << height & C::IDX_MASK) as u64]).into());
-
-        for (index, node) in proof.iter().copied().enumerate() {
-            let height = C::DEPTHS - index - 1;
-            if C::PE::pairing(node.commitment, g2)
-                != C::PE::pairing(node.proof, tau_pow(height) - &w_pow(height))
+        for (idx, node) in proof.iter().copied().enumerate() {
+            let height = C::DEPTHS - idx - 1;
+            let depth = idx + 1;
+            let verification = *pp.get_sibling_verification(depth, index);
+            if C::PE::pairing(node.commitment, pp.g2()) != C::PE::pairing(node.proof, verification)
             {
                 println!("Pairing check fails at height {}", height);
                 return false;

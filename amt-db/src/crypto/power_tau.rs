@@ -1,9 +1,10 @@
 use super::error;
 use super::export::{
-    AffineCurve, CanonicalDeserialize, CanonicalSerialize, Field, Fr, G1Aff, G2Aff, PairingEngine,
+    AffineCurve, CanonicalDeserialize, CanonicalSerialize, Fr, G1Aff, G2Aff, PairingEngine,
     ProjectiveCurve, SerializationError, UniformRand, G1, G2,
 };
 use super::pp_file_name;
+use ark_ff::utils::k_adicity;
 use rand;
 use std::fs::{create_dir_all, File};
 use std::io::{Read, Write};
@@ -28,7 +29,7 @@ impl<PE: PairingEngine> PowerTau<PE> {
         let tau = tau.unwrap_or(random_tau);
 
         let mut gen1 = G1Aff::<PE>::prime_subgroup_generator().into_projective();
-        let gen2 = G2Aff::<PE>::prime_subgroup_generator().into_projective();
+        let mut gen2 = G2Aff::<PE>::prime_subgroup_generator().into_projective();
 
         let mut g1pp: Vec<G1Aff<PE>> = vec![];
         g1pp.reserve(1 << depth);
@@ -38,12 +39,10 @@ impl<PE: PairingEngine> PowerTau<PE> {
         }
 
         let mut g2pp: Vec<G2Aff<PE>> = vec![];
-        let mut e = tau.clone();
-        g2pp.reserve(depth + 1);
-        for _ in 0..depth {
-            let value: G2<PE> = gen2.mul(e.clone().into());
-            g2pp.push(value.into_affine());
-            e.square_in_place();
+        g2pp.reserve(1 << depth);
+        for _ in 0..1 << depth {
+            g2pp.push(gen2.into_affine());
+            gen2.mul_assign(tau.clone());
         }
 
         return PowerTau(g1pp, g2pp);
@@ -53,13 +52,14 @@ impl<PE: PairingEngine> PowerTau<PE> {
         let buffer = File::open(file)?;
         let pp: PowerTau<PE> = CanonicalDeserialize::deserialize_unchecked(buffer)?;
         let (g1_len, g2_len) = (pp.0.len(), pp.1.len());
-        if g1_len != 1 << g2_len {
+        let depth = k_adicity(2, g1_len) as usize;
+        if g1_len != g2_len {
             Err(error::ErrorKind::InconsistentLength.into())
-        } else if expected_depth > g2_len {
+        } else if expected_depth > depth {
             Err(error::ErrorKind::InconsistentLength.into())
         } else if expected_depth < g2_len {
             let g1_vec = pp.0[..1 << expected_depth].to_vec();
-            let g2_vec = pp.1[..expected_depth].to_vec();
+            let g2_vec = pp.1[..1 << expected_depth].to_vec();
             Ok(PowerTau(g1_vec, g2_vec))
         } else {
             Ok(pp)

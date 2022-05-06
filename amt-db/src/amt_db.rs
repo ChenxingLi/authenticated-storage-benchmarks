@@ -450,7 +450,7 @@ fn test_simple_db() {
         TypeDepths::USIZE,
         true,
     ));
-    let mut db = AmtDb::new(backend, pp.clone(), false, None);
+    let mut db = AmtDb::new(backend, pp.clone(), false, Some((0, 0)));
 
     let mut epoch_root_dict = HashMap::new();
 

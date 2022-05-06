@@ -5,6 +5,7 @@ use crate::Options;
 use kvdb::IoStatsKind;
 use lazy_static::lazy_static;
 use num_format::{Locale, WriteFormatted};
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use simple_process_stats::ProcessStats;
 use std::fs;
 use std::fs::File;
@@ -70,6 +71,7 @@ impl<'a> Reporter<'a> {
         self.empty_reads += 1;
     }
 
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     pub async fn report_mem() {
         let process_stats = ProcessStats::get().await.unwrap();
         println!(
@@ -77,6 +79,9 @@ impl<'a> Reporter<'a> {
             (process_stats.memory_usage_bytes as f64) / ((1 << 30) as f64)
         );
     }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    pub async fn report_mem() {}
 
     pub fn notify_epoch(&mut self, epoch: usize, count: usize, db: &dyn AuthDB, opts: &Options) {
         fn c(n: u64) -> String {

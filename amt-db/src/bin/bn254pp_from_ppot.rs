@@ -13,8 +13,7 @@ fn fetch_pp_from_ppot(filename: &str, size: usize) -> PowerTau<Bn254> {
     let g1: Vec<G1Aff<Bn254>> = (0..(1 << size))
         .map(|idx| accumulator.tau_powers_g1[idx].adapt())
         .collect();
-    let g2: Vec<G2Aff<Bn254>> = std::iter::once(0usize)
-        .chain((0..size).map(|x| 1 << x))
+    let g2: Vec<G2Aff<Bn254>> = (0..(1 << size))
         .map(|idx| accumulator.tau_powers_g2[idx].adapt())
         .collect();
     return PowerTau(g1, g2);
