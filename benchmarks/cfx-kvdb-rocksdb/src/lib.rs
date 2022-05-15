@@ -810,7 +810,7 @@ impl KeyValueDB for Database {
         let value = Database::get(self, col, key)?;
         self.my_stat
             .write()
-            .record_read(key.to_vec(), &value, time.elapsed());
+            .record_read(key.to_vec(), &value, time.elapsed(), col);
         Ok(value)
     }
 

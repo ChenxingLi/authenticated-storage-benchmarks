@@ -245,16 +245,27 @@ impl MyStat {
         }
     }
 
-    pub fn record_read(&mut self, key: Vec<u8>, value: &Option<DBValue>, time: Duration) {
+    pub fn record_read(
+        &mut self,
+        mut key: Vec<u8>,
+        value: &Option<DBValue>,
+        time: Duration,
+        col: u32,
+    ) {
         if !self.enabled {
             return;
         }
         self.ops += 1;
+        key.extend_from_slice(&col.to_be_bytes());
         let since_last_seen = self
             .last_seen
             .insert(key.clone(), self.ops)
             .map_or(u64::MAX, |x| self.ops - x);
         self.seen_stat.push(since_last_seen);
+        if since_last_seen < 1800 {
+            // println!("col {}, seen {}", col, since_last_seen);
+            // println!("key {:?}", key);
+        }
         if value.is_none() {
             self.unread_time.push(time.as_nanos() as u64);
         } else {

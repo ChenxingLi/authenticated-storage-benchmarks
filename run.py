@@ -6,6 +6,7 @@ from functools import partial
 CARGO_RUN = "cargo run --release -p benchmarks --".split(" ")
 DRY_RUN = False
 WARMUP = "./warmup/v2"
+RESULT = "./paper_experiment/v3"
 
 
 def run(commands, output=None):
@@ -60,10 +61,10 @@ def bench(task, alg, key, shards=None):
         prefix = prefix + f"--no-warmup -k 10g".split(" ")
 
     if shards is None:
-        output = f"paper_experiment/v2/{task}_{alg}_{key}.log"
+        output = f"{RESULT}/{task}_{alg}_{key}.log"
         run(prefix, output)
     else:
-        output = f"paper_experiment/v2/{task}_{alg}{shards}_{key}.log"
+        output = f"{RESULT}/{task}_{alg}{shards}_{key}.log"
         run(prefix + f"--shard-size {shards}".split(" "), output)
 
 
@@ -73,16 +74,16 @@ bench_stat = partial(bench, "stat")
 
 def run_all(run_one):
     for key in ["1m", "10m", "100m", "fresh"]:
-        # run_one("amt", key)
-        # run_one("mpt", key)
+        run_one("amt", key)
+        run_one("mpt", key)
         for shards in [64, 16]:
             run_one("amt", key, shards)
 
 
 if __name__ == "__main__":
     run("rm -rf __reports __benchmarks")
-    run("mkdir -p ./warmup/v2")
-    run("mkdir -p ./paper_experiment/v2")
+    # run("mkdir -p ./warmup/v2")
+    run(f"mkdir -p {RESULT}")
 
     # run_all(warmup)
     run_all(bench_time)
