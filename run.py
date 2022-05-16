@@ -6,7 +6,7 @@ from functools import partial
 CARGO_RUN = "cargo run --release -p benchmarks --".split(" ")
 DRY_RUN = False
 WARMUP = "./warmup/v2"
-RESULT = "./paper_experiment/v3"
+RESULT = "./paper_experiment/v4"
 
 
 def run(commands, output=None):
@@ -45,9 +45,7 @@ def warmup(alg, key, shards=None):
         run(prefix + f"-a {alg} -k {key} --shard-size {shards}".split(" "))
 
 
-def bench(task, alg, key, shards=None):
-    run("rm -rf __benchmarks")
-
+def bench(task, alg, key, shards=None, low_memory=False):
     prefix = CARGO_RUN + f"--max-time 3600 --max-epoch 10000 -a {alg}".split(" ")
 
     if task == "time":
@@ -60,11 +58,24 @@ def bench(task, alg, key, shards=None):
     else:
         prefix = prefix + f"--no-warmup -k 10g".split(" ")
 
+    if low_memory:
+        if task == "stat":
+            return
+        prefix = prefix + "--cache-size 800".split(" ")
+    else:
+        prefix = prefix + "--cache-size 1500".split(" ")
+
+
+    run("rm -rf __benchmarks")
+
     if shards is None:
         output = f"{RESULT}/{task}_{alg}_{key}.log"
         run(prefix, output)
     else:
-        output = f"{RESULT}/{task}_{alg}{shards}_{key}.log"
+        if low_memory:
+            output = f"{RESULT}/{task}_{alg}{shards}_{key}_lowmem.log"
+        else:
+            output = f"{RESULT}/{task}_{alg}{shards}_{key}.log"
         run(prefix + f"--shard-size {shards}".split(" "), output)
 
 
@@ -74,10 +85,11 @@ bench_stat = partial(bench, "stat")
 
 def run_all(run_one):
     for key in ["1m", "10m", "100m", "fresh"]:
-        run_one("amt", key)
-        run_one("mpt", key)
+        # run_one("amt", key)
+        # run_one("mpt", key)
         for shards in [64, 16]:
-            run_one("amt", key, shards)
+            run_one("amt", key, shards, low_memory=True)
+            # run_one("amt", key, shards)
 
 
 if __name__ == "__main__":
