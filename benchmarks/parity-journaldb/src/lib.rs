@@ -19,6 +19,7 @@
 #[macro_use]
 extern crate log;
 
+extern crate blake2s_hasher;
 extern crate ethereum_types;
 extern crate fastmap;
 extern crate hash_db;
@@ -53,8 +54,10 @@ mod refcounteddb;
 mod traits;
 mod util;
 
+mod hasher;
 mod mertics;
 pub mod overlaydb;
+
 #[cfg(test)]
 use mertics::InMemoryWithMetrics;
 #[cfg(test)]
@@ -69,6 +72,7 @@ pub use self::traits::AsKeyedHashDB;
 /// Export keyed hash trait
 pub use self::traits::KeyedHashDB;
 
+pub use self::hasher::DBHasher;
 /// Journal database operating strategy.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Algorithm {
@@ -188,7 +192,7 @@ fn error_negatively_reference_hash(hash: &ethereum_types::H256) -> io::Error {
     )
 }
 
-pub fn new_memory_db() -> memory_db::MemoryDB<keccak_hasher::KeccakHasher, kvdb::DBValue> {
+pub fn new_memory_db() -> memory_db::MemoryDB<crate::hasher::DBHasher, kvdb::DBValue> {
     memory_db::MemoryDB::from_null_node(&rlp::NULL_RLP, rlp::NULL_RLP.as_ref().into())
 }
 

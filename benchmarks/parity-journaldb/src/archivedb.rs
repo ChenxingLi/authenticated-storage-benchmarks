@@ -25,11 +25,11 @@ use std::{
 use super::{
     error_key_already_exists, error_negatively_reference_hash, memory_db::*, LATEST_ERA_KEY,
 };
+use crate::hasher::DBHasher;
 use crate::KeyValueDB;
 use bytes::Bytes;
 use ethereum_types::H256;
 use hash_db::HashDB;
-use keccak_hasher::KeccakHasher;
 use kvdb::{DBTransaction, DBValue};
 use rlp::{decode, encode};
 use traits::JournalDB;
@@ -43,7 +43,7 @@ use DB_PREFIX_LEN;
 /// immediately. As this is an "archive" database, nothing is ever removed. This means
 /// that the states of any block the node has ever processed will be accessible.
 pub struct ArchiveDB {
-    overlay: MemoryDB<KeccakHasher, DBValue>,
+    overlay: MemoryDB<DBHasher, DBValue>,
     backing: Arc<dyn KeyValueDB>,
     latest_era: Option<u64>,
     column: u32,
@@ -71,7 +71,7 @@ impl ArchiveDB {
     }
 }
 
-impl HashDB<KeccakHasher, DBValue> for ArchiveDB {
+impl HashDB<DBHasher, DBValue> for ArchiveDB {
     fn get(&self, key: &H256) -> Option<DBValue> {
         if let Some((d, rc)) = self.overlay.raw(key) {
             if rc > 0 {
@@ -82,7 +82,7 @@ impl HashDB<KeccakHasher, DBValue> for ArchiveDB {
     }
 
     fn contains(&self, key: &H256) -> bool {
-        HashDB::<KeccakHasher, DBValue>::get(self, key).is_some()
+        HashDB::<DBHasher, DBValue>::get(self, key).is_some()
     }
 
     fn insert(&mut self, value: &[u8]) -> H256 {
@@ -214,7 +214,7 @@ impl JournalDB for ArchiveDB {
         &self.backing
     }
 
-    fn consolidate(&mut self, with: MemoryDB<KeccakHasher, DBValue>) {
+    fn consolidate(&mut self, with: MemoryDB<DBHasher, DBValue>) {
         self.overlay.consolidate(with);
     }
 
@@ -234,7 +234,7 @@ mod tests {
     use keccak::keccak;
     use JournalDB;
 
-    type TestHashDB = dyn HashDB<KeccakHasher, DBValue>;
+    type TestHashDB = dyn HashDB<DBHasher, DBValue>;
 
     #[test]
     fn insert_same_in_fork() {

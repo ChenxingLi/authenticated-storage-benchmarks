@@ -15,12 +15,12 @@
 // along with OpenEthereum.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Impls of the `AsHashDB` upcast trait for all different variants of DB
+use crate::hasher::DBHasher;
 use crate::{AsKeyedHashDB, KeyedHashDB};
 use archivedb::ArchiveDB;
 use earlymergedb::EarlyMergeDB;
 use ethereum_types::H256;
 use hash_db::{AsHashDB, HashDB};
-use keccak_hasher::KeccakHasher;
 use kvdb::DBValue as KVDBValue;
 use overlaydb::OverlayDB;
 use overlayrecentdb::OverlayRecentDB;
@@ -30,46 +30,46 @@ use trie_db::DBValue;
 #[cfg(feature = "hash15")]
 use hash_db15::{AsHashDB as AsHashDB15, HashDB as HashDB15, Prefix};
 #[cfg(feature = "hash15")]
-use keccak_hasher15::KeccakHasher as KeccakHasher15;
+use keccak_hasher15::DBHasher as DBHasher15;
 
 macro_rules! wrap_hash_db {
     ($name: ty) => {
-        impl HashDB<KeccakHasher, DBValue> for $name {
+        impl HashDB<DBHasher, DBValue> for $name {
             fn get(&self, key: &H256) -> Option<DBValue> {
-                HashDB::<KeccakHasher, KVDBValue>::get(self, key).map(|x| DBValue::from_vec(x))
+                HashDB::<DBHasher, KVDBValue>::get(self, key).map(|x| DBValue::from_vec(x))
             }
 
             fn contains(&self, key: &H256) -> bool {
-                HashDB::<KeccakHasher, KVDBValue>::contains(self, key)
+                HashDB::<DBHasher, KVDBValue>::contains(self, key)
             }
 
             fn insert(&mut self, value: &[u8]) -> H256 {
-                HashDB::<KeccakHasher, KVDBValue>::insert(self, value)
+                HashDB::<DBHasher, KVDBValue>::insert(self, value)
             }
 
             fn emplace(&mut self, key: H256, value: DBValue) {
-                HashDB::<KeccakHasher, KVDBValue>::emplace(self, key, value.into_vec())
+                HashDB::<DBHasher, KVDBValue>::emplace(self, key, value.into_vec())
             }
 
             fn remove(&mut self, key: &H256) {
-                HashDB::<KeccakHasher, KVDBValue>::remove(self, key)
+                HashDB::<DBHasher, KVDBValue>::remove(self, key)
             }
         }
 
-        impl AsHashDB<KeccakHasher, DBValue> for $name {
-            fn as_hash_db(&self) -> &dyn HashDB<KeccakHasher, DBValue> {
+        impl AsHashDB<DBHasher, DBValue> for $name {
+            fn as_hash_db(&self) -> &dyn HashDB<DBHasher, DBValue> {
                 self
             }
-            fn as_hash_db_mut(&mut self) -> &mut dyn HashDB<KeccakHasher, DBValue> {
+            fn as_hash_db_mut(&mut self) -> &mut dyn HashDB<DBHasher, DBValue> {
                 self
             }
         }
 
-        impl AsHashDB<KeccakHasher, KVDBValue> for $name {
-            fn as_hash_db(&self) -> &dyn HashDB<KeccakHasher, KVDBValue> {
+        impl AsHashDB<DBHasher, KVDBValue> for $name {
+            fn as_hash_db(&self) -> &dyn HashDB<DBHasher, KVDBValue> {
                 self
             }
-            fn as_hash_db_mut(&mut self) -> &mut dyn HashDB<KeccakHasher, KVDBValue> {
+            fn as_hash_db_mut(&mut self) -> &mut dyn HashDB<DBHasher, KVDBValue> {
                 self
             }
         }
@@ -81,39 +81,39 @@ macro_rules! wrap_hash_db {
         }
 
         #[cfg(feature = "hash15")]
-        impl AsHashDB15<KeccakHasher15, DBValue> for $name {
-            fn as_hash_db(&self) -> &dyn HashDB15<KeccakHasher15, DBValue> {
+        impl AsHashDB15<DBHasher15, DBValue> for $name {
+            fn as_hash_db(&self) -> &dyn HashDB15<DBHasher15, DBValue> {
                 self
             }
 
-            fn as_hash_db_mut(&mut self) -> &mut dyn HashDB15<KeccakHasher15, DBValue> {
+            fn as_hash_db_mut(&mut self) -> &mut dyn HashDB15<DBHasher15, DBValue> {
                 self
             }
         }
 
         #[cfg(feature = "hash15")]
-        impl HashDB15<KeccakHasher15, DBValue> for $name {
+        impl HashDB15<DBHasher15, DBValue> for $name {
             // The key function `HashKey` in `memory-db` (v0.28.0) omits `prefix`.
             // The example code in `TrieDB` uses `HashKey` as key function.
             // So here we also omit `prefix`.
             fn get(&self, key: &[u8; 32], _prefix: Prefix) -> Option<DBValue> {
-                HashDB::<KeccakHasher, DBValue>::get(self, to_h256_ref(key))
+                HashDB::<DBHasher, DBValue>::get(self, to_h256_ref(key))
             }
 
             fn contains(&self, key: &[u8; 32], _prefix: Prefix) -> bool {
-                HashDB::<KeccakHasher, DBValue>::contains(self, to_h256_ref(key))
+                HashDB::<DBHasher, DBValue>::contains(self, to_h256_ref(key))
             }
 
             fn insert(&mut self, _prefix: Prefix, value: &[u8]) -> [u8; 32] {
-                HashDB::<KeccakHasher, DBValue>::insert(self, value).into()
+                HashDB::<DBHasher, DBValue>::insert(self, value).into()
             }
 
             fn emplace(&mut self, key: [u8; 32], _prefix: Prefix, value: DBValue) {
-                HashDB::<KeccakHasher, DBValue>::emplace(self, key.into(), value)
+                HashDB::<DBHasher, DBValue>::emplace(self, key.into(), value)
             }
 
             fn remove(&mut self, key: &[u8; 32], _prefix: Prefix) {
-                HashDB::<KeccakHasher, DBValue>::remove(self, to_h256_ref(key))
+                HashDB::<DBHasher, DBValue>::remove(self, to_h256_ref(key))
             }
         }
     };

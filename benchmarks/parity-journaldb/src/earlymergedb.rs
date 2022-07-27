@@ -25,11 +25,11 @@ use std::{
 use super::{
     error_key_already_exists, error_negatively_reference_hash, traits::JournalDB, LATEST_ERA_KEY,
 };
+use crate::hasher::DBHasher;
 use crate::KeyValueDB;
 use bytes::Bytes;
 use ethereum_types::H256;
 use hash_db::HashDB;
-use keccak_hasher::KeccakHasher;
 use kvdb::{DBTransaction, DBValue};
 use memory_db::*;
 use parity_util_mem::MallocSizeOf;
@@ -107,7 +107,7 @@ enum RemoveFrom {
 ///
 /// TODO: `store_reclaim_period`
 pub struct EarlyMergeDB {
-    overlay: MemoryDB<KeccakHasher, DBValue>,
+    overlay: MemoryDB<DBHasher, DBValue>,
     backing: Arc<dyn KeyValueDB>,
     refs: Option<Arc<RwLock<HashMap<H256, RefInfo>>>>,
     latest_era: Option<u64>,
@@ -339,7 +339,7 @@ impl EarlyMergeDB {
     }
 }
 
-impl HashDB<KeccakHasher, DBValue> for EarlyMergeDB {
+impl HashDB<DBHasher, DBValue> for EarlyMergeDB {
     fn get(&self, key: &H256) -> Option<DBValue> {
         if let Some((d, rc)) = self.overlay.raw(key) {
             if rc > 0 {
@@ -350,7 +350,7 @@ impl HashDB<KeccakHasher, DBValue> for EarlyMergeDB {
     }
 
     fn contains(&self, key: &H256) -> bool {
-        HashDB::<KeccakHasher, DBValue>::get(self, key).is_some()
+        HashDB::<DBHasher, DBValue>::get(self, key).is_some()
     }
 
     fn insert(&mut self, value: &[u8]) -> H256 {
@@ -607,7 +607,7 @@ impl JournalDB for EarlyMergeDB {
         Ok(ops)
     }
 
-    fn consolidate(&mut self, with: MemoryDB<KeccakHasher, DBValue>) {
+    fn consolidate(&mut self, with: MemoryDB<DBHasher, DBValue>) {
         self.overlay.consolidate(with);
     }
 
@@ -625,14 +625,14 @@ mod tests {
     use hash_db::HashDB;
     use keccak::keccak;
 
-    type TestHashDB = dyn HashDB<KeccakHasher, DBValue>;
+    type TestHashDB = dyn HashDB<DBHasher, DBValue>;
 
     #[test]
     fn insert_same_in_fork() {
         // history is 1
         let mut jdb = new_db();
 
-        let x: H256 = HashDB::<KeccakHasher, DBValue>::insert(&mut jdb, b"X");
+        let x: H256 = HashDB::<DBHasher, DBValue>::insert(&mut jdb, b"X");
         jdb.commit_batch(1, &keccak(b"1"), None).unwrap();
         assert!(jdb.can_reconstruct_refs());
         jdb.commit_batch(2, &keccak(b"2"), None).unwrap();

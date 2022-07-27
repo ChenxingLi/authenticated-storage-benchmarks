@@ -5,19 +5,19 @@ use std::sync::Arc;
 use hash_db::Hasher;
 use keccak_hasher::KeccakHasher;
 use kvdb::{DBKey, DBOp, DBTransaction, KeyValueDB};
-use patricia_trie_ethereum::RlpCodec;
+use patricia_trie_ethereum::RlpNodeCodec;
 use primitive_types::H256;
-use trie_db::{Trie, TrieMut};
+use trie_db::{NodeCodec, Trie, TrieMut};
 
-use parity_journaldb::{Algorithm, JournalDB};
+use parity_journaldb::{Algorithm, DBHasher, JournalDB};
 use parity_scale_codec::KeyedVec;
 
 use crate::db::AuthDB;
 use crate::opts::Options;
 use crate::run::CounterTrait;
 
-pub type TrieDBMut<'db> = trie_db::TrieDBMut<'db, KeccakHasher, RlpCodec>;
-pub type TrieDB<'db> = trie_db::TrieDB<'db, KeccakHasher, RlpCodec>;
+pub type TrieDBMut<'db> = trie_db::TrieDBMut<'db, DBHasher, RlpNodeCodec<DBHasher>>;
+pub type TrieDB<'db> = trie_db::TrieDB<'db, DBHasher, RlpNodeCodec<DBHasher>>;
 
 pub struct MptDB {
     backing: Arc<dyn KeyValueDB>,
@@ -42,7 +42,7 @@ pub(crate) fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> MptDB {
     let root = if let Some(value) = backend.get([0u8; 256].to_vec()) {
         H256::from_slice(&value)
     } else {
-        KECCAK_NULL_RLP
+        RlpNodeCodec::<DBHasher>::hashed_null_node()
     };
 
     MptDB {
@@ -143,11 +143,5 @@ impl CounterTrait for MptCounter {
         )
     }
 }
-
-/// The KECCAK of the RLP encoding of empty data.
-pub const KECCAK_NULL_RLP: H256 = H256([
-    0x56, 0xe8, 0x1f, 0x17, 0x1b, 0xcc, 0x55, 0xa6, 0xff, 0x83, 0x45, 0xe6, 0x92, 0xc0, 0xf8, 0x6e,
-    0x5b, 0x48, 0xe0, 0x1b, 0x99, 0x6c, 0xad, 0xc0, 0x01, 0x62, 0x2f, 0xb5, 0xe3, 0x63, 0xb4, 0x21,
-]);
 
 const JOURNAL_EPOCH: usize = 25;

@@ -13,6 +13,7 @@ hash-db15 = { package="hash-db", version="0.15.2", optional = true}
 trie-db = "0.11.0"
 keccak-hasher = {git="https://github.com/openethereum/openethereum.git", rev="2ae2949"}
 keccak-hasher15 = {package="keccak-hasher", version = "0.15.3", optional = true}
+blake2s-hasher = {path = "blake2s-hasher" }
 
 kvdb = "0.4"
 log = "0.4"

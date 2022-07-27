@@ -23,10 +23,10 @@ use std::{
 };
 
 use super::error_negatively_reference_hash;
+use crate::hasher::DBHasher;
 use crate::KeyValueDB;
 use ethereum_types::H256;
 use hash_db::HashDB;
-use keccak_hasher::KeccakHasher;
 use kvdb::{DBTransaction, DBValue};
 use memory_db::*;
 use rlp::{decode, encode, Decodable, DecoderError, Encodable, Rlp, RlpStream};
@@ -41,7 +41,7 @@ use rlp::{decode, encode, Decodable, DecoderError, Encodable, Rlp, RlpStream};
 /// queries have an immediate effect in terms of these functions.
 #[derive(Clone)]
 pub struct OverlayDB {
-    overlay: MemoryDB<KeccakHasher, DBValue>,
+    overlay: MemoryDB<DBHasher, DBValue>,
     backing: Arc<dyn KeyValueDB>,
     column: u32,
 }
@@ -198,7 +198,7 @@ impl crate::KeyedHashDB for OverlayDB {
     }
 }
 
-impl HashDB<KeccakHasher, DBValue> for OverlayDB {
+impl HashDB<DBHasher, DBValue> for OverlayDB {
     fn get(&self, key: &H256) -> Option<DBValue> {
         // return ok if positive; if negative, check backing - might be enough references there to make
         // it positive again.
@@ -257,7 +257,7 @@ impl HashDB<KeccakHasher, DBValue> for OverlayDB {
 }
 
 #[cfg(test)]
-type TestHashDB = dyn HashDB<KeccakHasher, DBValue>;
+type TestHashDB = dyn HashDB<DBHasher, DBValue>;
 
 #[test]
 fn overlaydb_revert() {

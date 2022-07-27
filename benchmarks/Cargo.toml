@@ -52,7 +52,8 @@ slab = "0.4.4"
 smallvec = "1.5.1"
 elastic-array = "0.10.3"
 
-patricia-trie-ethereum = {git="https://github.com/openethereum/openethereum.git", rev="2ae2949"}
+patricia-trie-ethereum = {path = "./patricia-trie-ethereum"}
+#{git="https://github.com/openethereum/openethereum.git", rev="2ae2949"}
 
 num = "0.4"
 num-traits = "0.2"
@@ -70,6 +71,8 @@ fs_extra = "1.2.0"
 base64ct = "=1.1"
 
 tokio = { version = "0.2.25"}
+
+hex="0.4.3"
 
 [features]
 default=["cfx-backend"]

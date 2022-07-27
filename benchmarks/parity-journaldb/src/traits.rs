@@ -18,22 +18,22 @@
 
 use std::{io, sync::Arc};
 
+use crate::hasher::DBHasher;
 use crate::KeyValueDB;
 use bytes::Bytes;
 use ethereum_types::H256;
 use hash_db::{AsHashDB, HashDB};
-use keccak_hasher::KeccakHasher;
 use kvdb::{DBTransaction, DBValue};
 use std::collections::{BTreeMap, HashMap};
 
 /// expose keys of a hashDB for debugging or tests (slow).
-pub trait KeyedHashDB: HashDB<KeccakHasher, trie_db::DBValue> {
+pub trait KeyedHashDB: HashDB<DBHasher, trie_db::DBValue> {
     /// Primarily use for tests, highly inefficient.
     fn keys(&self) -> HashMap<H256, i32>;
 }
 
 /// Upcast to `KeyedHashDB`
-pub trait AsKeyedHashDB: AsHashDB<KeccakHasher, trie_db::DBValue> {
+pub trait AsKeyedHashDB: AsHashDB<DBHasher, trie_db::DBValue> {
     /// Perform upcast to KeyedHashDB.
     fn as_keyed_hash_db(&self) -> &dyn KeyedHashDB;
 }
@@ -95,7 +95,7 @@ pub trait JournalDB: KeyedHashDB {
     fn flush(&self) {}
 
     /// Consolidate all the insertions and deletions in the given memory overlay.
-    fn consolidate(&mut self, overlay: ::memory_db::MemoryDB<KeccakHasher, DBValue>);
+    fn consolidate(&mut self, overlay: ::memory_db::MemoryDB<DBHasher, DBValue>);
 
     /// State data query
     fn state(&self, id: &H256) -> Option<Bytes>;

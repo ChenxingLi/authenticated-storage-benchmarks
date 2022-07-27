@@ -23,11 +23,11 @@ use std::{
 };
 
 use super::{traits::JournalDB, LATEST_ERA_KEY};
+use crate::hasher::DBHasher;
 use crate::KeyValueDB;
 use bytes::Bytes;
 use ethereum_types::H256;
 use hash_db::HashDB;
-use keccak_hasher::KeccakHasher;
 use kvdb::{DBTransaction, DBValue};
 use memory_db::MemoryDB;
 use overlaydb::OverlayDB;
@@ -84,21 +84,21 @@ impl RefCountedDB {
     }
 }
 
-impl HashDB<KeccakHasher, DBValue> for RefCountedDB {
+impl HashDB<DBHasher, DBValue> for RefCountedDB {
     fn get(&self, key: &H256) -> Option<DBValue> {
-        HashDB::<KeccakHasher, DBValue>::get(&self.forward, key)
+        HashDB::<DBHasher, DBValue>::get(&self.forward, key)
     }
     fn contains(&self, key: &H256) -> bool {
-        HashDB::<KeccakHasher, DBValue>::contains(&self.forward, key)
+        HashDB::<DBHasher, DBValue>::contains(&self.forward, key)
     }
     fn insert(&mut self, value: &[u8]) -> H256 {
-        let r = HashDB::<KeccakHasher, DBValue>::insert(&mut self.forward, value);
+        let r = HashDB::<DBHasher, DBValue>::insert(&mut self.forward, value);
         self.inserts.push(r.clone());
         r
     }
     fn emplace(&mut self, key: H256, value: DBValue) {
         self.inserts.push(key.clone());
-        HashDB::<KeccakHasher, DBValue>::emplace(&mut self.forward, key, value);
+        HashDB::<DBHasher, DBValue>::emplace(&mut self.forward, key, value);
     }
 
     fn remove(&mut self, key: &H256) {
@@ -220,7 +220,7 @@ impl JournalDB for RefCountedDB {
             .expect("rlp read from db; qed");
             trace!(target: "rcdb", "delete journal for time #{}.{}=>{}, (canon was {}): deleting {:?}", end_era, db_key.index, our_id, canon_id, to_remove);
             for i in &to_remove {
-                HashDB::<KeccakHasher, DBValue>::remove(&mut self.forward, i);
+                HashDB::<DBHasher, DBValue>::remove(&mut self.forward, i);
             }
             batch.delete(self.column, &last);
             db_key.index += 1;
@@ -233,19 +233,19 @@ impl JournalDB for RefCountedDB {
     fn inject(&mut self, batch: &mut DBTransaction) -> io::Result<u32> {
         self.inserts.clear();
         for remove in self.removes.drain(..) {
-            HashDB::<KeccakHasher, DBValue>::remove(&mut self.forward, &remove);
+            HashDB::<DBHasher, DBValue>::remove(&mut self.forward, &remove);
         }
         self.forward.commit_to_batch(batch)
     }
 
-    fn consolidate(&mut self, mut with: MemoryDB<KeccakHasher, DBValue>) {
+    fn consolidate(&mut self, mut with: MemoryDB<DBHasher, DBValue>) {
         for (key, (value, rc)) in with.drain() {
             for _ in 0..rc {
                 self.emplace(key, value.clone());
             }
 
             for _ in rc..0 {
-                HashDB::<KeccakHasher, DBValue>::remove(self, &key);
+                HashDB::<DBHasher, DBValue>::remove(self, &key);
             }
         }
     }
@@ -265,7 +265,7 @@ mod tests {
     use keccak::keccak;
     use JournalDB;
 
-    type TestHashDB = dyn HashDB<KeccakHasher, DBValue>;
+    type TestHashDB = dyn HashDB<DBHasher, DBValue>;
 
     fn new_db() -> RefCountedDB {
         let backing = Arc::new(crate::InMemoryWithMetrics::create(1));

@@ -23,12 +23,12 @@ use std::{
 };
 
 use super::{error_negatively_reference_hash, JournalDB, DB_PREFIX_LEN, LATEST_ERA_KEY};
+use crate::hasher::DBHasher;
 use crate::KeyValueDB;
 use bytes::Bytes;
 use ethereum_types::H256;
 use fastmap::H256FastMap;
 use hash_db::HashDB;
-use keccak_hasher::KeccakHasher;
 use kvdb::{DBTransaction, DBValue};
 use memory_db::*;
 use parity_util_mem::MallocSizeOf;
@@ -68,7 +68,7 @@ use util::DatabaseKey;
 /// 7. Delete ancient record from memory and disk.
 
 pub struct OverlayRecentDB {
-    transaction_overlay: MemoryDB<KeccakHasher, DBValue>,
+    transaction_overlay: MemoryDB<DBHasher, DBValue>,
     backing: Arc<dyn KeyValueDB>,
     journal_overlay: Arc<RwLock<JournalOverlay>>,
     read_cache: Arc<RwLock<HashMap<H256, Option<DBValue>>>>,
@@ -127,7 +127,7 @@ impl<'a> Encodable for DatabaseValueRef<'a> {
 
 #[derive(PartialEq)]
 struct JournalOverlay {
-    backing_overlay: MemoryDB<KeccakHasher, DBValue>, // Nodes added in the history period
+    backing_overlay: MemoryDB<DBHasher, DBValue>, // Nodes added in the history period
     pending_overlay: H256FastMap<DBValue>, // Nodes being transfered from backing_overlay to backing db
     journal: HashMap<u64, Vec<JournalEntry>>,
     latest_era: Option<u64>,
@@ -513,7 +513,7 @@ impl JournalDB for OverlayRecentDB {
         Ok(ops)
     }
 
-    fn consolidate(&mut self, with: MemoryDB<KeccakHasher, DBValue>) {
+    fn consolidate(&mut self, with: MemoryDB<DBHasher, DBValue>) {
         self.transaction_overlay.consolidate(with);
     }
 
@@ -532,7 +532,7 @@ impl JournalDB for OverlayRecentDB {
     }
 }
 
-impl HashDB<KeccakHasher, DBValue> for OverlayRecentDB {
+impl HashDB<DBHasher, DBValue> for OverlayRecentDB {
     fn get(&self, key: &H256) -> Option<DBValue> {
         if let Some((d, rc)) = self.transaction_overlay.raw(key) {
             if rc > 0 {
@@ -559,7 +559,7 @@ impl HashDB<KeccakHasher, DBValue> for OverlayRecentDB {
     }
 
     fn contains(&self, key: &H256) -> bool {
-        HashDB::<KeccakHasher, DBValue>::get(self, key).is_some()
+        HashDB::<DBHasher, DBValue>::get(self, key).is_some()
     }
 
     fn insert(&mut self, value: &[u8]) -> H256 {
@@ -581,7 +581,7 @@ mod tests {
     use keccak::keccak;
     use JournalDB;
 
-    type TestHashDB = dyn HashDB<KeccakHasher, DBValue>;
+    type TestHashDB = dyn HashDB<DBHasher, DBValue>;
 
     fn new_db() -> OverlayRecentDB {
         let backing = Arc::new(crate::InMemoryWithMetrics::create(1));
