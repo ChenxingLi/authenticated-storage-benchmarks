@@ -9,10 +9,10 @@ license = "GPL3"
 parity-bytes = "0.1"
 ethereum-types = "0.9.2"
 hash-db = "0.11.0"
-hash-db15 = { package="hash-db", version="0.15.2" }
+hash-db15 = { package="hash-db", version="0.15.2", optional = true}
 trie-db = "0.11.0"
 keccak-hasher = {git="https://github.com/openethereum/openethereum.git", rev="2ae2949"}
-keccak-hasher15 = {package="keccak-hasher", version = "0.15.3"}
+keccak-hasher15 = {package="keccak-hasher", version = "0.15.3", optional = true}
 
 kvdb = "0.4"
 log = "0.4"
@@ -29,4 +29,7 @@ keccak-hash = "0.5.0"
 kvdb-memorydb = "=0.4.0"
 parity-util-mem05 = { package ="parity-util-mem", version = "0.5.2"}
 
+[features]
+# Compatible of crate version
+hash15 = ["hash-db15", "keccak-hasher15"]
 

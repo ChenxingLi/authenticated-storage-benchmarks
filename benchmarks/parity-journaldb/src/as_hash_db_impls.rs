@@ -20,14 +20,17 @@ use archivedb::ArchiveDB;
 use earlymergedb::EarlyMergeDB;
 use ethereum_types::H256;
 use hash_db::{AsHashDB, HashDB};
-use hash_db15::{AsHashDB as AsHashDB15, HashDB as HashDB15, Prefix};
 use keccak_hasher::KeccakHasher;
-use keccak_hasher15::KeccakHasher as KeccakHasher15;
 use kvdb::DBValue as KVDBValue;
 use overlaydb::OverlayDB;
 use overlayrecentdb::OverlayRecentDB;
 use refcounteddb::RefCountedDB;
 use trie_db::DBValue;
+
+#[cfg(feature = "hash15")]
+use hash_db15::{AsHashDB as AsHashDB15, HashDB as HashDB15, Prefix};
+#[cfg(feature = "hash15")]
+use keccak_hasher15::KeccakHasher as KeccakHasher15;
 
 macro_rules! wrap_hash_db {
     ($name: ty) => {
@@ -77,6 +80,7 @@ macro_rules! wrap_hash_db {
             }
         }
 
+        #[cfg(feature = "hash15")]
         impl AsHashDB15<KeccakHasher15, DBValue> for $name {
             fn as_hash_db(&self) -> &dyn HashDB15<KeccakHasher15, DBValue> {
                 self
@@ -87,6 +91,7 @@ macro_rules! wrap_hash_db {
             }
         }
 
+        #[cfg(feature = "hash15")]
         impl HashDB15<KeccakHasher15, DBValue> for $name {
             // The key function `HashKey` in `memory-db` (v0.28.0) omits `prefix`.
             // The example code in `TrieDB` uses `HashKey` as key function.
@@ -120,6 +125,7 @@ wrap_hash_db!(OverlayRecentDB);
 wrap_hash_db!(RefCountedDB);
 wrap_hash_db!(OverlayDB);
 
+#[cfg(feature = "hash15")]
 fn to_h256_ref(input: &[u8; 32]) -> &H256 {
     unsafe { std::mem::transmute(input) }
 }

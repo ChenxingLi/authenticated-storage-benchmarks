@@ -2,11 +2,23 @@
 import subprocess
 import sys
 from functools import partial
+import numpy as np
 
 CARGO_RUN = "cargo run --release -p benchmarks --".split(" ")
-DRY_RUN = False
+DRY_RUN = True
 WARMUP = "./warmup/v2"
-RESULT = "./paper_experiment/v4"
+RESULT = "./paper_experiment/oakland"
+
+
+def to_amt_size(key):
+    if key == "fresh":
+        base = 1e6
+    elif key[-1].lower() in "kmg":
+        exp = 10 ** ("kmg".index(key[-1].lower()) * 3 + 3)
+        base = float(key[:-1]) * exp
+    else:
+        base = float(key)
+    return int(np.ceil(np.log2(base * 5)))
 
 
 def run(commands, output=None):
@@ -46,6 +58,12 @@ def warmup(alg, key, shards=None):
 
 
 def bench(task, alg, key, shards=None, low_memory=False):
+    if alg == "samt":
+        amt_size = to_amt_size(key)
+        if amt_size > 26:
+            return
+        alg = alg + f"{amt_size:d}"
+
     prefix = CARGO_RUN + f"--max-time 3600 --max-epoch 10000 -a {alg}".split(" ")
 
     if task == "time":
@@ -64,7 +82,6 @@ def bench(task, alg, key, shards=None, low_memory=False):
         prefix = prefix + "--cache-size 800".split(" ")
     else:
         prefix = prefix + "--cache-size 1500".split(" ")
-
 
     run("rm -rf __benchmarks")
 
@@ -87,9 +104,11 @@ def run_all(run_one):
     for key in ["1m", "10m", "100m", "fresh"]:
         # run_one("amt", key)
         # run_one("mpt", key)
-        for shards in [64, 16]:
-            run_one("amt", key, shards, low_memory=True)
+        run_one("samt", key)
+        for shards in [1]:
+            # run_one("amt", key, shards, low_memory=True)
             # run_one("amt", key, shards)
+            pass
 
 
 if __name__ == "__main__":
@@ -99,4 +118,4 @@ if __name__ == "__main__":
 
     # run_all(warmup)
     run_all(bench_time)
-    run_all(bench_stat)
+    # run_all(bench_stat)

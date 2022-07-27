@@ -9,6 +9,8 @@ use super::export::{
 use super::power_tau::PowerTau;
 use super::utils::amtp_file_name;
 
+use rayon::prelude::*;
+
 pub struct AMTParams<PE: PairingEngine> {
     commitments: Vec<G1<PE>>,
     quotients: Vec<Vec<G1<PE>>>,
@@ -37,6 +39,7 @@ impl<PE: PairingEngine> AMTParams<PE> {
         self.g2
     }
 
+    #[cfg(not(feature = "no_cache_pow"))]
     pub fn get_idents_pow(&self, index: usize, power: &FrInt<PE>) -> G1<PE> {
         let indents_cache = &mut *self.indents_cache.write().unwrap();
         let caches = &mut indents_cache[index];
@@ -60,6 +63,12 @@ impl<PE: PairingEngine> AMTParams<PE> {
         answer
     }
 
+    #[cfg(feature = "no_cache_pow")]
+    pub fn get_idents_pow(&self, index: usize, power: &FrInt<PE>) -> G1<PE> {
+        self.commitments[index].mul(power)
+    }
+
+    #[cfg(not(feature = "no_cache_pow"))]
     pub fn get_quotient_pow(&self, depth: usize, index: usize, power: &FrInt<PE>) -> G1<PE> {
         let quotient_cache = &mut *self.quotients_cache.write().unwrap();
         let caches = &mut quotient_cache[depth - 1][index];
@@ -82,6 +91,11 @@ impl<PE: PairingEngine> AMTParams<PE> {
             assert_eq!(self.quotients[depth - 1][index].mul(power), answer);
         }
         answer
+    }
+
+    #[cfg(feature = "no_cache_pow")]
+    pub fn get_quotient_pow(&self, depth: usize, index: usize, power: &FrInt<PE>) -> G1<PE> {
+        self.quotients[depth - 1][index].mul(power)
     }
 
     pub fn warm_quotient(&self, _shard_ratio: usize) {
@@ -208,7 +222,10 @@ impl<PE: PairingEngine> AMTParams<PE> {
         }
 
         let mut answer = fft_domain.fft(&coeff);
-        ark_std::cfg_iter_mut!(&mut answer).for_each(|val| *val *= fft_domain.size_inv);
+        answer
+            .par_iter_mut()
+            .with_min_len(1024)
+            .for_each(|val| *val *= fft_domain.size_inv);
         answer
     }
 

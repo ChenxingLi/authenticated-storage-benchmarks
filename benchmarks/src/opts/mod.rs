@@ -6,10 +6,10 @@ use structopt::StructOpt;
     rename_all = "kebab-case"
 )]
 pub struct Options {
-    #[structopt(short = "a", long)]
+    #[structopt(short = "a", parse(try_from_str = parse_algo), long)]
     pub algorithm: TestMode,
 
-    #[structopt(short = "k", long, parse(try_from_str = parse_num), default_value="100000")]
+    #[structopt(short = "k", long, parse(try_from_str = parse_num), default_value = "100000")]
     pub total_keys: usize,
 
     #[structopt(long, default_value = "64")]
@@ -89,9 +89,26 @@ impl Options {
 #[strum(serialize_all = "lowercase")]
 pub enum TestMode {
     RAW,
+    SAMT(usize),
     AMT,
     MPT,
     DMPT,
+}
+
+fn parse_algo(s: &str) -> Result<TestMode, String> {
+    if &s[0..4] == "samt" {
+        let depth = s[4..].parse::<usize>().map_err(|x| x.to_string())?;
+        return Ok(TestMode::SAMT(depth));
+    }
+    return Ok(match s {
+        "raw" => TestMode::RAW,
+        "amt" => TestMode::AMT,
+        "mpt" => TestMode::MPT,
+        "dmpt" => TestMode::DMPT,
+        _ => {
+            return Err("Unrecognized algorithm".into());
+        }
+    });
 }
 
 fn parse_num(s: &str) -> Result<usize, String> {

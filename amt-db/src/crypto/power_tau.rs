@@ -5,14 +5,35 @@ use super::export::{
 };
 use super::pp_file_name;
 use ark_ff::utils::k_adicity;
+use ark_ff::Field;
 use rand;
+use rayon::prelude::*;
 use std::fs::{create_dir_all, File};
 use std::io::{Read, Write};
-use std::ops::MulAssign;
 use std::path::Path;
 
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct PowerTau<PE: PairingEngine>(pub Vec<G1Aff<PE>>, pub Vec<G2Aff<PE>>);
+
+fn power_tau<'a, G: AffineCurve>(gen: &'a G, tau: &'a G::ScalarField, length: usize) -> Vec<G> {
+    let gen: G::Projective = gen.into_projective();
+    (0usize..length)
+        .into_par_iter()
+        .chunks(1024)
+        .map(|x| {
+            ProjectiveCurve::batch_normalization_into_affine(
+                &x.iter()
+                    .map(|idx| {
+                        let mut gen = gen.clone();
+                        gen *= tau.pow([*idx as u64]);
+                        gen
+                    })
+                    .collect::<Vec<G::Projective>>()[..],
+            )
+        })
+        .flatten()
+        .collect()
+}
 
 impl<PE: PairingEngine> PowerTau<PE> {
     #[cfg(test)]
@@ -28,22 +49,11 @@ impl<PE: PairingEngine> PowerTau<PE> {
         let random_tau = Fr::<PE>::rand(&mut rand::thread_rng());
         let tau = tau.unwrap_or(random_tau);
 
-        let mut gen1 = G1Aff::<PE>::prime_subgroup_generator().into_projective();
-        let mut gen2 = G2Aff::<PE>::prime_subgroup_generator().into_projective();
+        let gen1 = G1Aff::<PE>::prime_subgroup_generator();
+        let gen2 = G2Aff::<PE>::prime_subgroup_generator();
 
-        let mut g1pp: Vec<G1Aff<PE>> = vec![];
-        g1pp.reserve(1 << depth);
-        for _ in 0..1 << depth {
-            g1pp.push(gen1.into_affine());
-            gen1.mul_assign(tau.clone());
-        }
-
-        let mut g2pp: Vec<G2Aff<PE>> = vec![];
-        g2pp.reserve(1 << depth);
-        for _ in 0..1 << depth {
-            g2pp.push(gen2.into_affine());
-            gen2.mul_assign(tau.clone());
-        }
+        let g1pp: Vec<G1Aff<PE>> = power_tau(&gen1, &tau, 1 << depth);
+        let g2pp: Vec<G2Aff<PE>> = power_tau(&gen2, &tau, 1 << depth);
 
         return PowerTau(g1pp, g2pp);
     }
@@ -106,4 +116,23 @@ fn test_partial_load() {
 
     assert_eq!(small_pp.0[..], large_pp.0[..(small_pp.0.len())]);
     assert_eq!(small_pp.1[..], large_pp.1[..(small_pp.1.len())]);
+}
+
+#[test]
+fn test_parallel_build() {
+    use crate::crypto::export::{Pairing, ProjectiveCurve};
+
+    const DEPTH: usize = 13;
+    let tau = Fr::<Pairing>::rand(&mut rand::thread_rng());
+    let gen1 = G1Aff::<Pairing>::prime_subgroup_generator();
+    let g1pp_ans = power_tau(&gen1, &tau, 1 << DEPTH);
+
+    let mut g1pp: Vec<G1Aff<Pairing>> = vec![];
+    g1pp.reserve(1 << DEPTH);
+    let mut gen1 = gen1.into_projective();
+    for _ in 0..1 << DEPTH {
+        g1pp.push(gen1.into_affine());
+        gen1 *= tau.clone();
+    }
+    assert_eq!(g1pp, g1pp_ans)
 }

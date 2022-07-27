@@ -1,6 +1,5 @@
 use super::tree::{AMTConfigTrait, AMTData, AMTree};
-use crate::crypto::export::BigInteger;
-use crate::crypto::export::FrInt;
+use crate::crypto::export::{BigInteger, FpParameters, FrInt, FrParams};
 use std::ops::{Deref, DerefMut, Drop};
 
 pub struct AMTNodeWriteGuard<'a, C: AMTConfigTrait> {
@@ -39,7 +38,10 @@ impl<'a, C: AMTConfigTrait> DerefMut for AMTNodeWriteGuard<'a, C> {
 impl<'a, C: AMTConfigTrait> Drop for AMTNodeWriteGuard<'a, C> {
     fn drop(&mut self) {
         let mut fr_int = self.value.as_fr_int();
-        fr_int.sub_noborrow(&self.old_fr_int);
+        let borrow_bit = fr_int.sub_noborrow(&self.old_fr_int);
+        if borrow_bit {
+            fr_int.add_nocarry(&FrParams::<C::PE>::R);
+        }
         std::mem::swap(self.tree.get_mut(self.index), &mut self.value);
         self.tree.update(self.index, fr_int);
     }

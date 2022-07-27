@@ -22,8 +22,10 @@ extern crate log;
 extern crate ethereum_types;
 extern crate fastmap;
 extern crate hash_db;
+#[cfg(feature = "hash15")]
 extern crate hash_db15;
 extern crate keccak_hasher;
+#[cfg(feature = "hash15")]
 extern crate keccak_hasher15;
 extern crate kvdb;
 extern crate memory_db;

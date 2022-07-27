@@ -4,6 +4,7 @@ extern crate error_chain;
 extern crate static_assertions;
 
 extern crate base64;
+extern crate core;
 #[cfg(test)]
 extern crate kvdb_memorydb;
 
@@ -14,6 +15,7 @@ mod enable_log;
 pub mod merkle;
 pub mod multi_layer_amt;
 pub mod serde;
+pub mod single_amt;
 pub mod storage;
 
 pub use crate::amt_db::{AmtDb, AmtRoot, Proof};

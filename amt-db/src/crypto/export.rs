@@ -21,6 +21,7 @@ pub type G2<PE> = <PE as PairingEngine>::G2Projective;
 pub type G2Aff<PE> = <PE as PairingEngine>::G2Affine;
 pub type Fr<PE> = <PE as PairingEngine>::Fr;
 pub type FrInt<PE> = <Fr<PE> as PrimeField>::BigInt;
+pub type FrParams<PE> = <Fr<PE> as PrimeField>::Params;
 
 pub type Pairing = Bn254;
 pub type G1Projective = ark_bn254::G1Projective;
@@ -34,4 +35,5 @@ pub mod instances {
     pub type G2Aff = super::G2Aff<Pairing>;
     pub type Fr = super::Fr<Pairing>;
     pub type FrInt = super::FrInt<Pairing>;
+    pub type FrParams = super::FrParams<Pairing>;
 }

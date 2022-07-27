@@ -1,4 +1,5 @@
 mod amt;
+mod amt_smp;
 #[cfg(feature = "dmpt")]
 mod delta_mpt;
 mod mpt;
@@ -47,6 +48,10 @@ pub fn new<'a>(backend: Arc<dyn KeyValueDB>, opts: &'a Options) -> (Box<dyn Auth
             (Box::new(mpt_db), Box::new(counter))
         }
         TestMode::DMPT => (open_dmpt(&opts.db_dir), Box::new(Counter::default())),
+        TestMode::SAMT(x) => {
+            let authdb = exaust_construct!(x, backend, opts, 20, 21, 22, 23, 24, 25, 26, 27, 28);
+            (authdb, Box::new(Counter::default()))
+        }
     };
 
     let mut reporter = Reporter::new(opts);
@@ -54,3 +59,17 @@ pub fn new<'a>(backend: Arc<dyn KeyValueDB>, opts: &'a Options) -> (Box<dyn Auth
 
     return (db, reporter);
 }
+
+macro_rules! exaust_construct {
+    ($input: ident, $backend: ident, $opts: ident, $idx:tt $(, $rest:tt)*) => {
+        if $input == $idx {
+            Box::new(amt_smp::new::<$idx>($backend, $opts)) as Box<dyn AuthDB>
+        } else {
+            exaust_construct!($input, $backend, $opts, $($rest),*)
+        }
+    };
+    ($input: ident, $backend: ident, $opts: ident, )=>{
+        unreachable!("Unsupport index");
+    }
+}
+use exaust_construct;

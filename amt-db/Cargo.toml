@@ -9,7 +9,7 @@ edition = "2018"
 [dependencies]
 ark-ec = { version="^0.2.0", features = ["std"] }
 ark-ff = { version="^0.2.0", features = ["std"] }
-ark-poly = { version="^0.2.0", features = ["std"] }
+ark-poly = { version="^0.2.0", features = ["std", "parallel"] }
 ark-serialize = { version="^0.2.0",  features = ["std"]  }
 ark-std = { version="^0.2.0" }
 ark-bls12-381 = { version = "^0.2.0", features = ["curve"]}
@@ -32,6 +32,7 @@ hashbrown = "0.11.2"
 amt-serde-derive = { path="./amt-serde-derive" }
 
 kvdb="0.4"
+rayon="1.5.3"
 
 [dev-dependencies]
 kvdb-memorydb = "0.4.0"
@@ -40,3 +41,4 @@ kvdb-memorydb = "0.4.0"
 medium_amt = []
 large_amt = []
 huge_amt = []
+no_cache_pow = []
