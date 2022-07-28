@@ -32,7 +32,7 @@ hashbrown = "0.11.2"
 amt-serde-derive = { path="./amt-serde-derive" }
 
 kvdb="0.4"
-rayon="1.5.3"
+rayon=">=1.5"
 
 [dev-dependencies]
 kvdb-memorydb = "0.4.0"

@@ -5,14 +5,14 @@ from functools import partial
 import numpy as np
 
 CARGO_RUN = "cargo run --release -p benchmarks --".split(" ")
-DRY_RUN = True
+DRY_RUN = False
 WARMUP = "./warmup/v2"
 RESULT = "./paper_experiment/oakland"
 
 
 def to_amt_size(key):
     if key == "fresh":
-        base = 1e6
+        return 1e8
     elif key[-1].lower() in "kmg":
         exp = 10 ** ("kmg".index(key[-1].lower()) * 3 + 3)
         base = float(key[:-1]) * exp
@@ -49,6 +49,13 @@ def run(commands, output=None):
 def warmup(alg, key, shards=None):
     if key == "fresh":
         return
+
+    if alg == "samt":
+        amt_size = to_amt_size(key)
+        if amt_size > 26:
+            return
+        alg = alg + f"{amt_size:d}"
+
     prefix = CARGO_RUN + ["--no-stat", "--warmup-to", WARMUP]
     run("rm -rf __benchmarks")
     if shards is None:
@@ -113,9 +120,9 @@ def run_all(run_one):
 
 if __name__ == "__main__":
     run("rm -rf __reports __benchmarks")
-    # run("mkdir -p ./warmup/v2")
+    run("mkdir -p ./warmup/v2")
     run(f"mkdir -p {RESULT}")
 
-    # run_all(warmup)
-    run_all(bench_time)
+    run_all(warmup)
+    # run_all(bench_time)
     # run_all(bench_stat)

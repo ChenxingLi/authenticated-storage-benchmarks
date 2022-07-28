@@ -24,3 +24,7 @@ impl Hasher for Blake2sHasher {
         answer
     }
 }
+
+pub fn blake2s<T: AsRef<[u8]>>(s: T) -> H256 {
+    Blake2sHasher::hash(s.as_ref())
+}
