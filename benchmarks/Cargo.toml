@@ -73,6 +73,7 @@ base64ct = "=1.1"
 tokio = { version = "0.2.25"}
 
 hex="0.4.3"
+blake2-hasher = { path = "./parity-journaldb/blake2-hasher" }
 
 [features]
 default=["cfx-backend"]

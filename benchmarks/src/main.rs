@@ -3,6 +3,7 @@ extern crate parity_util_mem;
 extern crate structopt;
 #[macro_use]
 extern crate strum_macros;
+extern crate blake2_hasher;
 
 use fs_extra::dir::CopyOptions;
 use std::fs;

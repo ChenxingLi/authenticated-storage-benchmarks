@@ -16,7 +16,7 @@
 
 //! Façade crate for `patricia_trie` for Ethereum specific impls
 
-extern crate blake2s_hasher;
+extern crate blake2_hasher;
 extern crate elastic_array;
 extern crate ethereum_types;
 extern crate hash_db;

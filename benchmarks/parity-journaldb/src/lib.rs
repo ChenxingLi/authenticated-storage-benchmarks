@@ -18,8 +18,8 @@
 
 #[macro_use]
 extern crate log;
-#[cfg(feature = "blake2s-hasher")]
-extern crate blake2s_hasher;
+#[cfg(feature = "blake2-hasher")]
+extern crate blake2_hasher;
 extern crate ethereum_types;
 extern crate fastmap;
 extern crate hash_db;

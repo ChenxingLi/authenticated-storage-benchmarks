@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use hash_db::Hasher;
-use keccak_hasher::KeccakHasher;
 use kvdb::{DBKey, DBOp, DBTransaction, KeyValueDB};
 use patricia_trie_ethereum::RlpNodeCodec;
 use primitive_types::H256;
@@ -28,7 +27,7 @@ pub struct MptDB {
 }
 
 fn epoch_hash(epoch: usize) -> H256 {
-    KeccakHasher::hash(&epoch.to_le_bytes())
+    DBHasher::hash(&epoch.to_le_bytes())
 }
 
 pub(crate) fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> MptDB {
