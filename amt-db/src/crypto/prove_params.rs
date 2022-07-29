@@ -113,11 +113,24 @@ impl<PE: PairingEngine> AMTParams<PE> {
             vec_fr_int.push(fr_int);
             fr_int.muln(40);
         }
-        for i in 1..=depth {
-            println!("warmup depth {}", i);
+        for d in 1..=depth {
+            println!("warmup depth {}", d);
+            let quotient_pow = (0usize..length)
+                .into_par_iter()
+                .map(|j| {
+                    let index = bitreverse(j, depth);
+                    vec_fr_int
+                        .iter()
+                        .map(|fr_int| self.quotients[d - 1][index].mul(fr_int))
+                        .collect::<Vec<G1<PE>>>()
+                })
+                .collect::<Vec<Vec<G1<PE>>>>();
+            let quotient_cache = &mut *self.quotients_cache.write().unwrap();
             for j in 0..length {
-                for fr_int in &vec_fr_int {
-                    let _ = self.get_quotient_pow(i, bitreverse(j, depth), fr_int);
+                let index = bitreverse(j, depth);
+                let caches = &mut quotient_cache[d - 1][index];
+                for k in 0..6 {
+                    caches.insert(k * 40, quotient_pow[j][k].clone());
                 }
             }
         }
