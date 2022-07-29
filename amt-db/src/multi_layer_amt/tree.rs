@@ -138,7 +138,7 @@ impl VersionTree {
         };
 
         if !in_proof_shard {
-            visit_amt.update(node, fr_int_pow_2((slot_index as u32 + 1) * 5));
+            visit_amt.update(node, fr_int_pow_2((slot_index as u32 + 1) * 40));
         } else {
             // Maintain necessary data for proof.
             visit_amt.write_versions(node).key_versions[slot_index as usize] += 1;
