@@ -41,7 +41,7 @@ fn warmup(db: &mut dyn AuthDB, tasks: Box<dyn Iterator<Item = Events> + '_>, opt
 pub fn run_tasks(
     mut db: Box<dyn AuthDB>,
     _backend_any: Arc<dyn Any>,
-    tasks: impl TaskTrait,
+    tasks: Arc<dyn TaskTrait>,
     mut reporter: Reporter,
     opts: &Options,
 ) {

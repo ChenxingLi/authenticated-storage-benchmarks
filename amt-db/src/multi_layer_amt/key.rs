@@ -44,6 +44,9 @@ impl Key {
     }
 
     pub fn index_at_level(&self, level: u8) -> usize {
+        // if level > 3 {
+        //     dbg!(level);
+        // }
         let length = (level as usize) * DEPTHS;
         self.mid(length, DEPTHS) as usize
     }

@@ -34,11 +34,18 @@ amt-serde-derive = { path="./amt-serde-derive" }
 kvdb="0.4"
 rayon=">=1.5"
 
-[dev-dependencies]
 kvdb-memorydb = "0.4.0"
+
+
+[dev-dependencies]
+unroll = "*"
 
 [features]
 medium_amt = []
 large_amt = []
 huge_amt = []
 no_cache_pow = []
+
+[[bench]]
+name = "bench"
+path = "benches/bench.rs"

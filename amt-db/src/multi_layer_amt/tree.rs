@@ -30,7 +30,6 @@ const ROOT_KEY: [u8; 2] = [0, 0];
 /// The `VersionTree`
 #[derive(Clone)]
 pub struct VersionTree {
-    root: G1,
     producer: TreeProducer,
     forest: Vec<TreesLayer>,
 
@@ -66,7 +65,6 @@ impl VersionTree {
         Self {
             forest,
             producer,
-            root,
             shard_node,
         }
     }
@@ -153,6 +151,9 @@ impl VersionTree {
 
     pub fn allocate_vacant_slot(&mut self, key: &Key) -> VerInfo {
         for level in 0..32 {
+            if level >= 3 {
+                println!("Level {}, allocate slot for {:?}", level, key.0);
+            }
             let visit_amt = self.get_tree_mut(&key.tree_at_level(level));
             let node_index = key.index_at_level(level);
 

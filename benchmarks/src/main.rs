@@ -7,6 +7,7 @@ extern crate blake2_hasher;
 
 use fs_extra::dir::CopyOptions;
 use std::fs;
+use std::sync::Arc;
 use structopt::StructOpt;
 
 mod backend;
@@ -18,6 +19,8 @@ mod tasks;
 use opts::{Options, TestMode};
 use run::run_tasks;
 
+use crate::tasks::TaskTrait;
+
 // const DIR: &'static str = "/mnt/tmpfs/__benchmarks";
 
 fn main() {
@@ -26,8 +29,12 @@ fn main() {
         panic!("Stat will introduce memory cost")
     }
     println!(
-        "Testing {:?} with {:e} addresses",
-        options.algorithm, options.total_keys
+        "Testing {:?} with {}",
+        options.algorithm, if options.real_trace {
+            "real trace".into()
+        } else {
+            format!("{:e} addresses", options.total_keys)
+        }
     );
 
     let db_dir = &options.db_dir;
@@ -48,7 +55,12 @@ fn main() {
         fs::create_dir_all(dir).unwrap()
     }
 
-    let tasks = tasks::ReadThenWrite::<rand_pcg::Pcg64>::new(&options);
+    let tasks: Arc<dyn TaskTrait> = if options.real_trace {
+        Arc::new(tasks::RealTrace::load(&options))
+    } else {
+        Arc::new(tasks::ReadThenWrite::<rand_pcg::Pcg64>::new(&options))
+    };
+    
     let (backend, backend_any) = backend::backend(&options);
     let (db, reporter) = db::new(backend, &options);
     run_tasks(db, backend_any, tasks, reporter, &options);

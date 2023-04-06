@@ -39,6 +39,12 @@ pub struct Options {
     #[structopt(long = "db", default_value = "./__benchmarks")]
     pub db_dir: String,
 
+    #[structopt(long = "trace", default_value = "./trace")]
+    pub trace_dir: String,
+
+    #[structopt(long, help = "Use real trace")]
+    pub real_trace: bool,
+
     #[structopt(long, help = "Disable backend stat")]
     pub no_stat: bool,
 
@@ -63,14 +69,19 @@ pub struct Options {
 
 impl Options {
     fn warmup_dir(&self, input: &str) -> String {
+        let task_code = if !self.real_trace {
+            format!("{:e}", self.total_keys)
+        }else{
+            "real".into()
+        };
         if self.algorithm != TestMode::AMT || self.shard_size.is_none() {
-            format!("{}/{:?}_{:e}/", input, self.algorithm, self.total_keys)
+            format!("{}/{:?}_{}/", input, self.algorithm, task_code)
         } else {
             format!(
-                "{}/amt{}_{:e}/",
+                "{}/amt{}_{}/",
                 input,
                 self.shard_size.unwrap(),
-                self.total_keys
+                task_code
             )
         }
     }
@@ -96,7 +107,7 @@ pub enum TestMode {
 }
 
 fn parse_algo(s: &str) -> Result<TestMode, String> {
-    if &s[0..4] == "samt" {
+    if s.len() >= 4 && &s[0..4] == "samt" {
         let depth = s[4..].parse::<usize>().map_err(|x| x.to_string())?;
         return Ok(TestMode::SAMT(depth));
     }

@@ -69,7 +69,7 @@ macro_rules! exaust_construct {
         }
     };
     ($input: ident, $backend: ident, $opts: ident, )=>{
-        unreachable!("Unsupport index");
+        unreachable!("Unsupport index")
     }
 }
 use exaust_construct;

@@ -43,7 +43,6 @@ pub struct AMTree<C: AMTConfigTrait> {
     dirty: bool,
     shard_root: Option<NodeIndex<C::Height>>,
 
-    db: DBColumn,
     pp: Arc<AMTParams<C::PE>>,
 }
 
@@ -68,7 +67,6 @@ impl<C: AMTConfigTrait> AMTree<C> {
             data: DBAccess::new(set_prefix(1), db.clone()),
             inner_nodes: DBAccess::new(set_prefix(2), db.clone()),
             subtree_roots: DBAccess::new(set_prefix(3), db.clone()),
-            db,
 
             commitment: None,
             dirty: false,

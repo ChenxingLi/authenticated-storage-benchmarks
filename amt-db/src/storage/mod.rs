@@ -5,10 +5,8 @@ pub mod layout;
 pub use self::access::DBAccess;
 pub use self::kvdb::DBColumn;
 pub use self::layout::{FlattenArray, FlattenTree, LayoutTrait};
-#[cfg(test)]
 pub use self::test_tools::{test_db_col, test_kvdb};
 
-#[cfg(test)]
 mod test_tools {
     use super::DBColumn;
     use kvdb::KeyValueDB;

@@ -58,6 +58,7 @@ impl<const N: usize> AuthDB for SingleAmtDB<N> {
     }
 }
 
+#[allow(unused)]
 #[derive(Clone)]
 pub struct AMTCounter {
     put_count: [u64; 4],

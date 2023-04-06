@@ -75,6 +75,9 @@ tokio = { version = "0.2.25"}
 hex="0.4.3"
 blake2-hasher = { path = "./parity-journaldb/blake2-hasher" }
 
+serde = "1.0.149"
+postcard = "1.0.2"
+
 [features]
 default=["cfx-backend"]
 dmpt = ["cfx-backend"]

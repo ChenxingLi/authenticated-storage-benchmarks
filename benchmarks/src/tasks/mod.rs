@@ -1,6 +1,8 @@
 pub mod read_then_write;
+pub mod real_trace;
 
 pub use read_then_write::ReadThenWrite;
+pub use real_trace::RealTrace;
 
 type Key = Vec<u8>;
 type Value = Vec<u8>;
