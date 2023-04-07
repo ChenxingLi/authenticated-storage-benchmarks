@@ -71,18 +71,13 @@ impl Options {
     fn warmup_dir(&self, input: &str) -> String {
         let task_code = if !self.real_trace {
             format!("{:e}", self.total_keys)
-        }else{
+        } else {
             "real".into()
         };
         if self.algorithm != TestMode::AMT || self.shard_size.is_none() {
             format!("{}/{:?}_{}/", input, self.algorithm, task_code)
         } else {
-            format!(
-                "{}/amt{}_{}/",
-                input,
-                self.shard_size.unwrap(),
-                task_code
-            )
+            format!("{}/amt{}_{}/", input, self.shard_size.unwrap(), task_code)
         }
     }
     pub fn settings(&self) -> String {
@@ -93,6 +88,13 @@ impl Options {
     }
     pub fn warmup_from(&self) -> Option<String> {
         self.warmup_from.as_ref().map(|x| self.warmup_dir(x))
+    }
+
+    pub fn num_cols(&self) -> u32 {
+        match self.algorithm {
+            TestMode::AMT => amt_db::amt_db::NUM_COLS,
+            _ => 1,
+        }
     }
 }
 

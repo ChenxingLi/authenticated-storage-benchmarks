@@ -77,6 +77,8 @@ blake2-hasher = { path = "./parity-journaldb/blake2-hasher" }
 
 serde = "1.0.149"
 postcard = "1.0.2"
+libmdbx = "0.1.12"
+ouroboros = "*"
 
 [features]
 default=["cfx-backend"]

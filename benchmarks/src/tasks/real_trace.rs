@@ -1,9 +1,8 @@
 #![allow(unused)]
 use std::path::Path;
 
+use postcard::from_bytes;
 use serde::{Deserialize, Serialize};
-use postcard::{from_bytes};
-
 
 use crate::opts::Options;
 
@@ -37,7 +36,10 @@ impl RealTrace {
         let path = Path::new(&opt.trace_dir);
         let init_tasks = read_from_file(path.join("real_trace.init").as_os_str());
         let io_tasks = read_from_file(path.join("real_trace.data").as_os_str());
-        RealTrace { init_tasks, io_tasks }
+        RealTrace {
+            init_tasks,
+            io_tasks,
+        }
     }
 }
 
@@ -49,7 +51,9 @@ impl TaskTrait for RealTrace {
                     .iter()
                     .map(|io| match io {
                         ExperimentTask::Read(key) => Event::Read(key.to_vec()),
-                        ExperimentTask::Write(key, value) => Event::Write(key.to_vec(), value.clone()),
+                        ExperimentTask::Write(key, value) => {
+                            Event::Write(key.to_vec(), value.clone())
+                        }
                     })
                     .collect::<Vec<_>>(),
             )

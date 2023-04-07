@@ -10,6 +10,7 @@ mod cfx_kvdb_rocksdb;
 mod db_with_mertics;
 
 mod in_mem_with_metrics;
+pub mod mdbx;
 
 #[cfg(feature = "parity-backend")]
 mod parity_kvdb_rocksdb;

@@ -7,7 +7,7 @@ import numpy as np
 CARGO_RUN = "cargo run --release -p benchmarks --features light-hash --".split(" ")
 DRY_RUN = False
 WARMUP = "./warmup/v3"
-RESULT = "./paper_experiment/osdi"
+RESULT = "./paper_experiment/osdi2"
 
 
 def to_amt_size(key):
@@ -135,12 +135,12 @@ bench_stat = partial(bench, "stat")
 
 def run_all(run_one):
     # "1m", "10m", "100m", "fresh"
-    for key in ["10m", "real"]:
-        # run_one("raw", key)
-        # run_one("amt", key)
+    for key in ["1m"]:
+        run_one("raw", key)
+        run_one("amt", key)
         run_one("mpt", key)
-        run_one("mpt", key, high_memory=1)
-        run_one("mpt", key, high_memory=2)
+        # run_one("mpt", key, high_memory=1)
+        # run_one("mpt", key, high_memory=2)
         # run_one("samt", key)
         # for shards in [16,64]:
         #     run_one("amt", key, shards, low_memory=True)

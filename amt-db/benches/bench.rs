@@ -15,22 +15,18 @@ use test::{black_box, Bencher};
 use unroll::unroll_for_loops;
 
 #[unroll_for_loops]
-fn mul_u64(x:&mut [u64;1000],y:&[u64;1000]){
+fn mul_u64(x: &mut [u64; 1000], y: &[u64; 1000]) {
     for i in 0..1000 {
         x[i] *= y[i];
     }
 }
 
-
-
 #[bench]
 fn bench_u64(b: &mut Bencher) {
     let mut rng = rand::thread_rng();
-    let mut x: [u64;1000]=[();1000].map(|_| rng.gen::<u64>());
-    let y: [u64;1000]=[();1000].map(|_| rng.gen::<u64>());
-    b.iter(move || {
-        mul_u64(&mut x,&y)
-    })
+    let mut x: [u64; 1000] = [(); 1000].map(|_| rng.gen::<u64>());
+    let y: [u64; 1000] = [(); 1000].map(|_| rng.gen::<u64>());
+    b.iter(move || mul_u64(&mut x, &y))
 }
 
 #[bench]

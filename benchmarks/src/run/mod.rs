@@ -6,7 +6,6 @@ use crate::opts::Options;
 use crate::tasks::{Event, Events, TaskTrait};
 use fs_extra::dir::CopyOptions;
 use kvdb::IoStatsKind;
-use std::any::Any;
 use std::fs;
 use std::sync::Arc;
 use std::thread::sleep;
@@ -40,7 +39,7 @@ fn warmup(db: &mut dyn AuthDB, tasks: Box<dyn Iterator<Item = Events> + '_>, opt
 
 pub fn run_tasks(
     mut db: Box<dyn AuthDB>,
-    _backend_any: Arc<dyn Any>,
+    // _backend_any: Arc<dyn Any>,
     tasks: Arc<dyn TaskTrait>,
     mut reporter: Reporter,
     opts: &Options,

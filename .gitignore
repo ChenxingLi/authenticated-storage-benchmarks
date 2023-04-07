@@ -10,3 +10,4 @@
 flamegraph.svg
 *.pdf
 *.log
+.vscode

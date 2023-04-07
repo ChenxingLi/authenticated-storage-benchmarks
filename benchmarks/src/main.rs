@@ -6,6 +6,7 @@ extern crate strum_macros;
 extern crate blake2_hasher;
 
 use fs_extra::dir::CopyOptions;
+use kvdb::KeyValueDB;
 use std::fs;
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -30,7 +31,8 @@ fn main() {
     }
     println!(
         "Testing {:?} with {}",
-        options.algorithm, if options.real_trace {
+        options.algorithm,
+        if options.real_trace {
             "real trace".into()
         } else {
             format!("{:e} addresses", options.total_keys)
@@ -60,8 +62,12 @@ fn main() {
     } else {
         Arc::new(tasks::ReadThenWrite::<rand_pcg::Pcg64>::new(&options))
     };
-    
-    let (backend, backend_any) = backend::backend(&options);
+
+    let backend: Arc<dyn KeyValueDB> = if false {
+        Arc::new(backend::mdbx::open_database(&options))
+    } else {
+        backend::backend(&options).0
+    };
     let (db, reporter) = db::new(backend, &options);
-    run_tasks(db, backend_any, tasks, reporter, &options);
+    run_tasks(db, tasks, reporter, &options);
 }
