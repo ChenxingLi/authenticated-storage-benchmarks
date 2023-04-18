@@ -1,0 +1,23 @@
+[package]
+name = "asb-backend"
+version = "0.1.0"
+edition = "2021"
+authors = ["Chenxing Li <ChenxingLi@users.noreply.github.com>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+asb-options = { workspace = true }
+cfx-kvdb-rocksdb = { workspace = true }
+kvdb = { workspace = true }
+kvdb-memorydb = { workspace = true }
+libmdbx = { workspace = true }
+ouroboros = "0.15.6"
+stats = { workspace = true }
+parity-util-mem = { workspace = true }
+
+[features]
+default=["cfx-backend"]
+dmpt = ["cfx-backend"]
+cfx-backend=[]
+parity-backend=[]
