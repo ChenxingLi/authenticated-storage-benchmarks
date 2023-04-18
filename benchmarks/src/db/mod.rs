@@ -12,7 +12,7 @@ use std::sync::Arc;
 use crate::db::mpt::MptCounter;
 use crate::run::counter::{Counter, Reporter};
 use crate::run::CounterTrait;
-use crate::{Options, TestMode};
+use crate::{Options, AuthAlgo};
 
 pub trait AuthDB {
     fn get(&self, key: Vec<u8>) -> Option<Box<[u8]>>;
@@ -37,18 +37,18 @@ fn open_dmpt(dir: &str) -> Box<dyn AuthDB> {
 
 pub fn new<'a>(backend: Arc<dyn KeyValueDB>, opts: &'a Options) -> (Box<dyn AuthDB>, Reporter<'a>) {
     let (db, counter): (Box<dyn AuthDB>, Box<dyn CounterTrait>) = match opts.algorithm {
-        TestMode::RAW => (Box::new(raw::new(backend)), Box::new(Counter::default())),
-        TestMode::AMT => (
+        AuthAlgo::RAW => (Box::new(raw::new(backend)), Box::new(Counter::default())),
+        AuthAlgo::AMT => (
             Box::new(amt::new(backend, opts)),
             Box::new(AMTCounter::default()),
         ),
-        TestMode::MPT => {
+        AuthAlgo::MPT => {
             let mpt_db = mpt::new(backend, opts);
             let counter = MptCounter::from_mpt_db(&mpt_db);
             (Box::new(mpt_db), Box::new(counter))
         }
-        TestMode::DMPT => (open_dmpt(&opts.db_dir), Box::new(Counter::default())),
-        TestMode::SAMT(x) => {
+        AuthAlgo::DMPT => (open_dmpt(&opts.db_dir), Box::new(Counter::default())),
+        AuthAlgo::SAMT(x) => {
             let authdb = exaust_construct!(x, backend, opts, 20, 21, 22, 23, 24, 25, 26, 27, 28);
             (authdb, Box::new(Counter::default()))
         }

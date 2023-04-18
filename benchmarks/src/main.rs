@@ -6,7 +6,6 @@ extern crate strum_macros;
 extern crate blake2_hasher;
 
 use fs_extra::dir::CopyOptions;
-use kvdb::KeyValueDB;
 use std::fs;
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -17,10 +16,10 @@ mod opts;
 mod run;
 mod tasks;
 
-use opts::{Options, TestMode};
+use opts::{Options, AuthAlgo};
 use run::run_tasks;
 
-use crate::tasks::TaskTrait;
+use crate::{tasks::TaskTrait, opts::Backend};
 
 // const DIR: &'static str = "/mnt/tmpfs/__benchmarks";
 
@@ -28,6 +27,9 @@ fn main() {
     let options: Options = Options::from_args();
     if options.stat_mem && !options.no_stat {
         panic!("Stat will introduce memory cost")
+    }
+    if options.algorithm==AuthAlgo::DMPT && options.backend != Backend::RocksDB {
+        panic!("Delta MPT can not change backend")
     }
     println!(
         "Testing {:?} with {}",
@@ -63,11 +65,7 @@ fn main() {
         Arc::new(tasks::ReadThenWrite::<rand_pcg::Pcg64>::new(&options))
     };
 
-    let backend: Arc<dyn KeyValueDB> = if false {
-        Arc::new(backend::mdbx::open_database(&options))
-    } else {
-        backend::backend(&options).0
-    };
+    let backend = backend::backend(&options);
     let (db, reporter) = db::new(backend, &options);
     run_tasks(db, tasks, reporter, &options);
 }

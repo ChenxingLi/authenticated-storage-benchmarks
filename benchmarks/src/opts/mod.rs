@@ -7,7 +7,10 @@ use structopt::StructOpt;
 )]
 pub struct Options {
     #[structopt(short = "a", parse(try_from_str = parse_algo), long)]
-    pub algorithm: TestMode,
+    pub algorithm: AuthAlgo,
+
+    #[structopt(short = "b", parse(try_from_str = parse_backend), long, default_value="rocksdb")]
+    pub backend: Backend,
 
     #[structopt(short = "k", long, parse(try_from_str = parse_num), default_value = "100000")]
     pub total_keys: usize,
@@ -74,7 +77,7 @@ impl Options {
         } else {
             "real".into()
         };
-        if self.algorithm != TestMode::AMT || self.shard_size.is_none() {
+        if self.algorithm != AuthAlgo::AMT || self.shard_size.is_none() {
             format!("{}/{:?}_{}/", input, self.algorithm, task_code)
         } else {
             format!("{}/amt{}_{}/", input, self.shard_size.unwrap(), task_code)
@@ -92,7 +95,7 @@ impl Options {
 
     pub fn num_cols(&self) -> u32 {
         match self.algorithm {
-            TestMode::AMT => amt_db::amt_db::NUM_COLS,
+            AuthAlgo::AMT => amt_db::amt_db::NUM_COLS,
             _ => 1,
         }
     }
@@ -100,7 +103,7 @@ impl Options {
 
 #[derive(Debug, Eq, PartialEq, EnumString)]
 #[strum(serialize_all = "lowercase")]
-pub enum TestMode {
+pub enum AuthAlgo {
     RAW,
     SAMT(usize),
     AMT,
@@ -108,16 +111,16 @@ pub enum TestMode {
     DMPT,
 }
 
-fn parse_algo(s: &str) -> Result<TestMode, String> {
+fn parse_algo(s: &str) -> Result<AuthAlgo, String> {
     if s.len() >= 4 && &s[0..4] == "samt" {
         let depth = s[4..].parse::<usize>().map_err(|x| x.to_string())?;
-        return Ok(TestMode::SAMT(depth));
+        return Ok(AuthAlgo::SAMT(depth));
     }
     return Ok(match s {
-        "raw" => TestMode::RAW,
-        "amt" => TestMode::AMT,
-        "mpt" => TestMode::MPT,
-        "dmpt" => TestMode::DMPT,
+        "raw" => AuthAlgo::RAW,
+        "amt" => AuthAlgo::AMT,
+        "mpt" => AuthAlgo::MPT,
+        "dmpt" => AuthAlgo::DMPT,
         _ => {
             return Err("Unrecognized algorithm".into());
         }
@@ -144,4 +147,23 @@ fn parse_num(s: &str) -> Result<usize, String> {
         s
     };
     Ok(base * num.parse::<usize>().map_err(|x| x.to_string())?)
+}
+
+#[derive(Debug, Eq, PartialEq, EnumString)]
+#[strum(serialize_all = "lowercase")]
+pub enum Backend {
+    RocksDB,
+    InMemoryDB,
+    MDBX,
+}
+
+fn parse_backend(s: &str) -> Result<Backend, String> {
+    return Ok(match s {
+        "rocksdb" => Backend::RocksDB,
+        "memory" => Backend::InMemoryDB,
+        "mdbx" => Backend::MDBX,
+        _ => {
+            return Err("Unrecognized backend".into());
+        }
+    });
 }
