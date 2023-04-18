@@ -12,7 +12,7 @@ pub fn enable_log(level: LevelFilter) -> Result<(), String> {
     );
     let root_builder = Root::builder().appender("stdout");
     // Should add new crate names here
-    for crate_name in ["amt-db", "amt-bench"].iter() {
+    for crate_name in ["lvmt-db", "amt-bench"].iter() {
         conf_builder = conf_builder.logger(Logger::builder().build(*crate_name, level));
     }
     let log_config = conf_builder

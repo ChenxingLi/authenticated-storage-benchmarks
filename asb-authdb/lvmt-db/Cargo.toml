@@ -1,5 +1,5 @@
 [package]
-name = "amt-db"
+name = "lvmt-db"
 version = "0.0.1"
 authors = ["ChenxingLi <lylcx2007@gmail.com>"]
 edition = "2018"
@@ -29,7 +29,7 @@ global = "0.3.0"
 integer-encoding = "3.0.2"
 hashbrown = "0.11.2"
 
-amt-serde-derive = { path="./amt-serde-derive" }
+lvmt-serde-derive = { path="./lvmt-serde-derive" }
 
 kvdb="0.4"
 rayon=">=1.5"
@@ -41,9 +41,9 @@ kvdb-memorydb = "0.4.0"
 unroll = "*"
 
 [features]
-medium_amt = []
-large_amt = []
-huge_amt = []
+medium_lvmt = []
+large_lvmt = []
+huge_lvmt = []
 no_cache_pow = []
 
 [[bench]]

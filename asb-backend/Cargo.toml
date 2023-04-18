@@ -8,7 +8,6 @@ authors = ["Chenxing Li <ChenxingLi@users.noreply.github.com>"]
 
 [dependencies]
 asb-options = { workspace = true }
-cfx-kvdb-rocksdb = { workspace = true }
 kvdb = { workspace = true }
 kvdb-memorydb = { workspace = true }
 libmdbx = { workspace = true }
@@ -16,8 +15,20 @@ ouroboros = "0.15.6"
 stats = { workspace = true }
 parity-util-mem = { workspace = true }
 
+# Note: we met a version conflict of rocksdb, so you need manually change the dependency of rocksdb. 
+
+
+## Uncomment the following lines in default backend (no features)
+cfx-kvdb-rocksdb = { path = "./cfx-kvdb-rocksdb" }
+
+## Uncomment the following lines in feature parity-backend
+# kvdb-rocksdb = "0.9.1"
+
+# Uncomment the following lines in feature lmpts-backend
+# cfx-storage = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9"}
+# cfx-kvdb-rocksdb = { package="kvdb-rocksdb", git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "2ee2765"}
+
+
 [features]
-default=["cfx-backend"]
-dmpt = ["cfx-backend"]
-cfx-backend=[]
 parity-backend=[]
+lmpts-backend=[]

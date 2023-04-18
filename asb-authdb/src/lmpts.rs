@@ -1,27 +1,27 @@
-use crate::db::AuthDB;
-use cfx_primitives::StorageKey;
-use cfx_storage::{
+use asb_backend::cfx_storage::{
     state::StateTrait, state_manager::StateManagerTrait, StateIndex, StorageConfiguration,
     StorageManager, StorageState,
 };
+use authdb::AuthDB;
+use cfx_primitives::StorageKey;
 use kvdb::KeyValueDB;
 use primitive_types::H256;
 
 use std::sync::Arc;
 
-pub struct DeltaMpt {
+pub struct Lmpts {
     manager: Arc<StorageManager>,
     state: StorageState,
 }
 
-pub fn new(dir: &str) -> DeltaMpt {
+pub fn new(dir: &str) -> Lmpts {
     let config = StorageConfiguration::new_default(dir, 2000);
     let manager = Arc::new(StorageManager::new(config).unwrap());
     let state = manager.get_state_for_genesis_write();
-    DeltaMpt { manager, state }
+    Lmpts { manager, state }
 }
 
-impl AuthDB for DeltaMpt {
+impl AuthDB for Lmpts {
     fn get(&self, key: Vec<u8>) -> Option<Box<[u8]>> {
         let key = StorageKey::AccountKey(key.as_slice());
         self.state.get(key).unwrap()

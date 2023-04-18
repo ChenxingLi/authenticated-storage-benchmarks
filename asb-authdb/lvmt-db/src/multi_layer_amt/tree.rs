@@ -5,7 +5,7 @@ use hashbrown::{HashMap, HashSet};
 use kvdb::{DBKey, DBOp, DBTransaction};
 
 use crate::amt::AMTConfigTrait;
-use amt_serde_derive::{MyFromBytes, MyToBytes};
+use lvmt_serde_derive::{MyFromBytes, MyToBytes};
 
 use crate::crypto::export::Zero;
 use crate::crypto::{

@@ -1,7 +1,7 @@
 use std::cmp::min;
 use std::convert::TryFrom;
 
-use amt_serde_derive::{MyFromBytes, MyToBytes};
+use lvmt_serde_derive::{MyFromBytes, MyToBytes};
 
 use super::{TreeName, DEPTHS};
 

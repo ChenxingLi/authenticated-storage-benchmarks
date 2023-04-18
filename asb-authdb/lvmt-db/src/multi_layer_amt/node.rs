@@ -2,7 +2,7 @@ use crate::amt::AMTData;
 use crate::crypto::export::{
     FpParameters, Fr as FrGeneric, FrInt as FrIntGeneric, Pairing, PrimeField,
 };
-use amt_serde_derive::{MyFromBytes, MyToBytes};
+use lvmt_serde_derive::{MyFromBytes, MyToBytes};
 use std::ops::{Deref, DerefMut};
 
 pub(super) type Fr = FrGeneric<Pairing>;

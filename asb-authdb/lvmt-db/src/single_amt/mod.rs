@@ -6,9 +6,9 @@ use crate::crypto::export::{
 use crate::crypto::{AMTParams, TypeUInt};
 use crate::serde::{MyFromBytes, MyToBytes, SerdeType};
 use crate::storage::{DBColumn, FlattenArray, FlattenTree};
-use amt_serde_derive::{MyFromBytes, MyToBytes};
 use keccak_hash::{keccak, H256};
 use kvdb::{DBKey, DBOp, DBTransaction, KeyValueDB};
+use lvmt_serde_derive::{MyFromBytes, MyToBytes};
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 
@@ -60,13 +60,13 @@ impl<const N: usize> AMTConfigTrait for AMTConfig<N> {
 }
 
 #[derive(Clone)]
-pub struct SingleAmt<const N: usize> {
+pub struct AmtDB<const N: usize> {
     root: G1,
     amt: Arc<RwLock<AMTree<AMTConfig<N>>>>,
     pub db: Arc<dyn KeyValueDB>,
 }
 
-impl<const N: usize> SingleAmt<N> {
+impl<const N: usize> AmtDB<N> {
     pub fn new(
         db: Arc<dyn KeyValueDB>,
         pp: Arc<AMTParams<Pairing>>,

@@ -2,11 +2,17 @@ use asb_options::{Backend, Options};
 use kvdb::KeyValueDB;
 use std::sync::Arc;
 
-#[cfg(feature = "cfx-backend")]
+#[cfg(not(feature = "parity-backend"))]
 mod cfx_kvdb_rocksdb;
 
-#[cfg(feature = "cfx-backend")]
+#[cfg(not(feature = "parity-backend"))]
 mod db_with_mertics;
+
+#[cfg(feature = "lmpts-backend")]
+pub extern crate cfx_storage;
+
+#[cfg(all(feature = "parity-backend", feature = "lmpts-backend"))]
+compile_error!("Multiple backends are chosen!");
 
 mod in_mem_with_metrics;
 mod mdbx;
@@ -18,7 +24,7 @@ pub fn backend(opts: &Options) -> Arc<dyn KeyValueDB> {
     match opts.backend {
         Backend::RocksDB => {
             let db_dir = opts.db_dir.as_str();
-            #[cfg(feature = "cfx-backend")]
+            #[cfg(not(feature = "parity-backend"))]
             {
                 cfx_kvdb_rocksdb::open(db_dir, opts)
             }

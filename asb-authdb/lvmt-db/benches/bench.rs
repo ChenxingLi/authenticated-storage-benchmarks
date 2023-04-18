@@ -3,11 +3,11 @@
 extern crate test;
 extern crate unroll;
 
-use amt_db::amt_db::NUM_COLS;
-use amt_db::crypto::export::G1Projective;
-use amt_db::crypto::{AMTParams, Pairing, TypeDepths, TypeUInt};
-use amt_db::{AmtDb, Key, Proof};
 use ethereum_types::H256;
+use lvmt_db::crypto::export::G1Projective;
+use lvmt_db::crypto::{AMTParams, Pairing, TypeDepths, TypeUInt};
+use lvmt_db::lvmt_db::NUM_COLS;
+use lvmt_db::{Key, LvmtDB, Proof};
 use rand::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -33,13 +33,13 @@ fn bench_u64(b: &mut Bencher) {
 fn bench_prove(b: &mut Bencher) {
     let mut rng = rand::thread_rng();
 
-    let backend = amt_db::storage::test_kvdb(NUM_COLS);
+    let backend = lvmt_db::storage::test_kvdb(NUM_COLS);
     let pp = Arc::new(AMTParams::<Pairing>::from_dir(
         "./pp",
         TypeDepths::USIZE,
         true,
     ));
-    let mut db = AmtDb::new(backend, pp.clone(), false, Some((0, 0)));
+    let mut db = LvmtDB::new(backend, pp.clone(), false, Some((0, 0)));
 
     let mut epoch_root_dict = HashMap::new();
 
@@ -55,7 +55,7 @@ fn bench_prove(b: &mut Bencher) {
     }
 
     let prove_key =
-        |key: Vec<u8>, value: Vec<u8>, db: &mut AmtDb, epoch_root_dict: &HashMap<u64, H256>| {
+        |key: Vec<u8>, value: Vec<u8>, db: &mut LvmtDB, epoch_root_dict: &HashMap<u64, H256>| {
             // println!("Verify key {:?}", key);
             let key = Key(key.to_vec());
             assert_eq!(value, db.get(&key).unwrap().unwrap().into_vec());
@@ -79,13 +79,13 @@ fn bench_prove(b: &mut Bencher) {
 fn bench_verify(b: &mut Bencher) {
     let mut rng = rand::thread_rng();
 
-    let backend = amt_db::storage::test_kvdb(NUM_COLS);
+    let backend = lvmt_db::storage::test_kvdb(NUM_COLS);
     let pp = Arc::new(AMTParams::<Pairing>::from_dir(
         "./pp",
         TypeDepths::USIZE,
         true,
     ));
-    let mut db = AmtDb::new(backend, pp.clone(), false, Some((0, 0)));
+    let mut db = LvmtDB::new(backend, pp.clone(), false, Some((0, 0)));
 
     let mut epoch_root_dict = HashMap::new();
 
@@ -101,7 +101,7 @@ fn bench_verify(b: &mut Bencher) {
     }
 
     let prove_key =
-        |key: Vec<u8>, value: Vec<u8>, db: &mut AmtDb, epoch_root_dict: &HashMap<u64, H256>| {
+        |key: Vec<u8>, value: Vec<u8>, db: &mut LvmtDB, epoch_root_dict: &HashMap<u64, H256>| {
             // println!("Verify key {:?}", key);
             let key = Key(key.to_vec());
             assert_eq!(value, db.get(&key).unwrap().unwrap().into_vec());
@@ -122,7 +122,7 @@ fn bench_verify(b: &mut Bencher) {
 
     b.iter(|| {
         let i = rng.gen();
-        AmtDb::verify(
+        LvmtDB::verify(
             &Key(vec![1, 2, i, 0]),
             &proofs[i as usize],
             |epoch| epoch_root_dict[&epoch],

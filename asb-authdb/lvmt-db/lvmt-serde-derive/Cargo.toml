@@ -1,5 +1,5 @@
 [package]
-name = "amt-serde-derive"
+name = "lvmt-serde-derive"
 version = "0.1.0"
 authors = ["Chenxing Li <ChenxingLi@users.noreply.github.com>"]
 edition = "2018"

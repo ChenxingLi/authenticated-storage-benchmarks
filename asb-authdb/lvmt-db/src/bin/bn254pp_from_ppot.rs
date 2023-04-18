@@ -1,4 +1,4 @@
-use amt_db::crypto::{
+use lvmt_db::crypto::{
     export::{CanonicalSerialize, G1Aff, G2Aff},
     pp_file_name, PowerTau,
 };

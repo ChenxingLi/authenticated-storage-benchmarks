@@ -1,15 +1,15 @@
 [workspace]
 
 members = [
-    "authenticated-storage-benchmarks",
+    "benchmarks",
     "asb-backend",
     "asb-options",
     "asb-utils",
     "asb-authdb",
     "asb-tasks",
-    "asb-authdb/amt-db/ppot2ark",
+    "asb-authdb/lvmt-db/ppot2ark",
 ]
-default-members = ["authenticated-storage-benchmarks"]
+default-members = ["benchmarks"]
 
 [workspace.dependencies]
 ################
@@ -33,12 +33,6 @@ kvdb07 = { package="kvdb",version="0.7" }
 kvdb-memorydb = "0.4.0"
 libmdbx = "0.1.12"
 
-# Note: we met a version conflict of rocksdb, so you need manually change the dependency of rocksdb. 
-## Uncomment the following lines in feature parity-backend, requires rocksdb v0.15.0
-# kvdb-rocksdb = "0.9.1"
-# Uncomment the following lines in feature cfx-backend, requires rocksdb v0.3.0
-cfx-kvdb-rocksdb = { path = "asb-backend/cfx-kvdb-rocksdb" }
-
 # Utils
 malloc_size_of = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9"}
 malloc_size_of_derive = { git = "https://github.com/Conflux-Chain/conflux-rust.git", rev = "9de2cc9"}
@@ -54,7 +48,7 @@ stats = { path = "asb-backend/parity-stats", package = "parity-stats" }
 authdb = { path = "asb-authdb/authdb-trait", package = "authdb-trait" }
 
 # AuthDB implementations
-amt-db = { path = "asb-authdb/amt-db", features = ["large_amt"] }
+lvmt-db = { path = "asb-authdb/lvmt-db", features = ["large_lvmt"] }
 parity-journaldb = { path = "asb-authdb/parity-journaldb" }
 patricia-trie-ethereum = { path = "asb-authdb/patricia-trie-ethereum" }
 

@@ -81,7 +81,7 @@ impl Options {
         } else {
             "real".into()
         };
-        if self.algorithm != AuthAlgo::AMT || self.shard_size.is_none() {
+        if self.algorithm != AuthAlgo::LVMT || self.shard_size.is_none() {
             format!("{}/{:?}_{}/", input, self.algorithm, task_code)
         } else {
             format!("{}/amt{}_{}/", input, self.shard_size.unwrap(), task_code)
@@ -99,7 +99,7 @@ impl Options {
 
     pub fn num_cols(&self) -> u32 {
         match self.algorithm {
-            AuthAlgo::AMT => 3,
+            AuthAlgo::LVMT => 3,
             _ => 1,
         }
     }
@@ -109,22 +109,22 @@ impl Options {
 #[strum(serialize_all = "lowercase")]
 pub enum AuthAlgo {
     RAW,
-    SAMT(usize),
-    AMT,
+    AMT(usize),
+    LVMT,
     MPT,
-    DMPT,
+    LMPTS,
 }
 
 fn parse_algo(s: &str) -> Result<AuthAlgo, String> {
-    if s.len() >= 4 && &s[0..4] == "samt" {
+    if s.len() >= 4 && &s[0..4] == "amt" {
         let depth = s[4..].parse::<usize>().map_err(|x| x.to_string())?;
-        return Ok(AuthAlgo::SAMT(depth));
+        return Ok(AuthAlgo::AMT(depth));
     }
     return Ok(match s {
         "raw" => AuthAlgo::RAW,
-        "amt" => AuthAlgo::AMT,
+        "lvmt" => AuthAlgo::LVMT,
         "mpt" => AuthAlgo::MPT,
-        "dmpt" => AuthAlgo::DMPT,
+        "lmpts" => AuthAlgo::LMPTS,
         _ => {
             return Err("Unrecognized algorithm".into());
         }

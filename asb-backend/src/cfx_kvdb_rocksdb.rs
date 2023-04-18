@@ -11,7 +11,10 @@ pub fn open(db_dir: &str, opts: &Options) -> Arc<Database> {
     db_config.memory_budget = Some(opts.cache_size as usize);
     db_config.compaction = CompactionProfile::auto(Path::new(db_dir));
     db_config.disable_wal = false;
-    db_config.enable_statistics = !opts.no_stat;
+    #[cfg(not(any(feature = "parity-backend", feature = "lmpts-backend")))]
+    {
+        db_config.enable_statistics = !opts.no_stat;
+    }
 
     let db = Database::open(&db_config, db_dir).unwrap();
 

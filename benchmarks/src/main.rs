@@ -6,14 +6,13 @@ mod run;
 use asb_options::{AuthAlgo, Backend, Options, StructOpt};
 use run::run_tasks;
 
-
 fn main() {
     let options: Options = Options::from_args();
     if options.stat_mem && !options.no_stat {
         panic!("Stat will introduce memory cost")
     }
-    if options.algorithm == AuthAlgo::DMPT && options.backend != Backend::RocksDB {
-        panic!("Delta MPT can not change backend")
+    if options.algorithm == AuthAlgo::LMPTS && options.backend != Backend::RocksDB {
+        panic!("LMPTs can not change backend")
     }
     println!(
         "Testing {:?} with {}",
@@ -39,7 +38,6 @@ fn main() {
     if let Some(ref dir) = options.report_dir {
         fs::create_dir_all(dir).unwrap()
     }
-
 
     let tasks = asb_tasks::tasks(&options);
     let backend = asb_backend::backend(&options);

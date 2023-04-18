@@ -10,7 +10,7 @@ pub use real_trace::RealTrace;
 type Key = Vec<u8>;
 type Value = Vec<u8>;
 
-pub fn tasks(opts: &Options) -> Arc<dyn TaskTrait>{
+pub fn tasks(opts: &Options) -> Arc<dyn TaskTrait> {
     if opts.real_trace {
         Arc::new(RealTrace::load(&opts))
     } else {

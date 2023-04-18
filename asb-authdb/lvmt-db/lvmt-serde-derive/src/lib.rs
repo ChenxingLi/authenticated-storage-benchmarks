@@ -63,7 +63,7 @@ fn dummy_impl(input: TokenStream2, trait_name: &'static str, struct_name: &Ident
 }
 
 fn find_crate() -> TokenStream2 {
-    let found_crate = crate_name("amt-db").expect("amt-db is not present in `Cargo.toml`");
+    let found_crate = crate_name("lvmt-db").expect("lvmt-db is not present in `Cargo.toml`");
 
     match found_crate {
         FoundCrate::Itself => quote!(crate),

@@ -1,11 +1,11 @@
 mod amt;
-mod amt_smp;
-#[cfg(feature = "dmpt")]
-mod delta_mpt;
+#[cfg(feature = "lmpts")]
+mod lmpts;
+mod lvmt;
 mod mpt;
 mod raw;
 
-use amt::AMTCounter;
+use lvmt::LvmtCounter;
 use mpt::MptCounter;
 
 use asb_options::{AuthAlgo, Options};
@@ -15,33 +15,32 @@ use authdb::AuthDB;
 use kvdb::KeyValueDB;
 use std::sync::Arc;
 
-
-fn open_dmpt(dir: &str) -> Box<dyn AuthDB> {
-    #[cfg(feature = "dmpt")]
+fn open_lmpts(dir: &str) -> Box<dyn AuthDB> {
+    #[cfg(feature = "lmpts")]
     {
-        Box::new(delta_mpt::new(dir))
+        Box::new(lmpts::new(dir))
     }
-    #[cfg(not(feature = "dmpt"))]
+    #[cfg(not(feature = "lmpts"))]
     {
         let _ = dir;
-        panic!("Delta MPT can only work with feature cfx-backend!")
+        panic!("LMPTs can only work with feature asb-backend!")
     }
 }
 
 pub fn new<'a>(backend: Arc<dyn KeyValueDB>, opts: &'a Options) -> (Box<dyn AuthDB>, Reporter<'a>) {
     let (db, counter): (Box<dyn AuthDB>, Box<dyn CounterTrait>) = match opts.algorithm {
         AuthAlgo::RAW => (Box::new(raw::new(backend)), Box::new(Counter::default())),
-        AuthAlgo::AMT => (
-            Box::new(amt::new(backend, opts)),
-            Box::new(AMTCounter::default()),
+        AuthAlgo::LVMT => (
+            Box::new(lvmt::new(backend, opts)),
+            Box::new(LvmtCounter::default()),
         ),
         AuthAlgo::MPT => {
             let mpt_db = mpt::new(backend, opts);
             let counter = MptCounter::from_mpt_db(&mpt_db);
             (Box::new(mpt_db), Box::new(counter))
         }
-        AuthAlgo::DMPT => (open_dmpt(&opts.db_dir), Box::new(Counter::default())),
-        AuthAlgo::SAMT(x) => {
+        AuthAlgo::LMPTS => (open_lmpts(&opts.db_dir), Box::new(Counter::default())),
+        AuthAlgo::AMT(x) => {
             let authdb = exaust_construct!(x, backend, opts, 20, 21, 22, 23, 24, 25, 26, 27, 28);
             (authdb, Box::new(Counter::default()))
         }
@@ -56,7 +55,7 @@ pub fn new<'a>(backend: Arc<dyn KeyValueDB>, opts: &'a Options) -> (Box<dyn Auth
 macro_rules! exaust_construct {
     ($input: ident, $backend: ident, $opts: ident, $idx:tt $(, $rest:tt)*) => {
         if $input == $idx {
-            Box::new(amt_smp::new::<$idx>($backend, $opts)) as Box<dyn AuthDB>
+            Box::new(amt::new::<$idx>($backend, $opts)) as Box<dyn AuthDB>
         } else {
             exaust_construct!($input, $backend, $opts, $($rest),*)
         }

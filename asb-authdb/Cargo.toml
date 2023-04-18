@@ -12,12 +12,14 @@ asb-utils = { workspace = true }
 authdb = { workspace = true }
 parity-journaldb = { workspace = true }
 kvdb = { workspace = true }
-amt-db = { workspace = true }
+lvmt-db = { workspace = true }
 patricia-trie-ethereum = { workspace = true }
 primitive-types = { workspace = true }
 hash-db = { workspace = true }
 trie-db = { workspace = true }
 parity-scale-codec = { workspace = true }
+cfx-primitives = {workspace = true}
 
 [features]
 light-hash = ["parity-journaldb/light-hash"]
+lmpts = ["asb-backend/lmpts-backend"]

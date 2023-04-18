@@ -10,7 +10,7 @@ use hashbrown::HashMap;
 use keccak_hash::keccak;
 use kvdb::{DBKey, DBOp, DBTransaction, KeyValueDB};
 
-use amt_serde_derive::{MyFromBytes, MyToBytes};
+use lvmt_serde_derive::{MyFromBytes, MyToBytes};
 
 use crate::amt::{AMTData, AMTProof, AMTree};
 use crate::crypto::{
@@ -33,7 +33,7 @@ pub static INC_KEY_LEVEL_SUM: Global<u64> = Global::INIT;
 pub static INC_KEY_COUNT: Global<u64> = Global::INIT;
 pub static INC_TREE_COUNT: Global<u64> = Global::INIT;
 
-pub struct AmtDb {
+pub struct LvmtDB {
     pub kvdb: Arc<dyn KeyValueDB>,
 
     version_tree: VersionTree,
@@ -84,11 +84,11 @@ pub struct AssociateProof {
 }
 
 pub type Proof = (AssociateProof, VecDeque<LevelProof>);
-pub type AmtRoot = G1Projective;
+pub type LvmtRoot = G1Projective;
 
 const EPOCH_NUMBER_KEY: [u8; 2] = [0, 0];
 
-impl AmtDb {
+impl LvmtDB {
     // The KeyValueDB requires 3 columns.
     pub fn new(
         backend: Arc<dyn KeyValueDB>,
@@ -456,7 +456,7 @@ fn test_simple_db() {
         TypeDepths::USIZE,
         true,
     ));
-    let mut db = AmtDb::new(backend, pp.clone(), false, Some((0, 0)));
+    let mut db = LvmtDB::new(backend, pp.clone(), false, Some((0, 0)));
 
     let mut epoch_root_dict = HashMap::new();
 
@@ -464,12 +464,12 @@ fn test_simple_db() {
     let mut _latest_amt_root = G1Projective::default();
 
     let verify_key =
-        |key: Vec<u8>, value: Vec<u8>, db: &mut AmtDb, epoch_root_dict: &HashMap<u64, H256>| {
+        |key: Vec<u8>, value: Vec<u8>, db: &mut LvmtDB, epoch_root_dict: &HashMap<u64, H256>| {
             // println!("Verify key {:?}", key);
             let key = Key(key.to_vec());
             assert_eq!(value, db.get(&key).unwrap().unwrap().into_vec());
             let proof = db.prove(&key).unwrap();
-            AmtDb::verify(&key, &proof, |epoch| epoch_root_dict[&epoch], &pp).unwrap();
+            LvmtDB::verify(&key, &proof, |epoch| epoch_root_dict[&epoch], &pp).unwrap();
         };
 
     for i in 0..=255 {
