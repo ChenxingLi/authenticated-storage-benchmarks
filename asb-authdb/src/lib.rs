@@ -3,6 +3,7 @@ mod amt;
 mod lmpts;
 mod lvmt;
 mod mpt;
+mod rain_mpt;
 mod raw;
 
 use lvmt::LvmtCounter;
@@ -44,6 +45,10 @@ pub fn new<'a>(backend: Arc<dyn KeyValueDB>, opts: &'a Options) -> (Box<dyn Auth
             let authdb = exaust_construct!(x, backend, opts, 20, 21, 22, 23, 24, 25, 26, 27, 28);
             (authdb, Box::new(Counter::default()))
         }
+        AuthAlgo::RAIN => (
+            Box::new(rain_mpt::new(backend)),
+            Box::new(Counter::default()),
+        ),
     };
 
     let mut reporter = Reporter::new(opts);

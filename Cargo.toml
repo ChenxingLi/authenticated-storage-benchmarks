@@ -51,9 +51,11 @@ authdb = { path = "asb-authdb/authdb-trait", package = "authdb-trait" }
 lvmt-db = { path = "asb-authdb/lvmt-db", features = ["large_lvmt"] }
 parity-journaldb = { path = "asb-authdb/parity-journaldb" }
 patricia-trie-ethereum = { path = "asb-authdb/patricia-trie-ethereum" }
+rainblock-trie = { path = "asb-authdb/rainblock-trie" }
 
 # Utils
 parity-scale-codec = "1.3.5"
+keccak-hasher = { git="https://github.com/openethereum/openethereum.git", rev="2ae2949" }
 blake2-hasher = { path = "asb-authdb/blake2-hasher" }
 hash-db = "0.11.0"
 trie-db = "0.11.0"

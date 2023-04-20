@@ -113,6 +113,7 @@ pub enum AuthAlgo {
     LVMT,
     MPT,
     LMPTS,
+    RAIN,
 }
 
 fn parse_algo(s: &str) -> Result<AuthAlgo, String> {
@@ -125,6 +126,7 @@ fn parse_algo(s: &str) -> Result<AuthAlgo, String> {
         "lvmt" => AuthAlgo::LVMT,
         "mpt" => AuthAlgo::MPT,
         "lmpts" => AuthAlgo::LMPTS,
+        "rain" => AuthAlgo::RAIN,
         _ => {
             return Err("Unrecognized algorithm".into());
         }

@@ -18,8 +18,9 @@ primitive-types = { workspace = true }
 hash-db = { workspace = true }
 trie-db = { workspace = true }
 parity-scale-codec = { workspace = true }
-cfx-primitives = {workspace = true}
+cfx-primitives = { workspace = true }
+rainblock-trie = { workspace = true }
 
 [features]
-light-hash = ["parity-journaldb/light-hash"]
+light-hash = ["parity-journaldb/light-hash", "rainblock-trie/light-hash"]
 lmpts = ["asb-backend/lmpts-backend"]

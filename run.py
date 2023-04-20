@@ -138,6 +138,7 @@ def run_all(run_one):
     for key in ["1m"]:
         run_one("raw", key)
         run_one("amt", key)
+        run_one("rain", key)
         run_one("mpt", key)
         # run_one("mpt", key, high_memory=1)
         # run_one("mpt", key, high_memory=2)
