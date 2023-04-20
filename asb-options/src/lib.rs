@@ -22,7 +22,7 @@ pub struct Options {
     #[structopt(long, default_value = "64")]
     pub seed: u64,
 
-    #[structopt(long, default_value = "128")]
+    #[structopt(long, default_value = "1500")]
     pub cache_size: u64,
 
     #[structopt(long)]
@@ -31,13 +31,13 @@ pub struct Options {
     #[structopt(long)]
     pub max_epoch: Option<usize>,
 
-    #[structopt(long, default_value = "50")]
+    #[structopt(long, default_value = "2")]
     pub report_epoch: usize,
 
-    #[structopt(long, default_value = "5000")]
+    #[structopt(long, default_value = "100")]
     pub profile_epoch: usize,
 
-    #[structopt(long, default_value = "1000")]
+    #[structopt(long, default_value = "50000")]
     pub epoch_size: usize,
 
     #[structopt(long = "report-to")]
@@ -84,7 +84,7 @@ impl Options {
         if self.algorithm != AuthAlgo::LVMT || self.shard_size.is_none() {
             format!("{}/{:?}_{}/", input, self.algorithm, task_code)
         } else {
-            format!("{}/amt{}_{}/", input, self.shard_size.unwrap(), task_code)
+            format!("{}/LVMT{}_{}/", input, self.shard_size.unwrap(), task_code)
         }
     }
     pub fn settings(&self) -> String {

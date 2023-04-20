@@ -49,8 +49,8 @@ impl<const N: usize> AuthDB for Amt<N> {
         }
     }
 
-    fn backend(&self) -> &dyn KeyValueDB {
-        &*self.amt.db
+    fn backend(&self) -> Option<&dyn KeyValueDB> {
+        Some(&*self.amt.db)
     }
 
     fn flush_all(&mut self) {

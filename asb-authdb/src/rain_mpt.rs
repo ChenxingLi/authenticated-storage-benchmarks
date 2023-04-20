@@ -4,10 +4,17 @@ use authdb::AuthDB;
 use kvdb::KeyValueDB;
 use rainblock_trie::MerklePatriciaTree;
 
-pub struct RainMpt(RwLock<MerklePatriciaTree<6>>);
+const CACHED_LEVEL: usize = 6;
+pub struct RainMpt(
+    RwLock<MerklePatriciaTree<CACHED_LEVEL>>,
+    Arc<dyn KeyValueDB>,
+);
 
 pub fn new(backend: Arc<dyn KeyValueDB>) -> RainMpt {
-    RainMpt(RwLock::new(MerklePatriciaTree::<6>::new(backend)))
+    RainMpt(
+        RwLock::new(MerklePatriciaTree::<CACHED_LEVEL>::new(backend.clone())),
+        backend,
+    )
 }
 
 impl AuthDB for RainMpt {
@@ -23,8 +30,8 @@ impl AuthDB for RainMpt {
         self.0.write().unwrap().commit().unwrap();
     }
 
-    fn backend(&self) -> &dyn KeyValueDB {
-        unimplemented!()
+    fn backend(&self) -> Option<&dyn KeyValueDB> {
+        Some(&*self.1)
     }
 
     fn flush_all(&mut self) {

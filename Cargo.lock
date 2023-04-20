@@ -3042,7 +3042,7 @@ dependencies = [
  "kvdb-memorydb",
  "rand 0.7.3",
  "rlp",
- "smallvec 0.6.14",
+ "smallvec 1.10.0",
 ]
 
 [[package]]

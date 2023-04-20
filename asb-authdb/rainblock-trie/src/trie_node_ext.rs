@@ -1,7 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     ops::Deref,
-    rc::Rc,
+    rc::{Rc, Weak},
     sync::Arc,
 };
 
@@ -57,7 +57,12 @@ impl TrieNodeExt {
     }
 
     pub fn load(db: &Arc<dyn KeyValueDB>, digest: H256) -> Self {
-        let loaded = db.get(0, &digest.0).unwrap().expect("not found");
+        let loaded = match db.get(0, &digest.0) {
+            Ok(Some(loaded)) => loaded,
+            Ok(None) => panic!("Hash {:?} not found", &digest.0),
+            Err(e) => panic!("Hash {:?} meet error {}", &digest.0, e),
+        };
+
         let node = TrieNode::new(loaded.clone());
         TrieNodeExt {
             node,
@@ -101,7 +106,7 @@ impl TrieNodeExt {
     #[inline]
     pub fn get_rlp_encode(&self) -> Vec<u8> {
         if self.rlp_encode.borrow().is_none() {
-            let rlp_encode = self.node.rlp_bytes();
+            let rlp_encode: Vec<u8> = self.node.rlp_bytes();
             self.commited.set(if rlp_encode.len() < 32 {
                 Light
             } else {
@@ -188,6 +193,32 @@ impl TrieNodeExt {
             }
             TrieNode::Extension { child, .. } => {
                 ChildRef::truncate(child);
+            }
+            _ => {}
+        }
+    }
+
+    pub fn exile<const N: usize>(
+        me: &Rc<Self>,
+        depth: usize,
+        exile_nodes: &mut Vec<Weak<TrieNodeExt>>,
+    ) {
+        if depth > N {
+            return;
+        }
+
+        if depth == N {
+            exile_nodes.push(Rc::downgrade(me));
+            return;
+        }
+        match &***me {
+            TrieNode::Branch { children, .. } => {
+                for child in children.iter() {
+                    child.borrow().exile::<N>(depth + 1, exile_nodes);
+                }
+            }
+            TrieNode::Extension { child, .. } => {
+                child.borrow().exile::<N>(depth + 1, exile_nodes);
             }
             _ => {}
         }

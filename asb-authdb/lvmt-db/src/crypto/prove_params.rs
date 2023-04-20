@@ -98,7 +98,7 @@ impl<PE: PairingEngine> AMTParams<PE> {
         self.quotients[depth - 1][index].mul(power)
     }
 
-    pub fn warm_quotient(&self, _shard_ratio: usize) {
+    pub fn warm_quotient(&self) {
         let depth;
         let length;
         {

@@ -30,5 +30,6 @@ cfx-kvdb-rocksdb = { path = "./cfx-kvdb-rocksdb" }
 
 
 [features]
+default = []
 parity-backend=[]
 lmpts-backend=[]

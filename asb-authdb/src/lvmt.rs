@@ -53,8 +53,8 @@ impl AuthDB for Lvmt {
         }
     }
 
-    fn backend(&self) -> &dyn KeyValueDB {
-        &*self.amt.kvdb
+    fn backend(&self) -> Option<&dyn KeyValueDB> {
+        Some(&*self.amt.kvdb)
     }
 
     fn flush_all(&mut self) {

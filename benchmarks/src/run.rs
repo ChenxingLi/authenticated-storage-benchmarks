@@ -29,7 +29,9 @@ fn warmup(db: &mut dyn AuthDB, tasks: Box<dyn Iterator<Item = Events> + '_>, opt
     }
 
     db.flush_all();
-    db.backend().io_stats(IoStatsKind::SincePrevious);
+    if let Some(backend) = db.backend() {
+        backend.io_stats(IoStatsKind::SincePrevious);
+    }
 }
 
 pub fn run_tasks(

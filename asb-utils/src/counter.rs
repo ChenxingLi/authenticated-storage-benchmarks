@@ -130,13 +130,17 @@ impl<'a> Reporter<'a> {
         //     )
         // };
         let (stdout, fileout) = {
-            let stats = db.backend().io_stats(IoStatsKind::SincePrevious);
-            let ra = stats.reads as f64 / ((count / 2) as f64);
-            let wa = stats.writes as f64 / ((count / 2) as f64);
-            (
-                format!("Read amp {:>6.3}, Write amp {:>6.3} > ", ra, wa),
-                format!("{},{}", ra, wa),
-            )
+            if let Some(backend) = db.backend() {
+                let stats = backend.io_stats(IoStatsKind::SincePrevious);
+                let ra = stats.reads as f64 / ((count / 2) as f64);
+                let wa = stats.writes as f64 / ((count / 2) as f64);
+                (
+                    format!("Read amp {:>6.3}, Write amp {:>6.3} > ", ra, wa),
+                    format!("{},{}", ra, wa),
+                )
+            } else {
+                ("".into(), "".into())
+            }
         };
         let customized = self.counter.report();
         println!("{} {} {}", common, stdout, customized);

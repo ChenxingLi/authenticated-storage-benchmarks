@@ -15,7 +15,7 @@ pub struct Lmpts {
 }
 
 pub fn new(dir: &str) -> Lmpts {
-    let config = StorageConfiguration::new_default(dir, 2000);
+    let config = StorageConfiguration::new_default(dir, 200);
     let manager = Arc::new(StorageManager::new(config).unwrap());
     let state = manager.get_state_for_genesis_write();
     Lmpts { manager, state }
@@ -53,7 +53,7 @@ impl AuthDB for Lmpts {
             .expect("unwrap option")
     }
 
-    fn backend(&self) -> &dyn KeyValueDB {
-        unimplemented!()
+    fn backend(&self) -> Option<&dyn KeyValueDB> {
+        None
     }
 }

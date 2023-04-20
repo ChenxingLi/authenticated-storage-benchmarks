@@ -81,7 +81,6 @@ fn test_one() {
     let db = crate::storage::test_db_col();
 
     const DEPTHS: usize = TestConfig::DEPTHS;
-    const LENGTH: usize = 1 << DEPTHS;
 
     let pp = Arc::new(AMTParams::<Pairing>::from_dir("./pp", DEPTHS, true));
 

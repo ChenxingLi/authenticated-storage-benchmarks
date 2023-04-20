@@ -23,6 +23,7 @@ pub struct MerklePatriciaTree<const TOP_LAYER_DEPTH: usize> {
     root: Option<MptNode>,
     del_ops: Vec<H256>,
     loaded_node: Vec<Weak<TrieNodeExt>>,
+    exile_nodes: Vec<Weak<TrieNodeExt>>,
 }
 
 struct SearchResult {
@@ -68,6 +69,7 @@ impl<const N: usize> MerklePatriciaTree<N> {
             db,
             del_ops: vec![],
             loaded_node: vec![],
+            exile_nodes: vec![],
         }
     }
 
@@ -112,9 +114,10 @@ impl<const N: usize> MerklePatriciaTree<N> {
             let trie_node = TrieNodeExt::make_mut(matched_node, &mut self.del_ops);
             *trie_node.value_mut().unwrap() = val;
         } else {
+            let last_depth = result.stack.len() - 1;
             let last_node =
                 TrieNodeExt::make_mut(&mut result.stack.last_mut().unwrap().0, &mut self.del_ops);
-            self.insert(last_node, result.remainder, val);
+            self.insert(last_node, result.remainder, val, last_depth);
         }
 
         self.recover_pointers(result.stack);
@@ -122,6 +125,12 @@ impl<const N: usize> MerklePatriciaTree<N> {
 
     pub fn commit(&mut self) -> io::Result<H256> {
         let mut put_ops = Vec::new();
+
+        for node in self.exile_nodes.drain(..) {
+            if let Some(node) = node.upgrade() {
+                put_ops.push((node.hash(), node.get_rlp_encode()))
+            }
+        }
 
         if let Some(root) = &self.root {
             root.commit::<N>(0, &mut put_ops, false);
@@ -291,10 +300,20 @@ impl<const N: usize> MerklePatriciaTree<N> {
 }
 
 impl<const N: usize> MerklePatriciaTree<N> {
-    fn insert(&mut self, last_node: &mut TrieNode, remainder: Vec<Nibble>, val: Vec<u8>) {
+    fn insert(
+        &mut self,
+        last_node: &mut TrieNode,
+        remainder: Vec<Nibble>,
+        val: Vec<u8>,
+        depth: usize,
+    ) {
         match last_node {
-            TrieNode::Branch { children, .. } => self.insert_on_branch(children, remainder, val),
-            TrieNode::Extension { .. } => self.insert_on_extension(last_node, remainder, val),
+            TrieNode::Branch { children, .. } => {
+                self.insert_on_branch(children, remainder, val, depth)
+            }
+            TrieNode::Extension { .. } => {
+                self.insert_on_extension(last_node, remainder, val, depth)
+            }
             TrieNode::Leaf { .. } => self.insert_on_leaf(last_node, remainder, val),
         }
     }
@@ -304,6 +323,7 @@ impl<const N: usize> MerklePatriciaTree<N> {
         children: &mut ChildRefGroup,
         remainder: Vec<Nibble>,
         val: Vec<u8>,
+        depth: usize,
     ) {
         assert!(!remainder.is_empty());
 
@@ -338,6 +358,7 @@ impl<const N: usize> MerklePatriciaTree<N> {
             TrieNode::Extension { key, .. } => {
                 let first_key = *key.first().unwrap();
                 *key = key[1..].to_vec();
+                prev_branch_node.exile::<N>(depth + 2, &mut self.exile_nodes);
                 *new_branch_children[first_key].get_mut() = std::mem::take(prev_branch_node);
             }
             TrieNode::Branch { .. } => {
@@ -348,7 +369,13 @@ impl<const N: usize> MerklePatriciaTree<N> {
         *prev_branch_node = ChildRef::Owned(new_branch_node.seal());
     }
 
-    fn insert_on_extension(&mut self, last: &mut TrieNode, remainder: Vec<Nibble>, val: Vec<u8>) {
+    fn insert_on_extension(
+        &mut self,
+        last: &mut TrieNode,
+        remainder: Vec<Nibble>,
+        val: Vec<u8>,
+        depth: usize,
+    ) {
         let (ext_key, child) = last.as_extension_mut().unwrap();
         let intersection: Vec<Nibble> =
             common_prefix_iter(&remainder, &*ext_key).cloned().collect();
@@ -363,6 +390,7 @@ impl<const N: usize> MerklePatriciaTree<N> {
         if !ext_key_rest.is_empty() {
             let child_node = child.loaded_mut(&self.db).unwrap();
             if let TrieNode::Branch { .. } = &***child_node {
+                child.exile::<N>(depth + 2, &mut self.exile_nodes);
                 *child = ChildRef::Owned(
                     TrieNode::new_extention(ext_key_rest, std::mem::take(child)).seal(),
                 );
@@ -373,6 +401,7 @@ impl<const N: usize> MerklePatriciaTree<N> {
                 add_prefix(key, &ext_key_rest);
             }
         }
+        child.exile::<N>(depth + 2, &mut self.exile_nodes);
         *new_branch_children[ext_key_next].get_mut() = std::mem::take(child);
 
         if let Some(remainder_next) = remainder_next {

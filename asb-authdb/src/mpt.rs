@@ -115,8 +115,8 @@ impl AuthDB for MptDB {
         db.flush();
     }
 
-    fn backend(&self) -> &dyn KeyValueDB {
-        &*self.backing
+    fn backend(&self) -> Option<&dyn KeyValueDB> {
+        Some(&*self.backing)
     }
 }
 
@@ -143,4 +143,4 @@ impl CounterTrait for MptCounter {
     }
 }
 
-const JOURNAL_EPOCH: usize = 25;
+const JOURNAL_EPOCH: usize = 1;

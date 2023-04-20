@@ -4,10 +4,10 @@ import sys
 from functools import partial
 import numpy as np
 
-CARGO_RUN = "cargo run --release -p benchmarks --features light-hash --".split(" ")
+CARGO_RUN = "cargo run --release --features asb-authdb/light-hash --".split(" ")
 DRY_RUN = False
-WARMUP = "./warmup/v3"
-RESULT = "./paper_experiment/osdi2"
+WARMUP = "./warmup/v4"
+RESULT = "./paper_experiment/osdi-final"
 
 
 def to_amt_size(key):
@@ -52,7 +52,7 @@ def warmup(alg, key, shards=None):
     if key == "fresh":
         return
 
-    if alg == "samt":
+    if alg == "amt":
         amt_size = to_amt_size(key)
         if amt_size > 26:
             return
@@ -73,13 +73,13 @@ def warmup(alg, key, shards=None):
 
 
 def bench(task, alg, key, shards=None, low_memory=False, high_memory= 0):
-    if alg == "samt":
+    if alg == "amt":
         amt_size = to_amt_size(key)
         if amt_size > 26:
             return
         alg = alg + f"{amt_size:d}"
 
-    prefix = CARGO_RUN + f"--max-time 3600 --max-epoch 10000 -a {alg}".split(" ")
+    prefix = CARGO_RUN + f"--max-time 3600 --max-epoch 200 -a {alg}".split(" ")
 
     if task == "time":
         prefix = prefix + ["--no-stat"]
@@ -133,20 +133,31 @@ bench_time = partial(bench, "time")
 bench_stat = partial(bench, "stat")
 
 
+def warmup_all():
+    # "1m", "10m", "100m"
+    for key in ["real"]:
+        warmup("raw", key)
+        warmup("lvmt", key)
+        warmup("rain", key)
+        warmup("mpt", key)
+        for shards in [64, 16, 1]:
+            warmup("lvmt", key, shards)
+
+
 def run_all(run_one):
-    # "1m", "10m", "100m", "fresh"
-    for key in ["1m"]:
+    # "100m",
+    for key in ["1m", "10m", "fresh", "real"]:
         run_one("raw", key)
-        run_one("amt", key)
+        run_one("lvmt", key)
         run_one("rain", key)
         run_one("mpt", key)
         # run_one("mpt", key, high_memory=1)
         # run_one("mpt", key, high_memory=2)
-        # run_one("samt", key)
-        # for shards in [16,64]:
-        #     run_one("amt", key, shards, low_memory=True)
-        #     # run_one("amt", key, shards)
+        for shards in [64, 16, 1]:
+            run_one("lvmt", key, shards)
         #     pass
+        run_one("lvmt", key, 16, low_memory=True)
+
 
 
 if __name__ == "__main__":
@@ -154,6 +165,6 @@ if __name__ == "__main__":
     run(f"mkdir -p {WARMUP}")
     run(f"mkdir -p {RESULT}")
 
-    # run_all(warmup)
+    warmup_all()
     run_all(bench_time)
-    # run_all(bench_stat)
+    run_all(bench_stat)

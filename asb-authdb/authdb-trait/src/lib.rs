@@ -7,7 +7,7 @@ pub trait AuthDB {
     fn commit(&mut self, index: usize);
 
     fn flush_all(&mut self) {}
-    fn backend(&self) -> &dyn KeyValueDB;
+    fn backend(&self) -> Option<&dyn KeyValueDB>;
 }
 
 impl AuthDB for Arc<dyn KeyValueDB> {
@@ -31,7 +31,7 @@ impl AuthDB for Arc<dyn KeyValueDB> {
         self.flush().unwrap()
     }
 
-    fn backend(&self) -> &dyn KeyValueDB {
-        &**self
+    fn backend(&self) -> Option<&dyn KeyValueDB> {
+        Some(&**self)
     }
 }

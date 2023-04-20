@@ -1,7 +1,7 @@
 use std::{
     cell::RefCell,
     ops::{Deref, DerefMut, Index, IndexMut},
-    rc::Rc,
+    rc::{Rc, Weak},
     sync::Arc,
 };
 
@@ -89,6 +89,13 @@ impl ChildRef {
         }
         if let Some(hash) = replaced_hash {
             *me.borrow_mut() = Self::Ref(hash)
+        }
+    }
+
+    #[inline]
+    pub fn exile<const N: usize>(&self, depth: usize, exile_nodes: &mut Vec<Weak<TrieNodeExt>>) {
+        if let Self::Owned(node) = self {
+            TrieNodeExt::exile::<N>(node, depth, exile_nodes);
         }
     }
 
