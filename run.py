@@ -4,7 +4,7 @@ import sys
 from functools import partial
 import numpy as np
 
-CARGO_RUN = "cargo run --release --features asb-authdb/light-hash --".split(" ")
+CARGO_RUN = "cargo run --release --".split(" ")
 DRY_RUN = False
 WARMUP = "./warmup/v4"
 RESULT = "./paper_experiment/osdi-final"
@@ -69,7 +69,7 @@ def warmup(alg, key, shards=None):
     if shards is None:
         run(prefix + f"-a {alg}".split(" "))
     else:
-        run(prefix + f"-a {alg} --shard-size {shards}".split(" "))
+        run(prefix + f"-a {alg} --shards {shards}".split(" "))
 
 
 def bench(task, alg, key, shards=None, low_memory=False, high_memory= 0):
@@ -126,7 +126,7 @@ def bench(task, alg, key, shards=None, low_memory=False, high_memory= 0):
         run(prefix, output)
     else:
         output = f"{RESULT}/{task}_{alg}{shards}_{key}{suffix}.log"
-        run(prefix + f"--shard-size {shards}".split(" "), output)
+        run(prefix + f"--shards {shards}".split(" "), output)
 
 
 bench_time = partial(bench, "time")
@@ -134,15 +134,18 @@ bench_stat = partial(bench, "stat")
 
 
 def warmup_all():
+    for key in ["1m", "10m", "real"]:
+        warmup("mpt", key)
+        warmup("rain", key)
+
     # "1m", "10m", "100m"
-    for key in ["real"]:
+    for key in ["100m"]:
         warmup("raw", key)
         warmup("lvmt", key)
         warmup("rain", key)
         warmup("mpt", key)
         for shards in [64, 16, 1]:
             warmup("lvmt", key, shards)
-
 
 def run_all(run_one):
     # "100m",
@@ -166,5 +169,5 @@ if __name__ == "__main__":
     run(f"mkdir -p {RESULT}")
 
     warmup_all()
-    run_all(bench_time)
-    run_all(bench_stat)
+    # run_all(bench_time)
+    # run_all(bench_stat)

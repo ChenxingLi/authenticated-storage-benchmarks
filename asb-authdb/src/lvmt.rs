@@ -17,9 +17,9 @@ pub struct Lvmt {
 
 pub fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> Lvmt {
     let pp = cached_pp("./pp");
-    // pp.warm_quotient(opts.shard_size);
+    pp.warm_quotient();
     let shard_info = opts
-        .shard_size
+        .shards
         .map(|size| (size.trailing_zeros() as usize, 0));
     Lvmt {
         amt: LvmtDB::new(backend, pp, true, shard_info),

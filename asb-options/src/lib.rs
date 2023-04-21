@@ -40,7 +40,7 @@ pub struct Options {
     #[structopt(long, default_value = "50000")]
     pub epoch_size: usize,
 
-    #[structopt(long = "report-to")]
+    #[structopt(long = "pprof-report-to")]
     pub report_dir: Option<String>,
 
     #[structopt(long = "db", default_value = "./__benchmarks")]
@@ -71,7 +71,7 @@ pub struct Options {
     pub warmup_from: Option<String>,
 
     #[structopt(long)]
-    pub shard_size: Option<usize>,
+    pub shards: Option<usize>,
 }
 
 impl Options {
@@ -81,10 +81,10 @@ impl Options {
         } else {
             "real".into()
         };
-        if self.algorithm != AuthAlgo::LVMT || self.shard_size.is_none() {
+        if self.algorithm != AuthAlgo::LVMT || self.shards.is_none() {
             format!("{}/{:?}_{}/", input, self.algorithm, task_code)
         } else {
-            format!("{}/LVMT{}_{}/", input, self.shard_size.unwrap(), task_code)
+            format!("{}/LVMT{}_{}/", input, self.shards.unwrap(), task_code)
         }
     }
     pub fn settings(&self) -> String {
