@@ -6,7 +6,7 @@ pub use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 #[structopt(
-    about = "Authenticated Database Benchmark Tool.",
+    about = "Authenticated Storage Benchmarks",
     rename_all = "kebab-case"
 )]
 pub struct Options {

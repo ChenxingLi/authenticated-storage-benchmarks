@@ -138,13 +138,13 @@ Choose an authenticated storage with `-a <name>` or `--algorithm <name>`. Option
 
 For LVMT, configure the number of shards in proof sharding with `--shards <shards>`. Shard numbers must be a power of two (from 1 to 65536). Without this option, LVMT won't maintain associated information for proof.
 
-**Note:** When using AMT or LVMT for the first time, it may take anywhere from tens of minutes to one hour to initialize the cryptography parameters. Alternatively, you can [download the generated cryptography parameters](https://drive.google.com/file/d/1pHiHpZ4eNee17C63tSDEvmcEVtv23-jK/view?usp=sharing) and place the files in the folder `./pp`, but this option is only available for `lvmt` and `amt16`.
+**Note:** When using AMT or LVMT for the first time, it may take anywhere from minutes to hours to initialize the cryptography parameters. Alternatively, you can [download the generated cryptography parameters](https://drive.google.com/file/d/1pHiHpZ4eNee17C63tSDEvmcEVtv23-jK/view?usp=sharing) and place the files in the folder `./pp`, but this option is only available for `lvmt` and `amt16`.
 
 ### Task Types
 
 Two types of tasks are available: random tasks and real Ethereum traces.
 
-For random tasks, set the number of distinct keys using `--total-keys <number>` or `-k <number>`.
+For random tasks, set the number of distinct keys using `--total-keys <number>` or `-k <number>`. You can also use the suffixes `k`, `m`, and `g` to represent kilo, million, and billion, respectively. For example, `2m` represents 2 million keys.
 
 For real Ethereum traces, enable with `--real-trace`. Set the trace data directory using `--trace <trace-dir>` (default: `./trace`). [Download trace data](https://drive.google.com/file/d/1PZm6VKBQPqWbT8_9l2CE75VC1V59iJTA/view) or fetch traces with [evm-io-tracker](https://github.com/ChenxingLi/evm-io-tracker).
 

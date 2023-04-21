@@ -148,8 +148,7 @@ def warmup_all():
             warmup("lvmt", key, shards)
 
 def run_all(run_one):
-    # "100m",
-    for key in ["1m", "10m", "fresh", "real"]:
+    for key in ["1m", "10m", "real", "fresh", "100m"]:
         run_one("raw", key)
         run_one("lvmt", key)
         run_one("rain", key)
@@ -157,8 +156,9 @@ def run_all(run_one):
         # run_one("mpt", key, high_memory=1)
         # run_one("mpt", key, high_memory=2)
         for shards in [64, 16, 1]:
+            if key == "100m" and shards == 1:
+                continue
             run_one("lvmt", key, shards)
-        #     pass
         run_one("lvmt", key, 16, low_memory=True)
 
 
@@ -168,6 +168,6 @@ if __name__ == "__main__":
     run(f"mkdir -p {WARMUP}")
     run(f"mkdir -p {RESULT}")
 
-    warmup_all()
-    # run_all(bench_time)
-    # run_all(bench_stat)
+    # warmup_all()
+    run_all(bench_time)
+    run_all(bench_stat)
