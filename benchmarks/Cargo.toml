@@ -11,7 +11,7 @@ edition = "2018"
 asb-options = { workspace = true }
 asb-backend = { workspace = true }
 asb-authdb = { workspace = true }
-asb-utils = { workspace = true }
+asb-profile = { workspace = true }
 asb-tasks = { workspace = true }
 
 authdb = { workspace = true }

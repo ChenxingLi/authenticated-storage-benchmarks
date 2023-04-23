@@ -12,7 +12,7 @@ use parity_journaldb::{Algorithm, DBHasher, JournalDB};
 use parity_scale_codec::KeyedVec;
 
 use asb_options::Options;
-use asb_utils::CounterTrait;
+use asb_profile::CounterTrait;
 use authdb::AuthDB;
 
 pub type TrieDBMut<'db> = trie_db::TrieDBMut<'db, DBHasher, RlpNodeCodec<DBHasher>>;

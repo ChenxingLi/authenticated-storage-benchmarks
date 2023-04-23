@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 asb-options = { workspace = true }
 asb-backend = { workspace = true }
-asb-utils = { workspace = true }
+asb-profile = { workspace = true }
 authdb = { workspace = true }
 parity-journaldb = { workspace = true }
 kvdb = { workspace = true }

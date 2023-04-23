@@ -1,5 +1,5 @@
 use asb_options::Options;
-use asb_utils::CounterTrait;
+use asb_profile::CounterTrait;
 use authdb::AuthDB;
 use kvdb::KeyValueDB;
 use lvmt_db::crypto::export::ProjectiveCurve;

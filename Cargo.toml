@@ -4,10 +4,10 @@ members = [
     "benchmarks",
     "asb-backend",
     "asb-options",
-    "asb-utils",
+    "asb-profile",
     "asb-authdb",
     "asb-tasks",
-    "asb-authdb/lvmt-db/ppot2ark",
+    "asb-authdb/lvmt-db/ppot2ark"
 ]
 default-members = ["benchmarks"]
 
@@ -18,7 +18,7 @@ default-members = ["benchmarks"]
 asb-authdb = { path = "asb-authdb" }
 asb-options = { path = "asb-options" }
 asb-backend = { path = "asb-backend" }
-asb-utils = { path = "asb-utils" }
+asb-profile = { path = "asb-profile" }
 asb-tasks = { path = "asb-tasks" }
 
 #######################

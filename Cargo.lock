@@ -284,7 +284,7 @@ version = "0.1.0"
 dependencies = [
  "asb-backend",
  "asb-options",
- "asb-utils",
+ "asb-profile",
  "authdb-trait",
  "hash-db 0.11.0",
  "kvdb",
@@ -319,8 +319,8 @@ dependencies = [
  "asb-authdb",
  "asb-backend",
  "asb-options",
+ "asb-profile",
  "asb-tasks",
- "asb-utils",
  "authdb-trait",
  "fs_extra",
  "kvdb",
@@ -336,19 +336,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "asb-tasks"
-version = "0.1.0"
-dependencies = [
- "asb-options",
- "crc64fast",
- "postcard",
- "rand 0.7.3",
- "rand_pcg 0.2.1",
- "serde",
-]
-
-[[package]]
-name = "asb-utils"
+name = "asb-profile"
 version = "0.1.0"
 dependencies = [
  "asb-options",
@@ -359,6 +347,18 @@ dependencies = [
  "pprof",
  "simple-process-stats",
  "tokio",
+]
+
+[[package]]
+name = "asb-tasks"
+version = "0.1.0"
+dependencies = [
+ "asb-options",
+ "crc64fast",
+ "postcard",
+ "rand 0.7.3",
+ "rand_pcg 0.2.1",
+ "serde",
 ]
 
 [[package]]

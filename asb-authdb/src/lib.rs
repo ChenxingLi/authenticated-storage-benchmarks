@@ -10,8 +10,8 @@ use lvmt::LvmtCounter;
 use mpt::MptCounter;
 
 use asb_options::{AuthAlgo, Options};
-use asb_utils::CounterTrait;
-use asb_utils::{Counter, Reporter};
+use asb_profile::CounterTrait;
+use asb_profile::{Counter, Reporter};
 use authdb::AuthDB;
 use kvdb::KeyValueDB;
 use std::sync::Arc;
