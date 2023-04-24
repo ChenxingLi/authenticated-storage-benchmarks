@@ -24,6 +24,7 @@ pub struct MptDB {
     root: H256,
     epoch: usize,
     print_root_period: Option<usize>,
+    journal_epoch: usize,
 }
 
 fn epoch_hash(epoch: usize) -> H256 {
@@ -44,12 +45,19 @@ pub(crate) fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> MptDB {
         RlpNodeCodec::<DBHasher>::hashed_null_node()
     };
 
+    let journal_epoch = if opts.real_trace {
+        7usize
+    } else {
+        std::cmp::max(1, 50000 / opts.epoch_size)
+    };
+
     MptDB {
         db,
         backing: backend,
         root,
         epoch: 0,
         print_root_period,
+        journal_epoch
     }
 }
 
@@ -84,7 +92,7 @@ impl AuthDB for MptDB {
         // The third parameter is not used in archive journal db. We feed an arbitrary data.
         db.journal_under(&mut batch, index as u64, &epoch_hash(index))
             .unwrap();
-        if let Some(old_index) = index.checked_sub(JOURNAL_EPOCH) {
+        if let Some(old_index) = index.checked_sub(self.journal_epoch) {
             db.mark_canonical(&mut batch, old_index as u64, &epoch_hash(old_index))
                 .unwrap();
         }
@@ -101,7 +109,7 @@ impl AuthDB for MptDB {
     fn flush_all(&mut self) {
         let mut batch = DBTransaction::new();
         let mut db = self.db.borrow_mut();
-        for i in (0..JOURNAL_EPOCH).into_iter().rev() {
+        for i in (0..self.journal_epoch).into_iter().rev() {
             let index = self.epoch - i;
             db.mark_canonical(&mut batch, index as u64, &epoch_hash(index))
                 .unwrap();
@@ -142,5 +150,3 @@ impl CounterTrait for MptCounter {
         )
     }
 }
-
-const JOURNAL_EPOCH: usize = 1;

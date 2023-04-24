@@ -64,50 +64,71 @@ Follow the steps below to build the project:
     ```bash
     sudo apt install build-essential libssl-dev pkg-config libclang-dev cmake
     ```
+
+4. Install Python3 and Pip:
+
+    ```bash
+    sudo apt install python3 python3-pip
+    ```
+
+5. Install the required modules:
+    ```bash
+    pip3 install numpy
+    ```
+
     
-4. Clone the repository and navigate to the project directory:
+6. Clone the repository and navigate to the project directory:
     
     ```bash
     git clone https://github.com/ChenxingLi/authenticated-storage-benchmarks.git
     cd authenticated-storage-benchmarks
     ```
     
-5. Build the project:
+7. Build the project:
     
     ```bash
     cargo build --release
     ```
     
     Note: The build time may take about minutes to complete.
-    
-6. Test the project:
-    
-    To test the project, run the following command as an example:
-    
-    ```bash
-    ./target/release/asb-main --no-stat -k 1m -a mpt
-    ```
-    
-    This command will evaluate the performance of OpenEthereum's MPT by performing random read/write operations using 1 million distinct keys and outputting the benchmark metrics. 
-    
-    By default, the program will request the merkle root from OpenEthereum's MPT every 10,000 operations (which we refer to as one epoch), and it will print evaluation metrics every 2 epochs.
-    
-    Note: You can also combine Step 5 and Step 6 into one command by replacing `build` with `run`, followed by `--`and the program parameters. For example:
-    
-    ```bash
-    cargo run --release -- --no-stat -k 1m -a mpt
-    ```
-    
-    This command will build the project and then run the result with the provided parameters. This is useful when running with different compile options.
-    
-7. Before evaluating LVMT and AMT, create a designated folder named `pp` that will be used for storing all cryptography parameters.
+
+8. Before evaluating LVMT and AMT, create a designated folder named `pp` that will be used for storing all cryptography parameters.
     
     ```bash
     mkdir pp
     ```
-    
 
-## Compile Options
+    **Note:** When using AMT or LVMT for the first time, it may take anywhere from minutes to hours to initialize the cryptography parameters. Alternatively, you can [download the generated cryptography parameters](https://drive.google.com/file/d/1pHiHpZ4eNee17C63tSDEvmcEVtv23-jK/view?usp=sharing) and place the files in the folder `./pp`, but this option is only available for `lvmt` and `amt16`. (See the section *Authenticated Storage Selection* below.)
+
+9. Prepare the task files for real Ethereum traces. [Download trace data](https://1drv.ms/f/s!Au7Bejk2NtCskXmvzwgS2WgDvuGV?e=ESZ5na) or fetch traces with [evm-io-tracker](https://github.com/ChenxingLi/evm-io-tracker). Place the tasks files under the path `./trace`.
+
+10. Now you can execute the preconfigured evaluation tasks by running the following command:
+
+    ```bash
+    python3 run.py
+    ```
+
+## Conduct the Evaluation
+
+If you want to customize the evaluation, you can modify the parameters of the `asb-main` program to suit your requirements. The following command is an example of how to run the program:
+
+```bash
+./target/release/asb-main --no-stat -k 1m -a mpt
+```
+
+This command will evaluate the performance of OpenEthereum's MPT by performing random read/write operations using 1 million distinct keys and outputting the benchmark metrics. 
+
+By default, the program will request the merkle root from OpenEthereum's MPT every 10,000 operations (which we refer to as one epoch), and it will print evaluation metrics every 2 epochs.
+
+Note: You can combine the compile step and running step into one command by replacing `build` with `run`, followed by `--`and the program parameters. For example:
+
+```bash
+cargo run --release -- --no-stat -k 1m -a mpt
+```
+
+This command will build the project and then run the result with the provided parameters. This is useful when running with different compile options.    
+
+## Compile Features
 
 To add features to `cargo run` and `cargo build`, use the syntax `cargo build --features --asb-authdb/light-hash`. Available features include:
 
@@ -138,15 +159,13 @@ Choose an authenticated storage with `-a <name>` or `--algorithm <name>`. Option
 
 For LVMT, configure the number of shards in proof sharding with `--shards <shards>`. Shard numbers must be a power of two (from 1 to 65536). Without this option, LVMT won't maintain associated information for proof.
 
-**Note:** When using AMT or LVMT for the first time, it may take anywhere from minutes to hours to initialize the cryptography parameters. Alternatively, you can [download the generated cryptography parameters](https://drive.google.com/file/d/1pHiHpZ4eNee17C63tSDEvmcEVtv23-jK/view?usp=sharing) and place the files in the folder `./pp`, but this option is only available for `lvmt` and `amt16`.
-
 ### Task Types
 
 Two types of tasks are available: random tasks and real Ethereum traces.
 
-For random tasks, set the number of distinct keys using `--total-keys <number>` or `-k <number>`. You can also use the suffixes `k`, `m`, and `g` to represent kilo, million, and billion, respectively. For example, `2m` represents 2 million keys.
+For random tasks, set the number of distinct keys using `--total-keys <number>` or `-k <number>`. You can also use the suffixes `k`, `m`, and `g` to represent kilo, million, and billion, respectively. For example, `2m` represents 2 million keys. By default, the program requests the Merkle root from authenticated storage every 10,000 operations (one epoch). Change this setting with `--epoch-size <operations>`.
 
-For real Ethereum traces, enable with `--real-trace`. Set the trace data directory using `--trace <trace-dir>` (default: `./trace`). [Download trace data](https://drive.google.com/file/d/1PZm6VKBQPqWbT8_9l2CE75VC1V59iJTA/view) or fetch traces with [evm-io-tracker](https://github.com/ChenxingLi/evm-io-tracker).
+For real Ethereum traces, enable with `--real-trace`. Set the trace data directory using `--trace <trace-dir>` (default: `./trace`). 
 
 ### Warmup Process
 
@@ -155,10 +174,6 @@ Before performance evaluation, the program warms up by inserting random values f
 For random tasks, the warmup process can be disabled with `--no-warmup`.
 
 To share warmed-up databases between benchmark tasks, save warmup results using `--warmup-to` and load existing results with `--warmup-from`.
-
-### Epoch Configuration
-
-By default, the program requests the Merkle root from authenticated storage every 10,000 operations (one epoch). Change this setting with `--epoch-size <operations>`.
 
 ### Metric Data Collection
 

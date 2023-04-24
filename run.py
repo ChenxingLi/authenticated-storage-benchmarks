@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import subprocess
 import sys
 from functools import partial
@@ -79,12 +79,15 @@ def bench(task, alg, key, shards=None, low_memory=False, high_memory= 0):
             return
         alg = alg + f"{amt_size:d}"
 
-    prefix = CARGO_RUN + f"--max-time 3600 --max-epoch 200 -a {alg}".split(" ")
+    prefix = CARGO_RUN + f"--max-time 3600 -a {alg}".split(" ")
 
     if task == "time":
         prefix = prefix + ["--no-stat"]
     else:
         pass
+
+    if key != "real":
+        prefix = prefix + ["--max-epoch 200"]
 
     if key == "fresh":
         prefix = prefix + ["--no-warmup"]
@@ -94,7 +97,7 @@ def bench(task, alg, key, shards=None, low_memory=False, high_memory= 0):
     if key == "fresh":
         prefix = prefix + f"-k 10g".split(" ")
     elif key == "real":
-        prefix = prefix + ["--real-trace"]
+        prefix = prefix + f"--real-trace --report-epoch 25".split(" ")
     else:
         prefix = prefix + f"-k {key}".split(" ")
 
@@ -148,7 +151,7 @@ def warmup_all():
             warmup("lvmt", key, shards)
 
 def run_all(run_one):
-    for key in ["1m", "10m", "real", "fresh", "100m"]:
+    for key in ["1m", "10m", "fresh", "real", "100m"]:
         run_one("raw", key)
         run_one("lvmt", key)
         run_one("rain", key)
@@ -168,6 +171,6 @@ if __name__ == "__main__":
     run(f"mkdir -p {WARMUP}")
     run(f"mkdir -p {RESULT}")
 
-    # warmup_all()
+    warmup_all()
     run_all(bench_time)
     run_all(bench_stat)
