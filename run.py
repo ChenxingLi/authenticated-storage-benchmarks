@@ -87,7 +87,7 @@ def bench(task, alg, key, shards=None, low_memory=False, high_memory= 0):
         pass
 
     if key != "real":
-        prefix = prefix + ["--max-epoch 200"]
+        prefix = prefix + "--max-epoch 200".split(" ")
 
     if key == "fresh":
         prefix = prefix + ["--no-warmup"]
@@ -137,15 +137,10 @@ bench_stat = partial(bench, "stat")
 
 
 def warmup_all():
-    for key in ["1m", "10m", "real"]:
-        warmup("mpt", key)
-        warmup("rain", key)
-
-    # "1m", "10m", "100m"
-    for key in ["100m"]:
+    for key in ["1m", "10m", "100m", "real"]:
         warmup("raw", key)
         warmup("lvmt", key)
-        warmup("rain", key)
+        # warmup("rain", key)
         warmup("mpt", key)
         for shards in [64, 16, 1]:
             warmup("lvmt", key, shards)
@@ -154,7 +149,7 @@ def run_all(run_one):
     for key in ["1m", "10m", "fresh", "real", "100m"]:
         run_one("raw", key)
         run_one("lvmt", key)
-        run_one("rain", key)
+        # run_one("rain", key)
         run_one("mpt", key)
         # run_one("mpt", key, high_memory=1)
         # run_one("mpt", key, high_memory=2)
