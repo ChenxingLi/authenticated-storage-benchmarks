@@ -70,6 +70,10 @@ impl<const N: usize> MerklePatriciaTree<N> {
         }
     }
 
+    pub fn root(&self) -> Option<H256> {
+        self.root.as_ref().map(|x| x.as_ref().hash())
+    }
+
     pub fn get(&mut self, key: Vec<u8>) -> Option<Vec<u8>> {
         if key.is_empty() {
             panic!("Empty key is not supported")
