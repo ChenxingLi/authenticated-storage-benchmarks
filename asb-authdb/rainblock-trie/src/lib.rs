@@ -10,6 +10,8 @@ mod trie_node_ext;
 mod thread_non_safe;
 #[cfg(not(feature = "thread-safe"))]
 pub use thread_non_safe::{Node, NodePtr, NodePtrWeak};
+#[cfg(not(feature = "thread-safe"))]
+unsafe impl<const N: usize> Send for MerklePatriciaTree<N> {} // As internal Rc does not expose to outsize, it is safe to declare it as Send.
 #[cfg(feature = "thread-safe")]
 mod thread_safe;
 #[cfg(feature = "thread-safe")]
