@@ -5,10 +5,7 @@ extern crate strum_macros;
 pub use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
-#[structopt(
-    about = "Authenticated Storage Benchmarks",
-    rename_all = "kebab-case"
-)]
+#[structopt(about = "Authenticated Storage Benchmarks", rename_all = "kebab-case")]
 pub struct Options {
     #[structopt(short = "a", parse(try_from_str = parse_algo), long)]
     pub algorithm: AuthAlgo,

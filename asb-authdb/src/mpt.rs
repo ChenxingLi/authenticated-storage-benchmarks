@@ -57,7 +57,7 @@ pub(crate) fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> MptDB {
         root,
         epoch: 0,
         print_root_period,
-        journal_epoch
+        journal_epoch,
     }
 }
 

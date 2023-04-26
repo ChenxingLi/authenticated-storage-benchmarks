@@ -6,6 +6,15 @@ mod tests;
 mod trie_node;
 mod trie_node_ext;
 
+#[cfg(not(feature = "thread-safe"))]
+mod thread_non_safe;
+#[cfg(not(feature = "thread-safe"))]
+pub use thread_non_safe::{Node, NodePtr, NodePtrWeak};
+#[cfg(feature = "thread-safe")]
+mod thread_safe;
+#[cfg(feature = "thread-safe")]
+pub use thread_safe::{Node, NodePtr, NodePtrWeak};
+
 pub use rain_mpt::MerklePatriciaTree;
 
 fn common_prefix_iter<'a, T: Eq>(a: &'a [T], b: &'a [T]) -> impl Iterator<Item = &'a T> {

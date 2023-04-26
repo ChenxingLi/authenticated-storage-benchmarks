@@ -159,6 +159,9 @@ Choose an authenticated storage with `-a <name>` or `--algorithm <name>`. Option
 
 For LVMT, configure the number of shards in proof sharding with `--shards <shards>`. Shard numbers must be a power of two (from 1 to 65536). Without this option, LVMT won't maintain associated information for proof.
 
+### Thread-Safe Implementation
+By default, the implementation of authenticated storages may be not thread-safe, meaning it may not function correctly when multiple threads attempt to access it simultaneously. However, if you require thread safety, you can use the `--asb-authdb/thread-safe` option to enable a thread-safe implementation. Currently, only RainBlock's MPT (Modified Patricia Trie) has different implementations between thread-safe and non-thread-safe modes. 
+
 ### Task Types
 
 Two types of tasks are available: random tasks and real Ethereum traces.

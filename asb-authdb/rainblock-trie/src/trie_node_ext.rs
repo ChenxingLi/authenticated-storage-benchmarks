@@ -1,7 +1,6 @@
 use std::{
     cell::{Cell, RefCell},
-    ops::Deref,
-    rc::{Rc, Weak},
+    ops::{Deref, DerefMut},
     sync::Arc,
 };
 
@@ -10,9 +9,10 @@ use hash_db::Hasher;
 use kvdb::KeyValueDB;
 use rlp::Encodable;
 
-use crate::child_ref::ChildRef;
 use crate::trie_node::TrieNode;
+use crate::Node;
 use crate::RlpHasher;
+use crate::{child_ref::ChildRef, NodePtr, NodePtrWeak};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Commit {
@@ -72,15 +72,33 @@ impl TrieNodeExt {
         }
     }
 
-    pub fn make_mut<'a>(me: &'a mut Rc<TrieNodeExt>, del_ops: &mut Vec<H256>) -> &'a mut TrieNode {
-        let cached_node = Rc::make_mut(me);
-        if cached_node.commited.get() == Committed {
-            if let Some(digest) = cached_node.hash.get() {
+    #[cfg(feature = "thread-safe")]
+    #[inline]
+    pub fn seal(self) -> NodePtr {
+        use std::sync::Mutex;
+        NodePtr(Arc::new(Node(Mutex::new(self))))
+    }
+
+    #[cfg(not(feature = "thread-safe"))]
+    #[inline]
+    pub fn seal(self) -> NodePtr {
+        use std::rc::Rc;
+
+        NodePtr(Rc::new(Node(self)))
+    }
+
+    pub fn make_mut<'a>(
+        me: &'a mut NodePtr,
+        del_ops: &mut Vec<H256>,
+    ) -> impl DerefMut<Target = TrieNode> + 'a {
+        let cached_node = NodePtr::make_mut(me);
+        if cached_node.as_ref().commited.get() == Committed {
+            if let Some(digest) = cached_node.as_ref().hash.get() {
                 del_ops.push(digest);
             }
         }
-        cached_node.clear_cache();
-        &mut cached_node.node
+        cached_node.as_mut().clear_cache();
+        cached_node.as_mut_inner()
     }
 
     pub fn clear_cache(&mut self) {
@@ -126,13 +144,13 @@ impl TrieNodeExt {
             TrieNode::Branch { children, .. } => {
                 for child in children.iter() {
                     if let Some((node, _)) = ChildRef::owned_or_load(child, db) {
-                        node.load_children::<N>(db, depth + 1);
+                        node.as_ref().load_children::<N>(db, depth + 1);
                     }
                 }
             }
             TrieNode::Extension { child, .. } => {
                 if let Some((node, _)) = ChildRef::owned_or_load(child, db) {
-                    node.load_children::<N>(db, depth + 1);
+                    node.as_ref().load_children::<N>(db, depth + 1);
                 }
             }
             _ => {}
@@ -198,20 +216,16 @@ impl TrieNodeExt {
         }
     }
 
-    pub fn exile<const N: usize>(
-        me: &Rc<Self>,
-        depth: usize,
-        exile_nodes: &mut Vec<Weak<TrieNodeExt>>,
-    ) {
+    pub fn exile<const N: usize>(me: &NodePtr, depth: usize, exile_nodes: &mut Vec<NodePtrWeak>) {
         if depth > N {
             return;
         }
 
         if depth == N {
-            exile_nodes.push(Rc::downgrade(me));
+            exile_nodes.push(NodePtr::downgrade(me));
             return;
         }
-        match &***me {
+        match &**me.as_ref() {
             TrieNode::Branch { children, .. } => {
                 for child in children.iter() {
                     child.borrow().exile::<N>(depth + 1, exile_nodes);
@@ -269,5 +283,11 @@ impl Deref for TrieNodeExt {
 
     fn deref(&self) -> &Self::Target {
         &self.node
+    }
+}
+
+impl DerefMut for TrieNodeExt {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.node
     }
 }

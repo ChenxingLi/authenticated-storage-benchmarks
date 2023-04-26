@@ -21,3 +21,4 @@ rand = "0.7"
 
 [features]
 light-hash = ["blake2-hasher"]
+thread-safe = []

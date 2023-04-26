@@ -24,3 +24,4 @@ rainblock-trie = { workspace = true }
 [features]
 light-hash = ["parity-journaldb/light-hash", "rainblock-trie/light-hash"]
 lmpts = ["asb-backend/lmpts-backend"]
+thread-safe = ["rainblock-trie/thread-safe"]

@@ -1,11 +1,12 @@
 use std::{
     cell::RefCell,
     ops::{Deref, DerefMut, Index, IndexMut},
-    rc::{Rc, Weak},
     sync::Arc,
 };
 
-use crate::{nibble::Nibble, trie_node::TrieNode, trie_node_ext::TrieNodeExt};
+use crate::{
+    nibble::Nibble, trie_node::TrieNode, trie_node_ext::TrieNodeExt, NodePtr, NodePtrWeak,
+};
 use ethereum_types::H256;
 use kvdb::KeyValueDB;
 use rlp::{Decodable, Encodable};
@@ -17,7 +18,7 @@ pub enum ChildRef {
     #[default]
     Null,
     Ref(H256),
-    Owned(Rc<TrieNodeExt>),
+    Owned(NodePtr),
 }
 
 impl PartialEq for ChildRef {
@@ -25,7 +26,7 @@ impl PartialEq for ChildRef {
         match (self, other) {
             (Self::Null, Self::Null) => true,
             (Self::Ref(l0), Self::Ref(r0)) => l0 == r0,
-            (Self::Owned(l0), Self::Owned(r0)) => Rc::ptr_eq(l0, r0),
+            (Self::Owned(l0), Self::Owned(r0)) => NodePtr::ptr_eq(l0, r0),
             _ => false,
         }
     }
@@ -40,7 +41,7 @@ impl ChildRef {
         *self == ChildRef::Null
     }
 
-    pub fn owned_mut(&mut self) -> Option<&mut Rc<TrieNodeExt>> {
+    pub fn owned_mut(&mut self) -> Option<&mut NodePtr> {
         if let ChildRef::Owned(node) = self {
             Some(node)
         } else {
@@ -48,9 +49,9 @@ impl ChildRef {
         }
     }
 
-    pub fn loaded_mut(&mut self, db: &Arc<dyn KeyValueDB>) -> Option<&mut Rc<TrieNodeExt>> {
+    pub fn loaded_mut(&mut self, db: &Arc<dyn KeyValueDB>) -> Option<&mut NodePtr> {
         if let ChildRef::Ref(digest) = self {
-            let node = Rc::new(TrieNodeExt::load(db, digest.clone()));
+            let node = TrieNodeExt::load(db, digest.clone()).seal();
             *self = ChildRef::Owned(node);
         }
         match self {
@@ -63,12 +64,12 @@ impl ChildRef {
     pub fn owned_or_load(
         me: &RefCell<ChildRef>,
         db: &Arc<dyn KeyValueDB>,
-    ) -> Option<(Rc<TrieNodeExt>, bool)> {
+    ) -> Option<(NodePtr, bool)> {
         let borrowed_ref = me.borrow();
         match &*borrowed_ref {
             ChildRef::Null => None,
             ChildRef::Ref(digest) => {
-                let node = Rc::new(TrieNodeExt::load(db, digest.clone()));
+                let node = TrieNodeExt::load(db, digest.clone()).seal();
                 std::mem::drop(borrowed_ref);
 
                 me.replace(ChildRef::Owned(node.clone()));
@@ -82,10 +83,10 @@ impl ChildRef {
     pub fn truncate(me: &RefCell<ChildRef>) {
         let mut replaced_hash = None;
         if let Self::Owned(node) = &*me.borrow() {
-            if node.is_small_node() {
+            if node.as_ref().is_small_node() {
                 return;
             }
-            replaced_hash = Some(node.hash());
+            replaced_hash = Some(node.as_ref().hash());
         }
         if let Some(hash) = replaced_hash {
             *me.borrow_mut() = Self::Ref(hash)
@@ -93,7 +94,7 @@ impl ChildRef {
     }
 
     #[inline]
-    pub fn exile<const N: usize>(&self, depth: usize, exile_nodes: &mut Vec<Weak<TrieNodeExt>>) {
+    pub fn exile<const N: usize>(&self, depth: usize, exile_nodes: &mut Vec<NodePtrWeak>) {
         if let Self::Owned(node) = self {
             TrieNodeExt::exile::<N>(node, depth, exile_nodes);
         }
@@ -107,7 +108,7 @@ impl ChildRef {
         top_layer: bool,
     ) {
         if let Self::Owned(node) = &*me.borrow() {
-            node.commit::<N>(depth, put_ops, top_layer)
+            node.as_ref().commit::<N>(depth, put_ops, top_layer)
         }
     }
 
@@ -115,8 +116,8 @@ impl ChildRef {
     #[cfg(test)]
     pub fn loaded_nodes_count(me: &RefCell<Self>) -> usize {
         if let Self::Owned(node) = &*me.borrow() {
-            if node.get_rlp_encode().len() >= 32 {
-                node.loaded_nodes_count()
+            if node.as_ref().get_rlp_encode().len() >= 32 {
+                node.as_ref().loaded_nodes_count()
             } else {
                 0
             }
@@ -135,7 +136,7 @@ impl ChildRef {
             ChildRef::Ref(digest) => {
                 println!("digest {digest:x?}")
             }
-            ChildRef::Owned(node) => node.print_node(ident),
+            ChildRef::Owned(node) => node.as_ref().print_node(ident),
         }
     }
 }
@@ -146,11 +147,11 @@ impl Encodable for ChildRef {
             ChildRef::Null => Bytes::new().rlp_append(s),
             ChildRef::Ref(digest) => digest.rlp_append(s),
             ChildRef::Owned(node) => {
-                if node.is_small_node() {
-                    let rlp_encoded = node.get_rlp_encode();
+                if node.as_ref().is_small_node() {
+                    let rlp_encoded = node.as_ref().get_rlp_encode();
                     s.append_raw(&rlp_encoded, 0);
                 } else {
-                    node.hash().rlp_append(s)
+                    node.as_ref().hash().rlp_append(s)
                 }
             }
         }
@@ -163,7 +164,7 @@ impl Decodable for ChildRef {
         } else if rlp.is_list() {
             let rlp_encode = rlp.as_raw().to_vec();
             let trie_node = TrieNode::decode(rlp)?;
-            ChildRef::Owned(Rc::new(TrieNodeExt::from_child_ref(trie_node, rlp_encode)))
+            ChildRef::Owned(TrieNodeExt::from_child_ref(trie_node, rlp_encode).seal())
         } else {
             ChildRef::Ref(H256::decode(rlp)?)
         })

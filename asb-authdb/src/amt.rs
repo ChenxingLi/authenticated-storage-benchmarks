@@ -15,9 +15,7 @@ pub struct Amt<const N: usize> {
 pub fn new<const N: usize>(backend: Arc<dyn KeyValueDB>, opts: &Options) -> Amt<N> {
     let pp = cached_pp_with_depth("./pp", N);
     pp.warm_quotient();
-    let shard_info = opts
-        .shards
-        .map(|size| (size.trailing_zeros() as usize, 0));
+    let shard_info = opts.shards.map(|size| (size.trailing_zeros() as usize, 0));
     Amt {
         amt: AmtDB::new(backend, pp, shard_info),
         print_root_period: if opts.print_root {

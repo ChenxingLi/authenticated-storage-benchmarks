@@ -1,13 +1,10 @@
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-    sync::Arc,
-};
+use std::{cell::RefCell, sync::Arc};
 
 use crate::{
     child_ref::{ChildRef, ChildRefCell, ChildRefGroup},
     nibble::{from_mpt_key, to_mpt_key, Nibble},
     trie_node_ext::TrieNodeExt,
+    Node, NodePtr, NodePtrWeak,
 };
 use kvdb::KeyValueDB;
 use rlp::{Decodable, Encodable, Rlp};
@@ -33,7 +30,7 @@ pub enum TrieNode {
 pub enum NextResult {
     Matched,
     NotMatched,
-    Next((Rc<TrieNodeExt>, Nibble)),
+    Next((NodePtr, Nibble)),
 }
 
 use TrieNode::*;
@@ -132,13 +129,13 @@ impl TrieNode {
     }
 
     pub fn next<const N: usize>(
-        me: &Rc<TrieNodeExt>,
+        me: &NodePtr,
         nibbles: &mut Vec<Nibble>,
         db: &Arc<dyn KeyValueDB>,
-        truncate_ops: &mut Vec<Weak<TrieNodeExt>>,
+        truncate_ops: &mut Vec<NodePtrWeak>,
         depth: usize,
     ) -> NextResult {
-        match &***me {
+        match &**me.as_ref() {
             Branch { children, .. } => {
                 if nibbles.len() == 0 {
                     return NextResult::Matched;
@@ -148,7 +145,7 @@ impl TrieNode {
                 let branch = &children[branch_key];
                 if let Some((next, is_loaded)) = ChildRef::owned_or_load(branch, db) {
                     if is_loaded && depth >= N {
-                        truncate_ops.push(Rc::downgrade(&me));
+                        truncate_ops.push(NodePtr::downgrade(&me));
                     }
                     *nibbles = nibbles[1..].to_vec();
                     NextResult::Next((next, branch_key))
@@ -161,7 +158,7 @@ impl TrieNode {
                     *nibbles = nibbles[key.len()..].to_vec();
                     let (node, is_loaded) = ChildRef::owned_or_load(child, db).unwrap();
                     if is_loaded && depth >= N {
-                        truncate_ops.push(Rc::downgrade(&me));
+                        truncate_ops.push(NodePtr::downgrade(&me));
                     }
                     NextResult::Next((node, Nibble::zero()))
                 } else {
@@ -179,14 +176,25 @@ impl TrieNode {
         }
     }
 
+    #[cfg(feature = "thread-safe")]
     #[inline]
-    pub fn seal(self) -> Rc<TrieNodeExt> {
-        Rc::new(TrieNodeExt::new(self))
+    pub fn seal(self) -> NodePtr {
+        use std::sync::Mutex;
+
+        NodePtr(Arc::new(Node(Mutex::new(TrieNodeExt::new(self)))))
+    }
+
+    #[cfg(not(feature = "thread-safe"))]
+    #[inline]
+    pub fn seal(self) -> NodePtr {
+        use std::rc::Rc;
+
+        NodePtr(Rc::new(Node(TrieNodeExt::new(self))))
     }
 
     #[inline]
     pub fn seal_ref(self) -> ChildRef {
-        ChildRef::Owned(Rc::new(TrieNodeExt::new(self)))
+        ChildRef::Owned(self.seal())
     }
 }
 
