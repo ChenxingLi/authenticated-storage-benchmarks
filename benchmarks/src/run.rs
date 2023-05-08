@@ -60,9 +60,18 @@ pub fn run_tasks(
             copy_options.copy_inside = true;
             copy_options.content_only = true;
             println!("Writing warmup to {}", warmup_dir);
-            fs_extra::dir::copy(&opts.db_dir, warmup_dir, &copy_options).unwrap();
-            println!("Writing done");
-            return;
+            let mut retry_cnt = 0usize;
+            while retry_cnt < 10 {
+                if let Err(e) = fs_extra::dir::copy(&opts.db_dir, warmup_dir, &copy_options) {
+                    println!("Fail to save warmup file {:?}. Retry...", e);
+                    retry_cnt += 1;
+                } else {
+                    println!("Writing done");
+                    return;
+                }
+            }
+
+            panic!("Retry limit exceeds!");
         }
     }
     println!("Warm up done");
