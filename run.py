@@ -7,7 +7,7 @@ import numpy as np
 CARGO_RUN = "cargo run --release --".split(" ")
 DRY_RUN = False
 WARMUP = "./warmup/v4"
-RESULT = "./paper_experiment/osdi-final"
+RESULT = "./paper_experiment/osdi23"
 
 
 def to_amt_size(key):
@@ -142,7 +142,7 @@ def warmup_all():
         warmup("lvmt", key)
         # warmup("rain", key)
         warmup("mpt", key)
-        for shards in [64, 16, 1]:
+        for shards in [64, 16]:
             warmup("lvmt", key, shards)
 
 def run_all(run_one):
@@ -153,9 +153,7 @@ def run_all(run_one):
         run_one("mpt", key)
         # run_one("mpt", key, high_memory=1)
         # run_one("mpt", key, high_memory=2)
-        for shards in [64, 16, 1]:
-            if key == "100m" and shards == 1:
-                continue
+        for shards in [64, 16]:
             run_one("lvmt", key, shards)
         run_one("lvmt", key, 16, low_memory=True)
 
