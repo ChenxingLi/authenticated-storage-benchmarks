@@ -186,6 +186,10 @@ impl ChildRefGroup {
         self.enumerate_mut().all(|(_, child)| child.is_null())
     }
 
+    pub fn child_cnt(&self) -> usize {
+        self.0.iter().filter(|cell| !cell.borrow().is_null()).count()
+    }
+
     pub fn only_child_mut(&mut self) -> Option<(Nibble, &mut ChildRef)> {
         let mut non_null_child = None;
         for (idx, _) in self.enumerate_mut().filter(|(_, child)| !child.is_null()) {

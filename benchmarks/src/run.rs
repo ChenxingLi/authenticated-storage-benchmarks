@@ -92,24 +92,27 @@ pub fn run_tasks(
             profiler.tick();
         }
 
-        let count = events.0.len();
+        let mut read_count = 0;
+        let mut write_count = 0;
 
         for event in events.0.into_iter() {
             match event {
                 Event::Read(key) => {
+                    read_count += 1;
                     let ans = db.get(key);
                     if ans.is_none() {
                         reporter.notify_empty_read();
                     }
                 }
                 Event::Write(key, value) => {
+                    write_count += 1;
                     db.set(key, value);
                 }
             }
         }
         db.commit(epoch);
 
-        reporter.notify_epoch(epoch, count, &*db, opts);
+        reporter.notify_epoch(epoch, read_count, write_count, &*db, opts);
     }
 
     reporter.collect_profiling(profiler);

@@ -12,7 +12,7 @@ type Value = Vec<u8>;
 
 pub fn tasks(opts: &Options) -> Arc<dyn TaskTrait> {
     if opts.real_trace {
-        Arc::new(RealTrace::load(&opts))
+        Arc::new(RealTrace::new(&opts, opts.warmup_from.is_none()))
     } else {
         Arc::new(ReadThenWrite::<rand_pcg::Pcg64>::new(&opts))
     }
@@ -33,10 +33,7 @@ pub enum Event {
 pub struct Events(pub Vec<Event>);
 
 fn hash(input: &[u8]) -> [u8; 32] {
-    let mut hasher = crc64fast::Digest::new();
-    hasher.write(input);
-    let checksum = hasher.sum64();
-    unsafe { std::mem::transmute::<[u64; 4], [u8; 32]>([checksum; 4]) }
+    keccak_hash::keccak(input).0
 }
 
 pub struct NoopIter;

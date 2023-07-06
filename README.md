@@ -8,7 +8,7 @@ This program is a modular benchmarking tool for authenticated storage, designed 
 - [RocksDB](https://rocksdb.org/), a popular choice for Rust-based public chains
 - [MDBX](https://github.com/erthink/libmdbx), utilized by [Erigon](https://github.com/ledgerwatch/erigon)
 
-The authenticated storages supported include:
+The authenticated storage systems supported include:
 
 - The [original Merkle Patricia Trie (MPT)](https://github.com/openethereum/openethereum/tree/main/crates/db/patricia-trie-ethereum) implementation from OpenEthereum
 - The [Layered Merkle Patricia Tries (LMPTs)](https://github.com/Conflux-Chain/conflux-rust/tree/master/core/storage) [1] used in Conflux
@@ -98,15 +98,19 @@ Follow the steps below to build the project:
     mkdir pp
     ```
 
-    **Note:** When using AMT or LVMT for the first time, it may take anywhere from minutes to hours to initialize the cryptography parameters. Alternatively, you can [download the generated cryptography parameters](https://drive.google.com/file/d/1pHiHpZ4eNee17C63tSDEvmcEVtv23-jK/view?usp=sharing) and place the files in the folder `./pp`, but this option is only available for `lvmt` and `amt16`. (See the section *Authenticated Storage Selection* below.)
+    **Note:** When using AMT or LVMT for the first time, it may take anywhere from minutes to hours to initialize the cryptography parameters. Alternatively, you can [download the generated cryptography parameters](https://drive.google.com/file/d/1pHiHpZ4eNee17C63tSDEvmcEVtv23-jK/view?usp=sharing) and place the files in the folder `./pp`, but this option is only available for `lvmt` and `amt16`. (See the [section](#authenticated-storage-selection) below.)
 
 9. Prepare the task files for real Ethereum traces. [Download trace data](https://1drv.ms/f/s!Au7Bejk2NtCskXmvzwgS2WgDvuGV?e=ESZ5na) or fetch traces with [evm-io-tracker](https://github.com/ChenxingLi/evm-io-tracker). Place the tasks files under the path `./trace`.
 
-10. Now you can execute the preconfigured evaluation tasks by running the following command:
+10. Now you can execute the preconfigured evaluation tasks by running the following command (requires 300GB free storage):
 
     ```bash
     python3 run.py
     ```
+
+    This [instruction](#running-experiments-with-memory-constraints) can help you apply the memory limit constraint for specific tasks.
+
+11. Use [asb-plotter](https://github.com/ChenxingLi/asb-plotter) to parse the experiment traces and plot figures.
 
 ## Conduct the Evaluation
 
@@ -133,6 +137,7 @@ This command will build the project and then run the result with the provided pa
 To add features to `cargo run` and `cargo build`, use the syntax `cargo build --features --asb-authdb/light-hash`. Available features include:
 
 - `asb-authdb/light-hash`: Replaces `keccak256` with the faster `blake2b` hash function.
+- `asb-authdb/thread-safe`: Enable a thread-safe implementation for authenticated storage systems. (Currently, only RainBlock's MPT (Modified Patricia Trie) has different implementations between thread-safe and non-thread-safe modes. )
 
 ## Program Options
 
@@ -158,9 +163,6 @@ Choose an authenticated storage with `-a <name>` or `--algorithm <name>`. Option
 - `lmpts`: The Layered Merkle Patricia Tries (LMPTs) [1] used in Conflux. It is tricky to evaluate LMPTs. See the last section for details.
 
 For LVMT, configure the number of shards in proof sharding with `--shards <shards>`. Shard numbers must be a power of two (from 1 to 65536). Without this option, LVMT won't maintain associated information for proof.
-
-### Thread-Safe Implementation
-By default, the implementation of authenticated storages may be not thread-safe, meaning it may not function correctly when multiple threads attempt to access it simultaneously. However, if you require thread safety, you can use the `--asb-authdb/thread-safe` option to enable a thread-safe implementation. Currently, only RainBlock's MPT (Modified Patricia Trie) has different implementations between thread-safe and non-thread-safe modes. 
 
 ### Task Types
 
@@ -198,6 +200,73 @@ Use the following options for debugging purposes:
 - `--seed <seed>`: Sets the random seed.
 - `--print-root`: Prints the storage root every epoch
 
+## Running Experiments with Memory Constraints
+
+Our paper's experiments were conducted with a memory limit of 8GB. If you don't have a machine with exactly 8GB of memory, you'll need to limit the memory through cgroup, Docker, or some other method. Below is a solution using cgroup, **assuming you have sudo privileges on the system.**
+
+### Install CGroup and Set Memory Limit
+
+Firstly, you need to install cgroup on your system. On Ubuntu, you can do this using the following command:
+
+```bash
+sudo apt-get install cgroup-bin
+```
+
+Then, create a cgroup named `lvmt` with a memory limit of 8GB:
+
+```bash
+sudo cgcreate -g memory:/lvmt
+sudo cgset -r memory.limit_in_bytes=$((8*1024*1024*1024)) lvmt
+```
+
+### Configure Sudo Permissions
+
+Next, ensure that `cgclassify` and `sysctl` can be run with sudo command without requiring a password. You can achieve this by adding the following lines to your sudoers:
+
+```bash
+<your_username> ALL=NOPASSWD: /usr/bin/cgclassify
+<your_username> ALL=NOPASSWD: /sbin/sysctl
+```
+
+Replace `<your_username>` with your actual username. You can edit the sudoers file using `sudo visudo`, or use `vim` as your editor by:
+
+```bash
+sudo update-alternatives --set editor /usr/bin/vim.basic
+sudo visudo
+```
+
+### Create and Configure the Shell Script
+
+Create a shell script with the following content:
+
+```bash
+#!/bin/bash
+
+# Classify the current shell into the 'lvmt' memory cgroup
+sudo cgclassify -g memory:/lvmt $$
+COMMAND=$@
+
+bash -c "$COMMAND"
+# Alternatively, if you want to load your custom environment 
+# (e.g., defined in .zprofile) before executing the command, 
+# run the following line instead.
+# bash -c "source ~/.zprofile && $COMMAND"
+```
+
+This script allows you to execute a task with a constrained memory limit under regular user mode rather than a superuser mode.
+
+Make sure to give this script execute permissions:
+
+```
+chmod +x <your_script.sh>
+```
+
+### Modify the Preconfigured Run Script
+
+Edit the `run.py` file to replace the `CGRUN_PREFIX` with the path to the script you created in the previous step, e.g., `CGRUN_PREFIX=/path/to/your_script.sh`. 
+
+This setup will ensure that your experiments run with a memory constraint of 8GB, closely replicating the conditions of the experiments in our paper.
+
 ## Evaluating LMPTs: A Special Case
 
 Evaluating Lightweight MPTs (LMPTs) can be challenging due to the strong coupling between its authenticated storage and the RocksDB backend. Additionally, since RocksDB is a C++ library, Rust allows only one crate to depend on the same C++ library, leading to a dependency conflict when compiling LMPTs with RocksDB in this tool.
@@ -216,6 +285,6 @@ cargo build --release --features asb-authdb/lmpts
 
 [2] Ponnapalli, Soujanya, Aashaka Shah, Souvik Banerjee, Dahlia Malkhi, Amy Tai, Vijay Chidambaram, and Michael Wei. "RainBlock: Faster Transaction Processing in Public Blockchains." In *USENIX Annual Technical Conference*, pp. 333-347. 2021.
 
-[3] Chenxing Li, Sidi Mohamed Beillahi, Guang Yang, Ming Wu, Wei Xu, and Fan Long. "LVMT: An Efﬁcient Authenticated Storage for Blockchain". Conditionally accepted by *USENIX Symposium on Operating Systems Design and Implementation (OSDI)*. 2023.
+[3] Chenxing Li, Sidi Mohamed Beillahi, Guang Yang, Ming Wu, Wei Xu, and Fan Long. "LVMT: An Efﬁcient Authenticated Storage for Blockchain". In *USENIX Symposium on Operating Systems Design and Implementation (OSDI)*. 2023.
 
 [4] Alin Tomescu, Robert Chen, Yiming Zheng, Ittai Abraham, Benny Pinkas, Guy Golan Gueta, and Srinivas Devadas. Towards scalable threshold cryptosystems. In Proceedings of the *2020 IEEE Symposium on Security and Privacy, pages 877–893*. IEEE, 2020.

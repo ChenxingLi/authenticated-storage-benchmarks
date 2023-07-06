@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 asb-options = { workspace = true }
 
-
+keccak-hash = "0.5.1"
 crc64fast = "1.0.0"
 rand = "0.7"
 rand_pcg = "0.2"

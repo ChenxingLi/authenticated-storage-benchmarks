@@ -20,11 +20,13 @@ lazy_static! {
 
 pub struct Reporter<'a> {
     pub start_time: Instant,
-    total_count: usize,
+    total_read_count: usize,
+    total_write_count: usize,
     log_file: Option<File>,
 
     round_start_time: Instant,
-    round_start_count: usize,
+    round_start_read_count: usize,
+    round_start_write_count: usize,
 
     empty_reads: usize,
 
@@ -48,12 +50,14 @@ impl<'a> Reporter<'a> {
         Reporter {
             start_time: Instant::now(),
             round_start_time: Instant::now(),
-            round_start_count: 0,
-            total_count: 0,
             log_file,
             opts,
             counter: Box::new(Counter::default()),
             empty_reads: 0,
+            total_read_count: 0,
+            total_write_count: 0,
+            round_start_read_count: 0,
+            round_start_write_count: 0,
         }
     }
 
@@ -83,23 +87,32 @@ impl<'a> Reporter<'a> {
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     pub async fn report_mem() {}
 
-    pub fn notify_epoch(&mut self, epoch: usize, count: usize, db: &dyn AuthDB, opts: &Options) {
+    pub fn notify_epoch(
+        &mut self,
+        epoch: usize,
+        read_count: usize,
+        write_count: usize,
+        db: &dyn AuthDB,
+        opts: &Options,
+    ) {
         fn c(n: u64) -> String {
             let mut ans = String::new();
             ans.write_formatted(&n, &Locale::en).unwrap();
             ans
         }
 
-        self.total_count += count;
+        self.total_read_count += read_count;
+        self.total_write_count += write_count;
 
         if (epoch + 1) % self.opts.report_epoch != 0 {
             return;
         }
 
-        let count = self.total_count - self.round_start_count;
+        let read_count = self.total_read_count - self.round_start_read_count;
+        let write_count = self.total_write_count - self.round_start_write_count;
 
         let last = self.round_start_time.elapsed();
-        let avg_time = last.as_secs_f64() / count as f64;
+        let avg_time = last.as_secs_f64() / (read_count + write_count) as f64;
 
         let common = format!(
             "{:>6?}: {:>7.3?} s > {:>7} ops, {:>7.3?} us/op, {:>5} empty reads >",
@@ -132,8 +145,8 @@ impl<'a> Reporter<'a> {
         let (stdout, fileout) = {
             if let Some(backend) = db.backend() {
                 let stats = backend.io_stats(IoStatsKind::SincePrevious);
-                let ra = stats.reads as f64 / ((count / 2) as f64);
-                let wa = stats.writes as f64 / ((count / 2) as f64);
+                let ra = stats.reads as f64 / (read_count as f64);
+                let wa = stats.writes as f64 / (write_count as f64);
                 (
                     format!("Read amp {:>6.3}, Write amp {:>6.3} > ", ra, wa),
                     format!("{},{}", ra, wa),
@@ -157,7 +170,8 @@ impl<'a> Reporter<'a> {
         }
         self.empty_reads = 0;
         self.round_start_time = Instant::now();
-        self.round_start_count = self.total_count;
+        self.round_start_read_count = self.total_read_count;
+        self.round_start_write_count = self.total_write_count;
     }
 
     pub fn collect_profiling(&self, profiler: Profiler) {

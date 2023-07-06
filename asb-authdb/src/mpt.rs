@@ -45,11 +45,7 @@ pub(crate) fn new(backend: Arc<dyn KeyValueDB>, opts: &Options) -> MptDB {
         RlpNodeCodec::<DBHasher>::hashed_null_node()
     };
 
-    let journal_epoch = if opts.real_trace {
-        7usize
-    } else {
-        std::cmp::max(1, 50000 / opts.epoch_size)
-    };
+    let journal_epoch = 0;
 
     MptDB {
         db,

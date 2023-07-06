@@ -355,6 +355,7 @@ version = "0.1.0"
 dependencies = [
  "asb-options",
  "crc64fast",
+ "keccak-hash",
  "postcard",
  "rand 0.7.3",
  "rand_pcg 0.2.1",
